@@ -3,9 +3,9 @@ import type { Framework } from "./types.js";
 
 const esmRequire = createRequire(import.meta.url);
 
-type RuleSeverity = "error" | "warn" | "off";
+export type RuleSeverity = "error" | "warn" | "off";
 
-const NEXTJS_RULES: Record<string, RuleSeverity> = {
+export const NEXTJS_RULES: Record<string, RuleSeverity> = {
   "react-doctor/nextjs-no-img-element": "warn",
   "react-doctor/nextjs-async-client-component": "error",
   "react-doctor/nextjs-no-a-element": "warn",
@@ -24,7 +24,7 @@ const NEXTJS_RULES: Record<string, RuleSeverity> = {
   "react-doctor/nextjs-no-side-effect-in-get-handler": "error",
 };
 
-const REACT_NATIVE_RULES: Record<string, RuleSeverity> = {
+export const REACT_NATIVE_RULES: Record<string, RuleSeverity> = {
   "react-doctor/rn-no-raw-text": "error",
   "react-doctor/rn-no-deprecated-modules": "error",
   "react-doctor/rn-no-legacy-expo-packages": "warn",
@@ -51,7 +51,7 @@ const REACT_NATIVE_RULES: Record<string, RuleSeverity> = {
   "react-doctor/rn-style-prefer-boxshadow": "warn",
 };
 
-const TANSTACK_START_RULES: Record<string, RuleSeverity> = {
+export const TANSTACK_START_RULES: Record<string, RuleSeverity> = {
   "react-doctor/tanstack-start-route-property-order": "error",
   "react-doctor/tanstack-start-no-direct-fetch-in-loader": "warn",
   "react-doctor/tanstack-start-server-fn-validate-input": "warn",
@@ -178,7 +178,7 @@ const filterRulesToAvailable = (
   return filtered;
 };
 
-const TANSTACK_QUERY_RULES: Record<string, RuleSeverity> = {
+export const TANSTACK_QUERY_RULES: Record<string, RuleSeverity> = {
   "react-doctor/query-stable-query-client": "warn",
   "react-doctor/query-no-rest-destructuring": "warn",
   "react-doctor/query-no-void-query-fn": "warn",
@@ -219,7 +219,7 @@ const BUILTIN_A11Y_RULES: Record<string, RuleSeverity> = {
   "jsx-a11y/iframe-has-title": "warn",
 };
 
-const GLOBAL_REACT_DOCTOR_RULES: Record<string, RuleSeverity> = {
+export const GLOBAL_REACT_DOCTOR_RULES: Record<string, RuleSeverity> = {
   "react-doctor/no-derived-state-effect": "warn",
   "react-doctor/no-fetch-in-effect": "warn",
   "react-doctor/no-cascading-set-state": "warn",
