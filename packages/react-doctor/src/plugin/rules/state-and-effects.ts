@@ -13,6 +13,7 @@ import {
   extractDestructuredPropNames,
   getCallbackStatements,
   getEffectCallback,
+  getRootIdentifierName,
   isComponentAssignment,
   isHookCall,
   isSetterCall,
@@ -143,17 +144,23 @@ export const noEffectEventHandler: Rule = {
       if (statements.length !== 1) return;
 
       const soleStatement = statements[0];
-      if (
-        soleStatement.type === "IfStatement" &&
-        soleStatement.test?.type === "Identifier" &&
-        dependencyNames.has(soleStatement.test.name)
-      ) {
-        context.report({
-          node,
-          message:
-            "useEffect simulating an event handler — move logic to an actual event handler instead",
-        });
-      }
+      if (soleStatement.type !== "IfStatement") return;
+
+      // HACK: §5 of "You Might Not Need an Effect" uses
+      // `if (product.isInCart)` — a MemberExpression, not a bare
+      // Identifier. The earlier detector hard-required `Identifier`
+      // and missed the article's literal example. Walk the test
+      // down to its root identifier so both shapes match:
+      //   if (isOpen)            → root = "isOpen"
+      //   if (product.isInCart)  → root = "product"
+      const rootIdentifierName = getRootIdentifierName(soleStatement.test);
+      if (!rootIdentifierName || !dependencyNames.has(rootIdentifierName)) return;
+
+      context.report({
+        node,
+        message:
+          "useEffect simulating an event handler — move logic to an actual event handler instead",
+      });
     },
   }),
 };
