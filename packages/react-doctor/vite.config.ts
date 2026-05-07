@@ -76,16 +76,6 @@ export default defineConfig({
       fixedExtension: false,
     },
     {
-      entry: {
-        browser: "./src/browser.ts",
-        worker: "./src/worker.ts",
-      },
-      dts: true,
-      target: "es2022",
-      platform: "browser",
-      fixedExtension: false,
-    },
-    {
       entry: { "react-doctor-plugin": "./src/plugin/index.ts" },
       target: "node22",
       platform: "node",

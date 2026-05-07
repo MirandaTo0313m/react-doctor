@@ -48,10 +48,6 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./browser": {
-      "types": "./dist/browser.d.ts",
-      "default": "./dist/browser.js"
-    },
     "./oxlint-plugin": {
       "types": "./dist/react-doctor-plugin.d.ts",
       "default": "./dist/react-doctor-plugin.js"
@@ -59,10 +55,6 @@
     "./eslint-plugin": {
       "types": "./dist/eslint-plugin.d.ts",
       "default": "./dist/eslint-plugin.js"
-    },
-    "./worker": {
-      "types": "./dist/worker.d.ts",
-      "default": "./dist/worker.js"
     }
   },
   "scripts": {
@@ -78,9 +70,7 @@
     "ora": "^9.4.0",
     "oxlint": "^1.63.0",
     "picocolors": "^1.1.1",
-    "playwright": "^1.52.0",
     "prompts": "^2.4.2",
-    "react-doctor-browser": "workspace:*",
     "typescript": ">=5.0.4 <7"
   },
   "devDependencies": {
