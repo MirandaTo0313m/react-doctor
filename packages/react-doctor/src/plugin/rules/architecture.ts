@@ -587,14 +587,19 @@ export const noDefaultProps: Rule = {
 
 // HACK: companion to `noReact19DeprecatedApis` for the react-dom side
 // of the React 19 migration. Catches the legacy root API (render /
-// hydrate / unmountComponentAtNode), findDOMNode, and the
-// renamed-and-moved `useFormState` (now `useActionState` from `react`).
-// The whole `react-dom/test-utils` entry point is gone in 19; we flag
-// every import from it and steer users to `act` from `react` plus
+// hydrate / unmountComponentAtNode) and findDOMNode. The whole
+// `react-dom/test-utils` entry point is gone in 19; we flag every
+// import from it and steer users to `act` from `react` plus
 // `fireEvent` / `render` from @testing-library/react. Kept as a
 // separate rule from `noReact19DeprecatedApis` so the per-source
 // binding tracking stays simple — `react` and `react-dom` namespace
 // imports never collide.
+//
+// Deliberately omitted: `useFormState`. It's the *current* correct API
+// in React 18 (`react-dom`) — only renamed to `useActionState` and
+// moved to `react` in 19. A whole-rule version gate (`>= 18`) can't
+// distinguish "still on 18" from "should have migrated" inside the
+// rule, so we drop the entry rather than false-positive on 18 code.
 const REACT_DOM_DEPRECATED_MESSAGES: Record<string, string> = {
   render:
     "ReactDOM.render is the legacy root API — switch to `import { createRoot } from 'react-dom/client'` and call `createRoot(container).render(...)` (REMOVED in React 19)",

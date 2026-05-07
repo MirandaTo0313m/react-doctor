@@ -32,4 +32,21 @@ describe("parseReactMajor", () => {
     expect(parseReactMajor("  ^19.0.0  ")).toBe(19);
     expect(parseReactMajor("npm:react@^19")).toBe(19);
   });
+
+  it("returns null for React experimental / canary builds (0.0.0-...)", () => {
+    // React ships experimental and canary builds as `0.0.0-...` so
+    // the dependency graph stays semver-safe. The first-integer scan
+    // would land on `0` and silently disable every version-gated rule;
+    // we reject 0 → null so those rules stay enabled on experimental
+    // checkouts.
+    expect(parseReactMajor("0.0.0-experimental-abc123")).toBeNull();
+    expect(parseReactMajor("0.0.0-canary-1a2b3c4d-20251230")).toBeNull();
+    expect(parseReactMajor("^0.0.0-experimental")).toBeNull();
+  });
+
+  it("still reads pre-release tags on real majors", () => {
+    expect(parseReactMajor("19.0.0-rc.1")).toBe(19);
+    expect(parseReactMajor("19.0.0-canary-abc123-20251230")).toBe(19);
+    expect(parseReactMajor("^19.0.0-rc.1")).toBe(19);
+  });
 });

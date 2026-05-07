@@ -23,6 +23,13 @@ export const parseReactMajor = (reactVersion: string | null | undefined): number
   const match = trimmed.match(/(\d+)/);
   if (!match) return null;
   const major = Number.parseInt(match[1], 10);
-  if (!Number.isFinite(major) || major < 0) return null;
+  // HACK: React publishes experimental / canary builds as
+  // `0.0.0-experimental-<sha>` to keep stable consumers safe. The
+  // first-integer scan would land on `0`, which is then `< 18` and
+  // silently disables every version-gated rule. Reject `0` → null so
+  // the "unknown major" branch leaves migration rules enabled (no
+  // realistic React project ships a true major-0 release we'd need to
+  // distinguish — anything pre-1 predates the React rewrite by years).
+  if (!Number.isFinite(major) || major <= 0) return null;
   return major;
 };
