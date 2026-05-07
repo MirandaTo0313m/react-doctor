@@ -231,6 +231,7 @@ export const GLOBAL_REACT_DOCTOR_RULES: Record<string, RuleSeverity> = {
   "react-doctor/no-derived-state-effect": "warn",
   "react-doctor/no-fetch-in-effect": "warn",
   "react-doctor/no-cascading-set-state": "warn",
+  "react-doctor/no-effect-chain": "warn",
   "react-doctor/no-effect-event-handler": "warn",
   "react-doctor/no-effect-event-in-deps": "error",
   "react-doctor/no-prop-callback-in-effect": "warn",

@@ -128,6 +128,12 @@ describe("runOxlint", () => {
         ruleSource: "rules/state-and-effects.ts",
         severity: "warning",
       },
+      "no-effect-chain": {
+        fixture: "state-issues.tsx",
+        ruleSource: "rules/state-and-effects.ts",
+        severity: "warning",
+        category: "State & Effects",
+      },
       "no-effect-event-handler": {
         fixture: "state-issues.tsx",
         ruleSource: "rules/state-and-effects.ts",

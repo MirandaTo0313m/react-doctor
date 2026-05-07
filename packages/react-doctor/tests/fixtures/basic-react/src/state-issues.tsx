@@ -135,6 +135,30 @@ const ConditionalSetStateInRenderComponent = ({ count }: { count: number }) => {
   return <h1>{prevCount}</h1>;
 };
 
+interface Card {
+  gold: boolean;
+}
+
+const EffectChainComponent = ({ card }: { card: Card | null }) => {
+  const [goldCount, setGoldCount] = useState(0);
+  const [round, setRound] = useState(1);
+  useEffect(() => {
+    if (card !== null && card.gold) {
+      setGoldCount((c) => c + 1);
+    }
+  }, [card]);
+  useEffect(() => {
+    if (goldCount > 3) {
+      setRound((r) => r + 1);
+    }
+  }, [goldCount]);
+  return (
+    <div>
+      {goldCount} {round}
+    </div>
+  );
+};
+
 const UncontrolledInputComponent = () => {
   // HACK: explicit `<string | undefined>` keeps TypeScript happy while the
   // RUNTIME initializer stays undefined — that's what trips the
@@ -169,5 +193,6 @@ export {
   DirectStateMutationComponent,
   SetStateInRenderComponent,
   ConditionalSetStateInRenderComponent,
+  EffectChainComponent,
   UncontrolledInputComponent,
 };

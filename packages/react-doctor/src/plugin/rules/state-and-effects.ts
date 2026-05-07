@@ -1,6 +1,9 @@
 import {
   CASCADING_SET_STATE_THRESHOLD,
   EFFECT_HOOK_NAMES,
+  EXTERNAL_SYNC_DIRECT_CALLEE_NAMES,
+  EXTERNAL_SYNC_MEMBER_METHOD_NAMES,
+  EXTERNAL_SYNC_OBSERVER_CONSTRUCTORS,
   HOOKS_WITH_DEPS,
   MUTATING_ARRAY_METHODS,
   RELATED_USE_STATE_THRESHOLD,
@@ -1138,6 +1141,208 @@ export const noSetStateInRender: Rule = {
           node: setterCall,
           message: `${setterIdentifierName}() called unconditionally at the top of render — causes an infinite re-render loop. Move into a useEffect or an event handler. (To derive state from props, guard the call: \`if (prev !== prop) ${setterIdentifierName}(prop)\`)`,
         });
+      }
+    };
+
+    return {
+      FunctionDeclaration(node: EsTreeNode) {
+        if (!node.id?.name || !isUppercaseName(node.id.name)) return;
+        checkComponent(node.body);
+      },
+      VariableDeclarator(node: EsTreeNode) {
+        if (!isComponentAssignment(node)) return;
+        checkComponent(node.init?.body);
+      },
+    };
+  },
+};
+
+// HACK: §7 of "You Might Not Need an Effect" — chains of computations:
+//
+//   useEffect(() => { if (card.gold) setGoldCardCount(c => c + 1); }, [card]);
+//   useEffect(() => { if (goldCardCount > 3) setRound(r => r + 1); }, [goldCardCount]);
+//   useEffect(() => { if (round > 5) setIsGameOver(true); }, [round]);
+//
+// Each link adds one extra render to the tree below the component.
+// More importantly, the chain is rigid: setting `card` to a value from
+// the past re-fires every downstream effect.
+//
+// `noCascadingSetState` (already shipped) catches multi-setter calls
+// inside ONE effect; it does NOT see across effects. This rule
+// complements it by detecting the cross-effect dependence.
+//
+// Detector (per component body):
+//   1. Collect every top-level useEffect call and, for each:
+//        - depNames: Identifier names in the dep array
+//        - writtenStateNames: state names whose setter is called in the body
+//        - isExternalSync: body returns cleanup OR contains a recognized
+//          external-system call (subscribe / addEventListener / fetch /
+//          setInterval / new MutationObserver / etc.) OR mutates a ref
+//   2. For every ordered pair (A, B) of distinct effects:
+//        edge iff (writes(A) ∩ deps(B)) ≠ ∅  AND  ¬isExternalSync(A)
+//                                            AND  ¬isExternalSync(B)
+//   3. Report on every effect B that is the target of any edge,
+//      naming the chained state and the upstream effect's writer.
+//
+// The article calls out one legitimate "chain" — a multi-step network
+// cascade where each effect re-fetches based on the previous step's
+// result. Those effects all have `isExternalSync = true` because they
+// contain `fetch`, so the rule won't fire.
+const findTopLevelEffectCalls = (componentBody: EsTreeNode): EsTreeNode[] => {
+  const effectCalls: EsTreeNode[] = [];
+  if (componentBody?.type !== "BlockStatement") return effectCalls;
+  for (const statement of componentBody.body ?? []) {
+    if (statement.type !== "ExpressionStatement") continue;
+    const expression = statement.expression;
+    if (expression?.type !== "CallExpression") continue;
+    if (!isHookCall(expression, EFFECT_HOOK_NAMES)) continue;
+    effectCalls.push(expression);
+  }
+  return effectCalls;
+};
+
+const collectDepIdentifierNames = (effectNode: EsTreeNode): Set<string> => {
+  const depNames = new Set<string>();
+  const depsNode = effectNode.arguments?.[1];
+  if (depsNode?.type !== "ArrayExpression") return depNames;
+  for (const element of depsNode.elements ?? []) {
+    if (element?.type === "Identifier") depNames.add(element.name);
+  }
+  return depNames;
+};
+
+const collectWrittenStateNamesInEffect = (
+  effectCallback: EsTreeNode,
+  setterToStateName: Map<string, string>,
+): Set<string> => {
+  const writtenStateNames = new Set<string>();
+  walkAst(effectCallback, (child: EsTreeNode) => {
+    if (child.type !== "CallExpression") return;
+    if (child.callee?.type !== "Identifier") return;
+    const stateName = setterToStateName.get(child.callee.name);
+    if (stateName) writtenStateNames.add(stateName);
+  });
+  return writtenStateNames;
+};
+
+const isExternalSyncEffect = (effectCallback: EsTreeNode): boolean => {
+  if (effectCallback.body?.type === "BlockStatement") {
+    const statements = effectCallback.body.body ?? [];
+    for (const statement of statements) {
+      if (statement.type === "ReturnStatement" && statement.argument) return true;
+    }
+  } else if (effectCallback.body?.type !== "BlockStatement") {
+    // Concise arrow body — `useEffect(() => something())`. If the
+    // expression itself is an external sync call, the effect is
+    // single-statement-external; otherwise it can't be a chain link
+    // anyway because chains require setter calls in the body.
+  }
+
+  let didFindExternalCall = false;
+  walkAst(effectCallback, (child: EsTreeNode) => {
+    if (didFindExternalCall) return false;
+
+    if (child.type === "NewExpression") {
+      const constructor = child.callee;
+      if (
+        constructor?.type === "Identifier" &&
+        EXTERNAL_SYNC_OBSERVER_CONSTRUCTORS.has(constructor.name)
+      ) {
+        didFindExternalCall = true;
+      }
+      return;
+    }
+
+    if (child.type === "AssignmentExpression") {
+      if (
+        child.left?.type === "MemberExpression" &&
+        child.left.property?.type === "Identifier" &&
+        child.left.property.name === "current"
+      ) {
+        didFindExternalCall = true;
+      }
+      return;
+    }
+
+    if (child.type !== "CallExpression") return;
+
+    if (
+      child.callee?.type === "Identifier" &&
+      EXTERNAL_SYNC_DIRECT_CALLEE_NAMES.has(child.callee.name)
+    ) {
+      didFindExternalCall = true;
+      return;
+    }
+
+    if (
+      child.callee?.type === "MemberExpression" &&
+      child.callee.property?.type === "Identifier" &&
+      EXTERNAL_SYNC_MEMBER_METHOD_NAMES.has(child.callee.property.name)
+    ) {
+      didFindExternalCall = true;
+    }
+  });
+
+  return didFindExternalCall;
+};
+
+interface EffectInfo {
+  node: EsTreeNode;
+  depNames: Set<string>;
+  writtenStateNames: Set<string>;
+  isExternalSync: boolean;
+}
+
+export const noEffectChain: Rule = {
+  create: (context: RuleContext) => {
+    const checkComponent = (componentBody: EsTreeNode | null | undefined): void => {
+      if (!componentBody || componentBody.type !== "BlockStatement") return;
+
+      const useStateBindings = collectUseStateBindings(componentBody);
+      if (useStateBindings.length === 0) return;
+      const setterToStateName = new Map<string, string>();
+      for (const binding of useStateBindings) {
+        setterToStateName.set(binding.setterName, binding.valueName);
+      }
+
+      const effectInfos: EffectInfo[] = [];
+      for (const effectCall of findTopLevelEffectCalls(componentBody)) {
+        const callback = getEffectCallback(effectCall);
+        if (!callback) continue;
+        effectInfos.push({
+          node: effectCall,
+          depNames: collectDepIdentifierNames(effectCall),
+          writtenStateNames: collectWrittenStateNamesInEffect(callback, setterToStateName),
+          isExternalSync: isExternalSyncEffect(callback),
+        });
+      }
+      if (effectInfos.length < 2) return;
+
+      const reportedNodes = new Set<EsTreeNode>();
+      for (const writerEffect of effectInfos) {
+        if (writerEffect.isExternalSync) continue;
+        if (writerEffect.writtenStateNames.size === 0) continue;
+        for (const readerEffect of effectInfos) {
+          if (readerEffect === writerEffect) continue;
+          if (readerEffect.isExternalSync) continue;
+          if (readerEffect.depNames.size === 0) continue;
+
+          let chainedStateName: string | null = null;
+          for (const writtenName of writerEffect.writtenStateNames) {
+            if (readerEffect.depNames.has(writtenName)) {
+              chainedStateName = writtenName;
+              break;
+            }
+          }
+          if (!chainedStateName) continue;
+          if (reportedNodes.has(readerEffect.node)) continue;
+          reportedNodes.add(readerEffect.node);
+
+          context.report({
+            node: readerEffect.node,
+            message: `useEffect reacts to "${chainedStateName}" which is set by another useEffect — chains of effects add an extra render per link and become rigid as code evolves. Compute what you can during render and write all related state inside the event handler that originally fires the chain`,
+          });
+        }
       }
     };
 

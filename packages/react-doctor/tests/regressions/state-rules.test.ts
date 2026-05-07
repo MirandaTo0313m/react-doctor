@@ -219,6 +219,190 @@ export const Loader = () => {
   });
 });
 
+describe("no-effect-chain", () => {
+  it("flags the article §7 Game-style cross-effect chain", async () => {
+    // https://react.dev/learn/you-might-not-need-an-effect#chains-of-computations
+    const projectDir = setupReactProject(tempRoot, "no-effect-chain-game", {
+      files: {
+        "src/Game.tsx": `import { useEffect, useState } from "react";
+
+interface Card { gold: boolean }
+
+export const Game = ({ card }: { card: Card | null }) => {
+  const [goldCount, setGoldCount] = useState(0);
+  const [round, setRound] = useState(1);
+  const [isGameOver, setIsGameOver] = useState(false);
+
+  useEffect(() => {
+    if (card !== null && card.gold) {
+      setGoldCount((c) => c + 1);
+    }
+  }, [card]);
+
+  useEffect(() => {
+    if (goldCount > 3) {
+      setRound((r) => r + 1);
+      setGoldCount(0);
+    }
+  }, [goldCount]);
+
+  useEffect(() => {
+    if (round > 5) {
+      setIsGameOver(true);
+    }
+  }, [round]);
+
+  return <div>{isGameOver ? "over" : round}</div>;
+};
+`,
+      },
+    });
+
+    const hits = await collectRuleHits(projectDir, "no-effect-chain");
+    // The downstream effects (reading goldCount and round) should each be
+    // flagged once. The first effect (writing goldCount) doesn't read state
+    // set elsewhere, so it isn't flagged.
+    expect(hits.length).toBeGreaterThanOrEqual(2);
+    expect(hits.some((hit) => hit.message.includes("goldCount"))).toBe(true);
+    expect(hits.some((hit) => hit.message.includes("round"))).toBe(true);
+  });
+
+  it("does NOT flag a single effect with multiple setters (covered by no-cascading-set-state)", async () => {
+    const projectDir = setupReactProject(tempRoot, "no-effect-chain-single-effect", {
+      files: {
+        "src/Settings.tsx": `import { useEffect, useState } from "react";
+
+export const Settings = () => {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  useEffect(() => {
+    setName("default");
+    setEmail("default@example.com");
+  }, []);
+  return <div>{name} {email}</div>;
+};
+`,
+      },
+    });
+
+    const hits = await collectRuleHits(projectDir, "no-effect-chain");
+    expect(hits).toHaveLength(0);
+  });
+
+  it("does NOT flag the article's GOOD network-cascade exception", async () => {
+    // The article explicitly notes that a chain of effects is appropriate
+    // when each effect synchronizes with the network. Each fetch-bearing
+    // effect is `isExternalSync = true` and thus exempt.
+    const projectDir = setupReactProject(tempRoot, "no-effect-chain-network", {
+      files: {
+        "src/ShippingForm.tsx": `import { useEffect, useState } from "react";
+
+export const ShippingForm = ({ country }: { country: string }) => {
+  const [cities, setCities] = useState<string[] | null>(null);
+  const [city, setCity] = useState<string | null>(null);
+  const [areas, setAreas] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+    fetch(\`/api/cities?country=\${country}\`)
+      .then((response) => response.json())
+      .then((json) => {
+        if (!ignore) setCities(json);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [country]);
+
+  useEffect(() => {
+    if (city === null) return;
+    let ignore = false;
+    fetch(\`/api/areas?city=\${city}\`)
+      .then((response) => response.json())
+      .then((json) => {
+        if (!ignore) setAreas(json);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [city]);
+
+  return (
+    <select value={city ?? ""} onChange={(event) => setCity(event.target.value)}>
+      {cities?.map((entry) => <option key={entry}>{entry}</option>)}
+      {areas?.length}
+    </select>
+  );
+};
+`,
+      },
+    });
+
+    const hits = await collectRuleHits(projectDir, "no-effect-chain");
+    expect(hits).toHaveLength(0);
+  });
+
+  it("does NOT flag a chat-connection effect even if it shares deps with another effect", async () => {
+    // External-system synchronization (createConnection().connect()) sets
+    // the upstream effect's `isExternalSync = true`, which exempts both
+    // sides of the would-be edge.
+    const projectDir = setupReactProject(tempRoot, "no-effect-chain-chat", {
+      files: {
+        "src/Chat.tsx": `import { useEffect, useState } from "react";
+
+declare const createConnection: (url: string) => {
+  connect: () => void;
+  disconnect: () => void;
+};
+
+export const Chat = ({ roomId }: { roomId: string }) => {
+  const [messages, setMessages] = useState<string[]>([]);
+
+  useEffect(() => {
+    const connection = createConnection(roomId);
+    connection.connect();
+    return () => connection.disconnect();
+  }, [roomId]);
+
+  useEffect(() => {
+    setMessages([]);
+  }, [roomId]);
+
+  return <ul>{messages.map((line) => <li key={line}>{line}</li>)}</ul>;
+};
+`,
+      },
+    });
+
+    const hits = await collectRuleHits(projectDir, "no-effect-chain");
+    expect(hits).toHaveLength(0);
+  });
+
+  it("does NOT flag two effects whose written/read state sets are disjoint", async () => {
+    const projectDir = setupReactProject(tempRoot, "no-effect-chain-disjoint", {
+      files: {
+        "src/Profile.tsx": `import { useEffect, useState } from "react";
+
+export const Profile = ({ userId, theme }: { userId: string; theme: string }) => {
+  const [name, setName] = useState("");
+  const [highlight, setHighlight] = useState("");
+  useEffect(() => {
+    setName(userId.toUpperCase());
+  }, [userId]);
+  useEffect(() => {
+    setHighlight(theme === "dark" ? "white" : "black");
+  }, [theme]);
+  return <span style={{ color: highlight }}>{name}</span>;
+};
+`,
+      },
+    });
+
+    const hits = await collectRuleHits(projectDir, "no-effect-chain");
+    expect(hits).toHaveLength(0);
+  });
+});
+
 describe("no-uncontrolled-input", () => {
   it("flags `value` without onChange / readOnly", async () => {
     const projectDir = setupReactProject(tempRoot, "no-uncontrolled-input-no-onchange", {

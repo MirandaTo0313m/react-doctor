@@ -346,6 +346,54 @@ export const MUTATING_ROUTE_SEGMENTS = new Set([
 
 export const EFFECT_HOOK_NAMES = new Set(["useEffect", "useLayoutEffect"]);
 export const HOOKS_WITH_DEPS = new Set(["useEffect", "useLayoutEffect", "useMemo", "useCallback"]);
+
+// Used by `no-effect-chain` to decide whether an effect is doing
+// "real" external-system synchronization (in which case effects on
+// either side of the chain are exempt, per the article's own caveat
+// about cascading network fetches) versus pure internal reactivity
+// (which is the anti-pattern). A cleanup return is the strongest
+// signal; the curated method list covers the rest.
+export const EXTERNAL_SYNC_MEMBER_METHOD_NAMES = new Set([
+  // Subscriptions / event listeners
+  "subscribe",
+  "addEventListener",
+  "addListener",
+  "on",
+  "watch",
+  "listen",
+  "sub",
+  // Imperative widget lifecycle (createConnection().connect()/.disconnect())
+  "connect",
+  "disconnect",
+  "open",
+  "close",
+  // Network
+  "fetch",
+  "post",
+  "put",
+  "patch",
+  "delete",
+]);
+
+export const EXTERNAL_SYNC_DIRECT_CALLEE_NAMES = new Set([
+  "fetch",
+  "ky",
+  "got",
+  "wretch",
+  "ofetch",
+  "setInterval",
+  "setTimeout",
+  "requestAnimationFrame",
+  "requestIdleCallback",
+  "queueMicrotask",
+]);
+
+export const EXTERNAL_SYNC_OBSERVER_CONSTRUCTORS = new Set([
+  "IntersectionObserver",
+  "MutationObserver",
+  "ResizeObserver",
+  "PerformanceObserver",
+]);
 export const CHAINABLE_ITERATION_METHODS = new Set(["map", "filter", "forEach", "flatMap"]);
 export const STORAGE_OBJECTS = new Set(["localStorage", "sessionStorage"]);
 

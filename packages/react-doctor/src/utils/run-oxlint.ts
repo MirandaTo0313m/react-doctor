@@ -46,6 +46,7 @@ const RULE_CATEGORY_MAP: Record<string, string> = {
   "react-doctor/no-derived-state-effect": "State & Effects",
   "react-doctor/no-fetch-in-effect": "State & Effects",
   "react-doctor/no-cascading-set-state": "State & Effects",
+  "react-doctor/no-effect-chain": "State & Effects",
   "react-doctor/no-effect-event-handler": "State & Effects",
   "react-doctor/no-effect-event-in-deps": "State & Effects",
   "react-doctor/no-prop-callback-in-effect": "State & Effects",
@@ -240,6 +241,8 @@ const RULE_HELP_MAP: Record<string, string> = {
     "Use `useQuery()` from @tanstack/react-query, `useSWR()`, or fetch in a Server Component instead",
   "no-cascading-set-state":
     "Combine into useReducer: `const [state, dispatch] = useReducer(reducer, initialState)`",
+  "no-effect-chain":
+    "Compute as much as possible during render (e.g. `const isGameOver = round > 5`) and write all related state inside the event handler that originally fires the chain. Each effect link adds an extra render and makes the code rigid as requirements evolve",
   "no-effect-event-handler":
     "Move the conditional logic into onClick, onChange, or onSubmit handlers directly",
   "no-derived-useState":
