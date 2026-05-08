@@ -3,9 +3,6 @@ export interface ParsedFileLineArgument {
   line: number;
 }
 
-// Parses `path/to/file.tsx:42` (the format `react-doctor why` accepts
-// and the format scanner output emits) into its parts. Throws when the
-// argument has no `:line` suffix, no path, or a non-positive line.
 export const parseFileLineArgument = (rawArgument: string): ParsedFileLineArgument => {
   const lastColonIndex = rawArgument.lastIndexOf(":");
   if (lastColonIndex < 0) {

@@ -29,10 +29,6 @@ export const compileIgnoreOverrides = (
   });
 };
 
-// An override matches when the diagnostic's path matches any of the
-// override's globs AND either the override carries no rule list (i.e.
-// "ignore everything in these files") or its rule list contains the
-// diagnostic's `plugin/rule` id.
 export const isDiagnosticIgnoredByOverrides = (
   diagnostic: Diagnostic,
   rootDirectory: string,

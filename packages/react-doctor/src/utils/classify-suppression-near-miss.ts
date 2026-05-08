@@ -47,20 +47,6 @@ const buildGapHint = (
   );
 };
 
-// When a diagnostic survived the suppression filter but a nearby
-// `react-doctor-disable-next-line` looks intentional, this function
-// builds an explanatory hint. Two near-miss shapes get a hint:
-//
-//   * "wrong-rule": an in-chain comment lists rules but not this one.
-//     Suggest the documented comma form.
-//   * "gap-code": the rule matches but the comment isn't in the chain
-//     (some code line broke the stack). Suggest moving / extracting.
-//
-// Returns null when no comment is in range, so unrelated diagnostics
-// stay quiet. Both anchors that the suppression engine accepts (the
-// diagnostic line itself, and the start of any enclosing multi-line
-// JSX opener) are checked, so the hint is consistent with the
-// suppression rules.
 export const classifySuppressionNearMiss = (
   lines: string[],
   diagnosticLineIndex: number,

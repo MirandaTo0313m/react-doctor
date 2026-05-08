@@ -14,15 +14,6 @@ const isRuleSuppressedByChainAbove = (
     (comment) => comment.isInChain && isRuleListedInComment(comment.ruleList, ruleId),
   );
 
-// A rule is suppressed at `diagnosticLineIndex` when any of three
-// shapes apply:
-//   1. A `// react-doctor-disable-line` on the diagnostic line itself
-//      (with an optional rule list that includes the rule).
-//   2. A `// react-doctor-disable-next-line` immediately above the
-//      diagnostic line, possibly stacked with peers above it.
-//   3. The diagnostic sits inside a multi-line JSX opening tag, and
-//      a `disable-next-line` comment sits immediately above that
-//      opener — matching the ESLint convention users expect.
 export const isRuleSuppressedAt = (
   lines: string[],
   diagnosticLineIndex: number,

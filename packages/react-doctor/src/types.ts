@@ -62,13 +62,6 @@ export interface Diagnostic {
   line: number;
   column: number;
   category: string;
-  /**
-   * When a `react-doctor-disable-next-line` comment exists nearby but
-   * doesn't apply (different rule, separated by code lines, etc.), an
-   * explanatory hint is attached so users can see WHY their suppression
-   * didn't land. Surfaced in `--verbose` output, included in `--json`,
-   * and printed by the `react-doctor why <file:line>` subcommand.
-   */
   suppressionHint?: string;
 }
 
@@ -192,23 +185,12 @@ export interface CleanedDiagnostic {
 
 export interface ReactDoctorIgnoreOverride {
   files: string[];
-  /**
-   * Rule ids in `plugin/rule` format. Omit (or pass `[]`) to suppress
-   * every rule for the matching files — equivalent to extending
-   * `ignore.files`.
-   */
   rules?: string[];
 }
 
 interface ReactDoctorIgnoreConfig {
   rules?: string[];
   files?: string[];
-  /**
-   * Per-glob rule ignore. Each override pairs a `files` glob list with
-   * a `rules` list; diagnostics whose file matches AND whose rule is in
-   * the list are dropped. Lets you turn off a rule for one directory
-   * without losing coverage of unrelated rules in those files.
-   */
   overrides?: ReactDoctorIgnoreOverride[];
 }
 
