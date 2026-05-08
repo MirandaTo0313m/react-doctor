@@ -903,10 +903,10 @@ const validateRuleRegistration = (): void => {
   const missingCategory: string[] = [];
   for (const fullKey of ALL_REACT_DOCTOR_RULE_KEYS) {
     const ruleName = fullKey.replace(/^react-doctor\//, "");
-    if (!(fullKey in RULE_CATEGORY_MAP)) {
+    if (!Object.hasOwn(RULE_CATEGORY_MAP, fullKey)) {
       missingCategory.push(fullKey);
     }
-    if (!(ruleName in RULE_HELP_MAP)) {
+    if (!Object.hasOwn(RULE_HELP_MAP, ruleName)) {
       missingHelp.push(fullKey);
     }
   }

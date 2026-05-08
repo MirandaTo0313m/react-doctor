@@ -98,7 +98,11 @@ const tryDisableFailedPlugin = (
   disabledPlugins: Set<string>,
 ): boolean => {
   const failedPlugin = extractFailedPluginName(error);
-  if (!failedPlugin || !(failedPlugin in parsedConfig) || disabledPlugins.has(failedPlugin)) {
+  if (
+    !failedPlugin ||
+    !Object.hasOwn(parsedConfig, failedPlugin) ||
+    disabledPlugins.has(failedPlugin)
+  ) {
     return false;
   }
   disabledPlugins.add(failedPlugin);

@@ -102,18 +102,27 @@ export interface RuleHit {
 // regression suite previously declared at the top of the file. Defaults
 // match the most common shape (React 19, framework="unknown"); pass an
 // options bag to override per-test.
+//
+// HACK: distinguish "caller didn't pass `reactMajorVersion`" (omit → 19,
+// the synthetic project's actual React version) from "caller explicitly
+// passed `null`" (testing the unresolvable-version code path). A naive
+// `options.reactMajorVersion ?? 19` collapses both into 19 and silently
+// changes what null-version tests are testing.
 export const collectRuleHits = async (
   projectDir: string,
   ruleId: string,
   options: CollectRuleHitsOptions = {},
 ): Promise<RuleHit[]> => {
+  const reactMajorVersion = Object.hasOwn(options, "reactMajorVersion")
+    ? options.reactMajorVersion
+    : 19;
   const diagnostics = await runOxlint({
     rootDirectory: projectDir,
     hasTypeScript: true,
     framework: options.framework ?? "unknown",
     hasReactCompiler: options.hasReactCompiler ?? false,
     hasTanStackQuery: options.hasTanStackQuery ?? false,
-    reactMajorVersion: options.reactMajorVersion ?? 19,
+    reactMajorVersion,
   });
   return diagnostics
     .filter((diagnostic) => diagnostic.rule === ruleId)
