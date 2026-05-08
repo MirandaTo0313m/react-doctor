@@ -1,8 +1,5 @@
 import fs from "node:fs";
-
-interface PartialEslintConfig {
-  extends?: unknown;
-}
+import { isPlainObject } from "./is-plain-object.js";
 
 const EXTENDS_LOCAL_PATH_PREFIXES = ["./", "../", "/"];
 
@@ -80,9 +77,6 @@ const parseJsonOrJsonc = (raw: string): unknown => {
 // adopt it — drop it from the extends list silently. Configs with no
 // `extends`, or with at least one local path, still go through (oxlint
 // can resolve local extends and tolerate unknown rules within them).
-const isPlainObject = (value: unknown): value is PartialEslintConfig =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 export const canOxlintExtendConfig = (configPath: string): boolean => {
   if (!configPath.endsWith(".eslintrc.json")) return true;
 
