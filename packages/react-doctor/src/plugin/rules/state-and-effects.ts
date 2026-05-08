@@ -1,7 +1,9 @@
 import {
   CASCADING_SET_STATE_THRESHOLD,
   EFFECT_HOOK_NAMES,
+  EXTERNAL_SYNC_AMBIGUOUS_HTTP_METHOD_NAMES,
   EXTERNAL_SYNC_DIRECT_CALLEE_NAMES,
+  EXTERNAL_SYNC_HTTP_CLIENT_RECEIVERS,
   EXTERNAL_SYNC_MEMBER_METHOD_NAMES,
   EXTERNAL_SYNC_OBSERVER_CONSTRUCTORS,
   HOOKS_WITH_DEPS,
@@ -1274,12 +1276,28 @@ const isExternalSyncEffect = (effectCallback: EsTreeNode): boolean => {
       return;
     }
 
-    if (
-      child.callee?.type === "MemberExpression" &&
-      child.callee.property?.type === "Identifier" &&
-      EXTERNAL_SYNC_MEMBER_METHOD_NAMES.has(child.callee.property.name)
-    ) {
-      didFindExternalCall = true;
+    if (child.callee?.type === "MemberExpression" && child.callee.property?.type === "Identifier") {
+      const propertyName = child.callee.property.name;
+      if (EXTERNAL_SYNC_MEMBER_METHOD_NAMES.has(propertyName)) {
+        didFindExternalCall = true;
+        return;
+      }
+      // HACK: `get` / `head` / `options` are HTTP verbs but also names
+      // of universal data-structure methods (Map.get, URLSearchParams.get,
+      // etc.). Only count them when the receiver looks like an HTTP
+      // client.
+      if (EXTERNAL_SYNC_AMBIGUOUS_HTTP_METHOD_NAMES.has(propertyName)) {
+        let receiverCursor: EsTreeNode | undefined = child.callee.object;
+        while (receiverCursor?.type === "MemberExpression") {
+          receiverCursor = receiverCursor.object;
+        }
+        if (
+          receiverCursor?.type === "Identifier" &&
+          EXTERNAL_SYNC_HTTP_CLIENT_RECEIVERS.has(receiverCursor.name)
+        ) {
+          didFindExternalCall = true;
+        }
+      }
     }
   });
 

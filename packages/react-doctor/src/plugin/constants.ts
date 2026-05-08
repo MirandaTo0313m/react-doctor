@@ -353,6 +353,9 @@ export const HOOKS_WITH_DEPS = new Set(["useEffect", "useLayoutEffect", "useMemo
 // about cascading network fetches) versus pure internal reactivity
 // (which is the anti-pattern). A cleanup return is the strongest
 // signal; the curated method list covers the rest.
+// Member-method names that, on their own, mark a call as external
+// sync regardless of receiver. These are unambiguous in real React
+// codebases — they don't clash with built-in JS APIs.
 export const EXTERNAL_SYNC_MEMBER_METHOD_NAMES = new Set([
   // Subscriptions / event listeners
   "subscribe",
@@ -367,20 +370,36 @@ export const EXTERNAL_SYNC_MEMBER_METHOD_NAMES = new Set([
   "disconnect",
   "open",
   "close",
-  // Network — `axios.get(...)` etc. need to be recognized as external
-  // sync just like `axios.post(...)`, otherwise the article's
-  // legitimate fetch-cascade exception
-  // (https://react.dev/learn/you-might-not-need-an-effect#chains-of-computations)
-  // false-positives whenever the cascade is read-only.
+  // Mutating HTTP verbs — `*.post(url, body)` is essentially always
+  // a network call.
   "fetch",
-  "get",
   "post",
   "put",
   "patch",
   "delete",
-  "head",
-  "options",
 ]);
+
+// HACK: `get`, `head`, `options` are HTTP verbs but ALSO names of
+// universal data-structure methods (`Map.get`, `URLSearchParams.get`,
+// `FormData.get`, `Headers.get`, `WeakMap.get`, `Set.has`, etc.). We
+// only treat them as external-sync calls when the receiver is a
+// recognized HTTP-client-shaped name. Lets the `axios.get(...)`
+// cascade case work without false-classifying `params.get('id')` as
+// external sync.
+export const EXTERNAL_SYNC_HTTP_CLIENT_RECEIVERS = new Set([
+  "axios",
+  "ky",
+  "got",
+  "wretch",
+  "ofetch",
+  "api",
+  "client",
+  "http",
+  "request",
+  "fetcher",
+]);
+
+export const EXTERNAL_SYNC_AMBIGUOUS_HTTP_METHOD_NAMES = new Set(["get", "head", "options"]);
 
 export const EXTERNAL_SYNC_DIRECT_CALLEE_NAMES = new Set([
   "fetch",

@@ -378,6 +378,39 @@ export const Chat = ({ roomId }: { roomId: string }) => {
     expect(hits).toHaveLength(0);
   });
 
+  it("DOES still flag chains where effects only call `params.get()` (Bugbot #156 round 2)", async () => {
+    // Regression: \`get\` as a method name is too ambiguous to count as
+    // external sync on its own — \`Map.get\`, \`URLSearchParams.get\`,
+    // \`FormData.get\`, \`Headers.get\` all use the same name. The
+    // detector now requires the receiver to look like an HTTP client.
+    // Two effects whose only \"external\" call is \`params.get('id')\`
+    // should still be classified as internal-only and detected as a
+    // chain.
+    const projectDir = setupReactProject(tempRoot, "no-effect-chain-params-get-not-external", {
+      files: {
+        "src/Settings.tsx": `import { useEffect, useState } from "react";
+
+declare const params: URLSearchParams;
+
+export const Settings = () => {
+  const [theme, setTheme] = useState("");
+  const [highlight, setHighlight] = useState("");
+  useEffect(() => {
+    setTheme(params.get("theme") ?? "light");
+  }, []);
+  useEffect(() => {
+    setHighlight(theme === "dark" ? "white" : "black");
+  }, [theme]);
+  return <span style={{ color: highlight }}>{theme}</span>;
+};
+`,
+      },
+    });
+
+    const hits = await collectRuleHits(projectDir, "no-effect-chain");
+    expect(hits.length).toBeGreaterThanOrEqual(1);
+  });
+
   it("does NOT flag a fetch-cascade where one effect uses `axios.get` (Bugbot #156)", async () => {
     // Regression: previously \`get\` was missing from the external-sync
     // member-method allowlist, so an \`axios.get(...)\` effect was
