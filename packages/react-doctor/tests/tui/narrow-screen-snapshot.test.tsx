@@ -88,7 +88,9 @@ describe("narrow-screen visual snapshots", () => {
     );
     const frame = lastFrame() ?? "";
     if (process.env.SNAPSHOT_LOG === "1") {
-      process.stdout.write(`\n===== REVIEW @ 100 cols =====\n${frame}\n=============================\n`);
+      process.stdout.write(
+        `\n===== REVIEW @ 100 cols =====\n${frame}\n=============================\n`,
+      );
     }
   });
 
@@ -98,7 +100,9 @@ describe("narrow-screen visual snapshots", () => {
     );
     const frame = lastFrame() ?? "";
     if (process.env.SNAPSHOT_LOG === "1") {
-      process.stdout.write(`\n===== REVIEW @ 91 cols =====\n${frame}\n============================\n`);
+      process.stdout.write(
+        `\n===== REVIEW @ 91 cols =====\n${frame}\n============================\n`,
+      );
     }
   });
 

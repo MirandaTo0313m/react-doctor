@@ -26,6 +26,7 @@ import { loadConfig } from "./utils/load-config.js";
 import { logger, setLoggerSilent } from "./utils/logger.js";
 import { encodeAnnotationProperty, encodeAnnotationMessage } from "./utils/annotation-encoding.js";
 import { findOwningProjectDirectory } from "./utils/find-owning-project.js";
+import { isNonInteractiveEnvironment } from "./utils/is-non-interactive-environment.js";
 import { parseFileLineArgument } from "./utils/parse-file-line-argument.js";
 import { prompts } from "./utils/prompts.js";
 import { selectProjects } from "./utils/select-projects.js";
@@ -121,40 +122,12 @@ const exitGracefully = () => {
 process.on("SIGINT", exitGracefully);
 process.on("SIGTERM", exitGracefully);
 
-// HACK: env vars that mean "user is not at an interactive shell." We use this
-// to skip prompts but NOT to auto-flip --offline, because dev shells often
-// have JENKINS_URL / TF_BUILD set as ambient config without actually running
-// in CI.
-const NON_INTERACTIVE_ENVIRONMENT_VARIABLES = [
-  "CI",
-  "GITHUB_ACTIONS",
-  "GITLAB_CI",
-  "BUILDKITE",
-  "JENKINS_URL",
-  "TF_BUILD",
-  "CODEBUILD_BUILD_ID",
-  "TEAMCITY_VERSION",
-  "BITBUCKET_BUILD_NUMBER",
-  "CIRCLECI",
-  "TRAVIS",
-  "DRONE",
-  "CLAUDECODE",
-  "CLAUDE_CODE",
-  "CURSOR_AGENT",
-  "CODEX_CI",
-  "OPENCODE",
-  "AMP_HOME",
-];
-
 // HACK: only flip --offline by default for the narrowest set of CI signals
 // where we're confident the run is automated and a share URL would be
 // useless. Other tools that set non-interactive env vars (Jenkins agents,
 // Azure DevOps tasks running interactively, agentic coding sessions) still
 // get telemetry-on-by-default; users can pass --offline explicitly.
 const CI_ENVIRONMENT_VARIABLES = ["GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI"];
-
-const isNonInteractiveEnvironment = (): boolean =>
-  NON_INTERACTIVE_ENVIRONMENT_VARIABLES.some((envVariable) => Boolean(process.env[envVariable]));
 
 const isCiEnvironment = (): boolean =>
   CI_ENVIRONMENT_VARIABLES.some((envVariable) => Boolean(process.env[envVariable])) ||
@@ -723,6 +696,14 @@ program
   .option("--watch", "rescan automatically when source files change", false)
   .option("--review", "open straight into the diagnostic review screen", false)
   .option("--project <name>", "preselect a workspace project (skips the picker)")
+  .addHelpText(
+    "after",
+    `\nThe TUI requires an interactive terminal. It refuses to start when stdin / stdout
+isn't a TTY or when agent / CI env vars are set (CI, GITHUB_ACTIONS, CURSOR_AGENT,
+CLAUDECODE, etc.); use \`react-doctor\` for those environments.
+
+Color is auto-detected. Set NO_COLOR=1 to disable, FORCE_COLOR=1 to force on.\n`,
+  )
   .action(async (directory: string, options: TuiSubcommandOptions) => {
     await launchTui(directory, options);
   });
