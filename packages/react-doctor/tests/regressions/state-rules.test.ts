@@ -3,39 +3,13 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vite-plus/test";
 
-import { runOxlint } from "../../src/utils/run-oxlint.js";
-import { setupReactProject } from "./_helpers.js";
+import { collectRuleHits, setupReactProject } from "./_helpers.js";
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "rd-state-rules-"));
 
 afterAll(() => {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
-
-// HACK: `setupReactProject` defaults to React ^19.0.0 in the synthetic
-// `package.json`, so the test plumbing must mirror what production
-// detection would yield for that project. Explicit values (17 / 18 /
-// null) still override at the call site.
-const collectRuleHits = async (
-  projectDir: string,
-  ruleId: string,
-  reactMajorVersion: number | null = 19,
-): Promise<Array<{ filePath: string; message: string }>> => {
-  const diagnostics = await runOxlint({
-    rootDirectory: projectDir,
-    hasTypeScript: true,
-    framework: "unknown",
-    hasReactCompiler: false,
-    hasTanStackQuery: false,
-    reactMajorVersion,
-  });
-  return diagnostics
-    .filter((diagnostic) => diagnostic.rule === ruleId)
-    .map((diagnostic) => ({
-      filePath: diagnostic.filePath,
-      message: diagnostic.message,
-    }));
-};
 
 describe("no-direct-state-mutation", () => {
   it("flags push/pop/splice/sort/reverse and member assignment on useState values", async () => {
@@ -2609,7 +2583,9 @@ export const SearchInput = ({ onSearch }: { onSearch: (q: string) => void }) => 
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "prefer-use-effect-event", 19);
+    const hits = await collectRuleHits(projectDir, "prefer-use-effect-event", {
+      reactMajorVersion: 19,
+    });
     expect(hits).toHaveLength(1);
     expect(hits[0].message).toContain("onSearch");
   });
@@ -2634,7 +2610,9 @@ export const SearchInput = ({ onSearch }: { onSearch: (q: string) => void }) => 
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "prefer-use-effect-event", 18);
+    const hits = await collectRuleHits(projectDir, "prefer-use-effect-event", {
+      reactMajorVersion: 18,
+    });
     expect(hits).toHaveLength(0);
   });
 
@@ -2656,7 +2634,9 @@ export const SearchInput = ({ onSearch }: { onSearch: (q: string) => void }) => 
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "prefer-use-effect-event", 17);
+    const hits = await collectRuleHits(projectDir, "prefer-use-effect-event", {
+      reactMajorVersion: 17,
+    });
     expect(hits).toHaveLength(0);
   });
 
@@ -2800,7 +2780,9 @@ export const SearchInput = ({ onSearch }: { onSearch: (q: string) => void }) => 
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "prefer-use-effect-event", null);
+    const hits = await collectRuleHits(projectDir, "prefer-use-effect-event", {
+      reactMajorVersion: null,
+    });
     expect(hits.length).toBeGreaterThanOrEqual(1);
   });
 });

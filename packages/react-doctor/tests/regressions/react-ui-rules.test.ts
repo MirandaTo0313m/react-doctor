@@ -3,33 +3,13 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vite-plus/test";
 
-import { runOxlint } from "../../src/utils/run-oxlint.js";
-import { setupReactProject } from "./_helpers.js";
+import { collectRuleHits, setupReactProject } from "./_helpers.js";
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "rd-react-ui-rules-"));
 
 afterAll(() => {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
-
-const collectRuleHits = async (
-  projectDir: string,
-  ruleId: string,
-): Promise<Array<{ filePath: string; message: string }>> => {
-  const diagnostics = await runOxlint({
-    rootDirectory: projectDir,
-    hasTypeScript: true,
-    framework: "unknown",
-    hasReactCompiler: false,
-    hasTanStackQuery: false,
-  });
-  return diagnostics
-    .filter((diagnostic) => diagnostic.rule === ruleId)
-    .map((diagnostic) => ({
-      filePath: diagnostic.filePath,
-      message: diagnostic.message,
-    }));
-};
 
 describe("design-no-bold-heading", () => {
   it("flags font-bold on headings and inline fontWeight ≥ 700", async () => {

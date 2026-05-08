@@ -19,35 +19,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vite-plus/test";
-import { runOxlint } from "../../src/utils/run-oxlint.js";
-import { setupReactProject } from "./_helpers.js";
+import { collectRuleHits, setupReactProject } from "./_helpers.js";
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "rd-proto-defenses-"));
 
 afterAll(() => {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
-
-const collectRuleHits = async (
-  projectDir: string,
-  ruleId: string,
-  framework: "unknown" | "react-native" = "unknown",
-): Promise<Array<{ filePath: string; message: string }>> => {
-  const diagnostics = await runOxlint({
-    rootDirectory: projectDir,
-    hasTypeScript: true,
-    framework,
-    hasReactCompiler: false,
-    hasTanStackQuery: false,
-    reactMajorVersion: 19,
-  });
-  return diagnostics
-    .filter((diagnostic) => diagnostic.rule === ruleId)
-    .map((diagnostic) => ({
-      filePath: diagnostic.filePath,
-      message: diagnostic.message,
-    }));
-};
 
 describe("rn-no-deprecated-modules — prototype-pollution defense", () => {
   it("does NOT flag `import { constructor } from 'react-native'` (or other Object.prototype names)", async () => {
@@ -62,7 +40,9 @@ void hasOwnProperty;
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "rn-no-deprecated-modules", "react-native");
+    const hits = await collectRuleHits(projectDir, "rn-no-deprecated-modules", {
+      framework: "react-native",
+    });
     expect(hits).toHaveLength(0);
   });
 
@@ -76,7 +56,9 @@ void AsyncStorage;
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "rn-no-deprecated-modules", "react-native");
+    const hits = await collectRuleHits(projectDir, "rn-no-deprecated-modules", {
+      framework: "react-native",
+    });
     expect(hits.length).toBeGreaterThanOrEqual(1);
     expect(hits[0].message).toContain("AsyncStorage");
   });

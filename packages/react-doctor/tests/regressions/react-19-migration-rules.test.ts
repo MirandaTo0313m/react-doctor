@@ -3,35 +3,13 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vite-plus/test";
 
-import { runOxlint } from "../../src/utils/run-oxlint.js";
-import { setupReactProject } from "./_helpers.js";
+import { collectRuleHits, setupReactProject } from "./_helpers.js";
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "rd-react19-migration-"));
 
 afterAll(() => {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 });
-
-const collectRuleHits = async (
-  projectDir: string,
-  ruleId: string,
-  reactMajorVersion: number | null = null,
-): Promise<Array<{ filePath: string; message: string }>> => {
-  const diagnostics = await runOxlint({
-    rootDirectory: projectDir,
-    hasTypeScript: true,
-    framework: "unknown",
-    hasReactCompiler: false,
-    hasTanStackQuery: false,
-    reactMajorVersion,
-  });
-  return diagnostics
-    .filter((diagnostic) => diagnostic.rule === ruleId)
-    .map((diagnostic) => ({
-      filePath: diagnostic.filePath,
-      message: diagnostic.message,
-    }));
-};
 
 describe("no-react-dom-deprecated-apis", () => {
   it("flags react-dom legacy root and rendering APIs imported by name", async () => {
@@ -388,7 +366,9 @@ export const Button = forwardRef<HTMLButtonElement>((_props, ref) => (
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "no-react19-deprecated-apis", 18);
+    const hits = await collectRuleHits(projectDir, "no-react19-deprecated-apis", {
+      reactMajorVersion: 18,
+    });
     expect(hits.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -404,7 +384,9 @@ export const Button = forwardRef<HTMLButtonElement>((_props, ref) => (
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "no-react19-deprecated-apis", 19);
+    const hits = await collectRuleHits(projectDir, "no-react19-deprecated-apis", {
+      reactMajorVersion: 19,
+    });
     expect(hits.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -423,7 +405,9 @@ export const has = (key: string): boolean => React.hasOwnProperty(key);
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "no-react19-deprecated-apis", 19);
+    const hits = await collectRuleHits(projectDir, "no-react19-deprecated-apis", {
+      reactMajorVersion: 19,
+    });
     expect(hits).toHaveLength(0);
   });
 
@@ -437,7 +421,7 @@ Button.defaultProps = { size: "md" };
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "no-default-props", 18);
+    const hits = await collectRuleHits(projectDir, "no-default-props", { reactMajorVersion: 18 });
     expect(hits.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -452,7 +436,9 @@ void render;
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "no-react-dom-deprecated-apis", 17);
+    const hits = await collectRuleHits(projectDir, "no-react-dom-deprecated-apis", {
+      reactMajorVersion: 17,
+    });
     expect(hits.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -467,7 +453,9 @@ void render;
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "no-react-dom-deprecated-apis", 18);
+    const hits = await collectRuleHits(projectDir, "no-react-dom-deprecated-apis", {
+      reactMajorVersion: 18,
+    });
     expect(hits.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -485,7 +473,9 @@ export class Legacy extends React.Component<{}, {}> {
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "no-legacy-class-lifecycles", 17);
+    const hits = await collectRuleHits(projectDir, "no-legacy-class-lifecycles", {
+      reactMajorVersion: 17,
+    });
     expect(hits.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -499,7 +489,7 @@ Button.defaultProps = { size: "md" };
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "no-default-props", null);
+    const hits = await collectRuleHits(projectDir, "no-default-props", { reactMajorVersion: null });
     expect(hits.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -526,7 +516,9 @@ export const Search = ({ onChange }: { onChange: (value: string) => void }) => {
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "prefer-use-effect-event", null);
+    const hits = await collectRuleHits(projectDir, "prefer-use-effect-event", {
+      reactMajorVersion: null,
+    });
     expect(hits.length).toBeGreaterThanOrEqual(1);
   });
 });
