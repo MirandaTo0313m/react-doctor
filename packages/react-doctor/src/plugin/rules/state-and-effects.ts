@@ -2,6 +2,8 @@ import {
   BUILTIN_GLOBAL_NAMESPACE_NAMES,
   CASCADING_SET_STATE_THRESHOLD,
   EFFECT_HOOK_NAMES,
+  EVENT_TRIGGERED_SIDE_EFFECT_CALLEES,
+  EVENT_TRIGGERED_SIDE_EFFECT_MEMBER_METHODS,
   HOOKS_WITH_DEPS,
   MUTATING_ARRAY_METHODS,
   RELATED_USE_STATE_THRESHOLD,
@@ -225,45 +227,116 @@ export const noCascadingSetState: Rule = {
 };
 
 export const noEffectEventHandler: Rule = {
-  create: (context: RuleContext) => ({
-    CallExpression(node: EsTreeNode) {
-      if (!isHookCall(node, EFFECT_HOOK_NAMES) || (node.arguments?.length ?? 0) < 2) return;
+  create: (context: RuleContext) => {
+    // HACK: track per-component useState value names so we can defer
+    // to noEventTriggerState when the trigger guard is a state-typed
+    // dep AND the consequent matches the side-effect-callee allowlist.
+    // Without the second predicate the deference silently drops
+    // warnings on `if (trigger) customAction()` shapes where the
+    // callee isn't in noEventTriggerState's allowlist.
+    const useStateValueNamesStack: Array<Set<string>> = [];
+    const collectUseStateValueNames = (componentBody: EsTreeNode): Set<string> => {
+      const stateNames = new Set<string>();
+      if (componentBody?.type !== "BlockStatement") return stateNames;
+      for (const statement of componentBody.body ?? []) {
+        if (statement.type !== "VariableDeclaration") continue;
+        for (const declarator of statement.declarations ?? []) {
+          if (declarator.id?.type !== "ArrayPattern") continue;
+          if (declarator.init?.type !== "CallExpression") continue;
+          if (!isHookCall(declarator.init, "useState")) continue;
+          const valueElement = declarator.id.elements?.[0];
+          if (valueElement?.type === "Identifier") stateNames.add(valueElement.name);
+        }
+      }
+      return stateNames;
+    };
+    const isStateValueName = (name: string): boolean => {
+      for (let frameIndex = useStateValueNamesStack.length - 1; frameIndex >= 0; frameIndex--) {
+        if (useStateValueNamesStack[frameIndex].has(name)) return true;
+      }
+      return false;
+    };
 
-      const callback = getEffectCallback(node);
-      if (!callback) return;
+    return {
+      FunctionDeclaration(node: EsTreeNode) {
+        if (!node.id?.name || !isUppercaseName(node.id.name)) {
+          useStateValueNamesStack.push(new Set());
+          return;
+        }
+        useStateValueNamesStack.push(collectUseStateValueNames(node.body));
+      },
+      "FunctionDeclaration:exit"() {
+        useStateValueNamesStack.pop();
+      },
+      VariableDeclarator(node: EsTreeNode) {
+        if (isComponentAssignment(node)) {
+          useStateValueNamesStack.push(collectUseStateValueNames(node.init?.body));
+          return;
+        }
+        if (
+          node.init?.type === "ArrowFunctionExpression" ||
+          node.init?.type === "FunctionExpression"
+        ) {
+          useStateValueNamesStack.push(new Set());
+        }
+      },
+      "VariableDeclarator:exit"(node: EsTreeNode) {
+        if (isComponentAssignment(node)) {
+          useStateValueNamesStack.pop();
+          return;
+        }
+        if (
+          node.init?.type === "ArrowFunctionExpression" ||
+          node.init?.type === "FunctionExpression"
+        ) {
+          useStateValueNamesStack.pop();
+        }
+      },
+      CallExpression(node: EsTreeNode) {
+        if (!isHookCall(node, EFFECT_HOOK_NAMES) || (node.arguments?.length ?? 0) < 2) return;
 
-      const depsNode = node.arguments[1];
-      if (depsNode.type !== "ArrayExpression" || !depsNode.elements?.length) return;
+        const callback = getEffectCallback(node);
+        if (!callback) return;
 
-      const dependencyNames = new Set(
-        depsNode.elements
-          .filter((element: EsTreeNode) => element?.type === "Identifier")
-          .map((element: EsTreeNode) => element.name),
-      );
+        const depsNode = node.arguments[1];
+        if (depsNode.type !== "ArrayExpression" || !depsNode.elements?.length) return;
 
-      const statements = getCallbackStatements(callback);
-      if (statements.length !== 1) return;
+        const dependencyNames = new Set(
+          depsNode.elements
+            .filter((element: EsTreeNode) => element?.type === "Identifier")
+            .map((element: EsTreeNode) => element.name),
+        );
 
-      const soleStatement = statements[0];
-      if (soleStatement.type !== "IfStatement") return;
+        const statements = getCallbackStatements(callback);
+        if (statements.length !== 1) return;
 
-      // HACK: §5 of "You Might Not Need an Effect" uses
-      // `if (product.isInCart)` — a MemberExpression, not a bare
-      // Identifier. The earlier detector hard-required `Identifier`
-      // and missed the article's literal example. Walk the test
-      // down to its root identifier so both shapes match:
-      //   if (isOpen)            → root = "isOpen"
-      //   if (product.isInCart)  → root = "product"
-      const rootIdentifierName = getRootIdentifierName(soleStatement.test);
-      if (!rootIdentifierName || !dependencyNames.has(rootIdentifierName)) return;
+        const soleStatement = statements[0];
+        if (soleStatement.type !== "IfStatement") return;
 
-      context.report({
-        node,
-        message:
-          "useEffect simulating an event handler — move logic to an actual event handler instead",
-      });
-    },
-  }),
+        // Widened test predicate: also matches `if (product.isInCart)`,
+        // not just bare-identifier guards.
+        const rootIdentifierName = getRootIdentifierName(soleStatement.test);
+        if (!rootIdentifierName || !dependencyNames.has(rootIdentifierName)) return;
+
+        // Defer to noEventTriggerState when it would actually fire —
+        // state-typed dep + recognized side-effect callee in the
+        // consequent. Without checking the callee, the deference
+        // would silently drop diagnostics on `if (trigger) customAction()`
+        // shapes where neither rule reports.
+        if (
+          isStateValueName(rootIdentifierName) &&
+          findTriggeredSideEffectCalleeName(soleStatement.consequent) !== null
+        ) {
+          return;
+        }
+        context.report({
+          node,
+          message:
+            "useEffect simulating an event handler — move logic to an actual event handler instead",
+        });
+      },
+    };
+  },
 };
 
 export const noDerivedUseState: Rule = {
@@ -1249,6 +1322,202 @@ export const noSetStateInRender: Rule = {
           message: `${setterIdentifierName}() called unconditionally at the top of render — causes an infinite re-render loop. Move into a useEffect or an event handler. (To derive state from props, guard the call: \`if (prev !== prop) ${setterIdentifierName}(prop)\`)`,
         });
       }
+    };
+
+    return {
+      FunctionDeclaration(node: EsTreeNode) {
+        if (!node.id?.name || !isUppercaseName(node.id.name)) return;
+        checkComponent(node.body);
+      },
+      VariableDeclarator(node: EsTreeNode) {
+        if (!isComponentAssignment(node)) return;
+        checkComponent(node.init?.body);
+      },
+    };
+  },
+};
+
+// HACK: §6 of "You Might Not Need an Effect" — sending a POST request:
+//
+//   const [jsonToSubmit, setJsonToSubmit] = useState(null);
+//   useEffect(() => {
+//     if (jsonToSubmit !== null) {
+//       post('/api/register', jsonToSubmit);
+//     }
+//   }, [jsonToSubmit]);
+//
+//   function handleSubmit(event) {
+//     event.preventDefault();
+//     setJsonToSubmit({ firstName, lastName });   // ← only writer
+//   }
+//
+// Detector pre-conditions (all must hold):
+//   (1) useEffect with deps = [stateX] — single dep that's a useState
+//       binding declared in this component
+//   (2) effect body is a single IfStatement guarding on stateX with one
+//       of: bare truthy, !== null/undefined, === Literal, or .length
+//   (3) IfStatement.consequent contains a CallExpression whose callee
+//       is in EVENT_TRIGGERED_SIDE_EFFECT_CALLEES OR a MemberExpression
+//       whose property is in EVENT_TRIGGERED_SIDE_EFFECT_MEMBER_METHODS
+//   (4) every setStateX call site is inside a JSX `on*` handler (or a
+//       function bound to one) — i.e. the trigger is set only by user
+//       interactions, never by other reactive logic
+//
+// Why all four matter: (1) + (2) recognize the "trigger guard" shape;
+// (3) restricts to side effects users would associate with a button
+// click; (4) is the strongest signal that the state exists *only* to
+// schedule the effect, distinguishing this from §5 (event-shared logic
+// triggered by props) which already has its own rule.
+// HACK: in JS, `undefined` is parsed as an Identifier (not a Literal
+// like `null`). For `x !== undefined`, both sides of the
+// BinaryExpression are Identifiers, so a naive "first Identifier
+// wins" pick can return `"undefined"` instead of the trigger state
+// name — silently dropping the violation for the reversed
+// (`undefined !== x`) ordering. Skip the `undefined` / `null`
+// sentinel side so the actual state Identifier is what we return.
+const SENTINEL_IDENTIFIER_NAMES = new Set(["undefined", "NaN", "null"]);
+
+const isSentinelIdentifier = (node: EsTreeNode): boolean =>
+  node?.type === "Identifier" && SENTINEL_IDENTIFIER_NAMES.has(node.name);
+
+const getTriggerGuardRootName = (testNode: EsTreeNode): string | null => {
+  if (!testNode) return null;
+  if (testNode.type === "Identifier") return testNode.name;
+  if (testNode.type === "BinaryExpression") {
+    if (!["!==", "===", "!=", "=="].includes(testNode.operator)) return null;
+    for (const side of [testNode.left, testNode.right]) {
+      if (side?.type === "Identifier" && !isSentinelIdentifier(side)) {
+        return side.name;
+      }
+    }
+    return null;
+  }
+  if (
+    testNode.type === "MemberExpression" &&
+    testNode.property?.type === "Identifier" &&
+    testNode.property.name === "length"
+  ) {
+    if (testNode.object?.type === "Identifier") return testNode.object.name;
+  }
+  if (testNode.type === "UnaryExpression" && testNode.operator === "!") {
+    return getTriggerGuardRootName(testNode.argument);
+  }
+  return null;
+};
+
+const findTriggeredSideEffectCalleeName = (consequentNode: EsTreeNode): string | null => {
+  let foundCalleeName: string | null = null;
+  walkAst(consequentNode, (child: EsTreeNode) => {
+    if (foundCalleeName) return false;
+    if (child.type !== "CallExpression") return;
+    const callee = child.callee;
+    if (callee?.type === "Identifier" && EVENT_TRIGGERED_SIDE_EFFECT_CALLEES.has(callee.name)) {
+      foundCalleeName = callee.name;
+      return;
+    }
+    if (
+      callee?.type === "MemberExpression" &&
+      callee.property?.type === "Identifier" &&
+      EVENT_TRIGGERED_SIDE_EFFECT_MEMBER_METHODS.has(callee.property.name)
+    ) {
+      let cursor: EsTreeNode | undefined = callee;
+      while (cursor?.type === "MemberExpression") cursor = cursor.object;
+      const rootName = cursor?.type === "Identifier" ? cursor.name : null;
+      foundCalleeName = rootName ? `${rootName}.${callee.property.name}` : callee.property.name;
+    }
+  });
+  return foundCalleeName;
+};
+
+const collectHandlerOnlyWriteStateNames = (
+  componentBody: EsTreeNode,
+  useStateBindings: Array<{ valueName: string; setterName: string; declarator: EsTreeNode }>,
+  handlerBindingNames: Set<string>,
+): Set<string> => {
+  const handlerOnlyWriteStateNames = new Set<string>();
+  for (const binding of useStateBindings) {
+    let didFindAnySetterCall = false;
+    let areAllSetterCallsInHandlers = true;
+    walkAst(componentBody, (child: EsTreeNode) => {
+      if (!areAllSetterCallsInHandlers) return false;
+      if (child.type !== "CallExpression") return;
+      if (child.callee?.type !== "Identifier") return;
+      if (child.callee.name !== binding.setterName) return;
+      didFindAnySetterCall = true;
+      if (!isInsideEventHandler(child, handlerBindingNames)) {
+        areAllSetterCallsInHandlers = false;
+      }
+    });
+    if (didFindAnySetterCall && areAllSetterCallsInHandlers) {
+      handlerOnlyWriteStateNames.add(binding.valueName);
+    }
+  }
+  return handlerOnlyWriteStateNames;
+};
+
+export const noEventTriggerState: Rule = {
+  create: (context: RuleContext) => {
+    const checkComponent = (componentBody: EsTreeNode | null | undefined): void => {
+      if (!componentBody || componentBody.type !== "BlockStatement") return;
+
+      const useStateBindings = collectUseStateBindings(componentBody);
+      if (useStateBindings.length === 0) return;
+
+      const handlerBindingNames = collectHandlerBindingNames(componentBody);
+      const handlerOnlyWriteStateNames = collectHandlerOnlyWriteStateNames(
+        componentBody,
+        useStateBindings,
+        handlerBindingNames,
+      );
+      if (handlerOnlyWriteStateNames.size === 0) return;
+
+      // HACK: a state read in render (e.g. `<input value={query} />`)
+      // is dual-purpose — it controls UI AND triggers the effect.
+      // Calling it "exists only to schedule the effect" is wrong; the
+      // user can't just delete the state. Reuse the same render-
+      // reachability machinery that `rerenderStateOnlyInHandlers`
+      // uses to filter these out (transitive dep graph + walk from
+      // return expressions).
+      const returnExpressions = collectReturnExpressions(componentBody);
+      const dependencyGraph = buildLocalDependencyGraph(componentBody);
+      const directRenderNames = collectRenderReachableNames(returnExpressions);
+      const renderReachableNames = expandTransitiveDependencies(directRenderNames, dependencyGraph);
+
+      walkAst(componentBody, (effectCall: EsTreeNode) => {
+        if (effectCall.type !== "CallExpression") return;
+        if (!isHookCall(effectCall, EFFECT_HOOK_NAMES)) return;
+        if ((effectCall.arguments?.length ?? 0) < 2) return;
+
+        const depsNode = effectCall.arguments[1];
+        if (depsNode.type !== "ArrayExpression") return;
+        if ((depsNode.elements?.length ?? 0) !== 1) return;
+
+        const depElement = depsNode.elements[0];
+        if (depElement?.type !== "Identifier") return;
+        if (!handlerOnlyWriteStateNames.has(depElement.name)) return;
+        // Dual-purpose state — used in render too. Don't claim it
+        // "exists only to schedule" the effect.
+        if (renderReachableNames.has(depElement.name)) return;
+
+        const callback = getEffectCallback(effectCall);
+        if (!callback) return;
+
+        const bodyStatements = getCallbackStatements(callback);
+        if (bodyStatements.length !== 1) return;
+        const soleStatement = bodyStatements[0];
+        if (soleStatement.type !== "IfStatement") return;
+
+        const guardRootName = getTriggerGuardRootName(soleStatement.test);
+        if (guardRootName !== depElement.name) return;
+
+        const sideEffectCalleeName = findTriggeredSideEffectCalleeName(soleStatement.consequent);
+        if (!sideEffectCalleeName) return;
+
+        context.report({
+          node: effectCall,
+          message: `useState "${depElement.name}" exists only to schedule "${sideEffectCalleeName}(...)" from a useEffect — call "${sideEffectCalleeName}(...)" directly inside the event handler that sets it, and delete the state`,
+        });
+      });
     };
 
     return {
