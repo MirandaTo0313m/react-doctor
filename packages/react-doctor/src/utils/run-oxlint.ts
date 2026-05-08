@@ -4,7 +4,6 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { logger } from "./logger.js";
 import {
   ERROR_PREVIEW_LENGTH_CHARS,
   PROXY_OUTPUT_MAX_BYTES,
@@ -901,7 +900,7 @@ const validateRuleRegistration = (): void => {
       .filter((entry): entry is string => entry !== null)
       .join("; ");
     // HACK: warn rather than throw — never block the user's scan over a metadata gap.
-    logger.warn(`rule-registration drift: ${detail}`);
+    console.warn(`[react-doctor] rule-registration drift: ${detail}`);
   }
 };
 
@@ -1023,8 +1022,8 @@ export const runOxlint = async (options: RunOxlintOptions): Promise<Diagnostic[]
       // config, and keep the scan useful in the meantime.
       if (extendsPaths.length === 0) throw error;
       const reason = error instanceof Error ? error.message : String(error);
-      logger.warn(
-        `could not adopt existing lint config (${reason.split("\n")[0]}); retrying without extends. Set "adoptExistingLintConfig": false to silence.`,
+      process.stderr.write(
+        `[react-doctor] could not adopt existing lint config (${reason.split("\n")[0]}); retrying without extends. Set "adoptExistingLintConfig": false to silence.\n`,
       );
       const fallbackConfig = createOxlintConfig({
         pluginPath,

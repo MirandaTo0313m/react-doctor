@@ -1,6 +1,5 @@
 import type { Diagnostic, ReactDoctorConfig, ReactDoctorIgnoreOverride } from "../types.js";
 import { isPlainObject } from "./is-plain-object.js";
-import { logger } from "./logger.js";
 import { compileGlobPattern } from "./match-glob-pattern.js";
 import { toRelativePath } from "./to-relative-path.js";
 
@@ -10,7 +9,7 @@ export interface CompiledIgnoreOverride {
 }
 
 const warnConfigField = (message: string): void => {
-  logger.warn(message);
+  process.stderr.write(`[react-doctor] ${message}\n`);
 };
 
 const isStringArray = (value: unknown): value is string[] =>
