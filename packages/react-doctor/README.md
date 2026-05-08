@@ -94,18 +94,20 @@ Options:
   --offline           skip telemetry (anonymous, not stored, only used to calculate score)
   --staged            scan only staged (git index) files for pre-commit hooks
   --fail-on <level>   exit with error code on diagnostics: error, warning, none
-  --annotations       output diagnostics as GitHub Actions annotations
-  --why <file:line>   diagnose why a rule fired or why a suppression didn't apply at a specific location
-  -h, --help          display help for command
+  --annotations         output diagnostics as GitHub Actions annotations
+  --explain <file:line> diagnose why a rule fired or why a suppression didn't apply at a specific location (alias: --why)
+  -h, --help            display help for command
 ```
 
-### `--why <file:line>`
+### `--explain <file:line>`
 
-When a rule keeps firing despite a `react-doctor-disable-next-line` you wrote, pass `--why <file:line>` (mirroring `eslint --print-config <file>`) to ask the scanner what it sees:
+When a rule keeps firing despite a `react-doctor-disable-next-line` you wrote, pass `--explain <file:line>` (mirroring `rustc --explain <error-code>`) to ask the scanner what it sees:
 
 ```bash
-npx -y react-doctor@latest --why components/projects/Snapshot.tsx:254
+npx -y react-doctor@latest --explain components/projects/Snapshot.tsx:254
 ```
+
+`--why` is a hidden alias of `--explain` for users coming from the issue's vocabulary.
 
 Output names the rule, prints any nearby suppression comment that didn't apply, and explains why — wrong rule list (suggesting the comma form), or a code-line gap (suggesting moving the comment or extracting the surrounding code into a helper). The same hint is also attached to each diagnostic inline when running with `--verbose` and is included in `--json` output as `diagnostic.suppressionHint`.
 

@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { CANONICAL_GITHUB_URL } from "./constants.js";
 import { runInstallSkill } from "./install-skill.js";
 import { scan } from "./scan.js";
@@ -47,6 +47,7 @@ interface CliFlags {
   respectInlineDisables: boolean;
   project?: string;
   diff?: boolean | string;
+  explain?: string;
   why?: string;
   failOn: string;
 }
@@ -258,7 +259,7 @@ const resolveDiffMode = async (
   return Boolean(shouldScanChangedOnly);
 };
 
-const runWhy = async (
+const runExplain = async (
   fileLineArgument: string,
   resolvedDirectory: string,
   userConfig: ReactDoctorConfig | null,
@@ -320,8 +321,17 @@ const validateModeFlags = (flags: CliFlags): void => {
   if (flags.annotations && (flags.json || flags.score)) {
     throw new Error("--annotations cannot be combined with --json or --score.");
   }
-  if (flags.why !== undefined && (flags.json || flags.score || flags.annotations || flags.staged)) {
-    throw new Error("--why cannot be combined with --json, --score, --annotations, or --staged.");
+  if (flags.explain !== undefined && flags.why !== undefined) {
+    throw new Error("Use --explain or --why, not both — they're aliases of the same flag.");
+  }
+  const explainArgument = flags.explain ?? flags.why;
+  if (
+    explainArgument !== undefined &&
+    (flags.json || flags.score || flags.annotations || flags.staged)
+  ) {
+    throw new Error(
+      "--explain cannot be combined with --json, --score, --annotations, or --staged.",
+    );
   }
 };
 
@@ -350,9 +360,10 @@ const program = new Command()
   .option("--fail-on <level>", "exit with error code on diagnostics: error, warning, none", "error")
   .option("--annotations", "output diagnostics as GitHub Actions annotations")
   .option(
-    "--why <file:line>",
+    "--explain <file:line>",
     "diagnose why a rule fired or why a suppression didn't apply at a specific location",
   )
+  .addOption(new Option("--why <file:line>", "alias for --explain").hideHelp())
   .option(
     "--respect-inline-disables",
     "respect inline `// eslint-disable*` / `// oxlint-disable*` comments (default)",
@@ -382,8 +393,9 @@ const program = new Command()
 
       const userConfig = loadConfig(resolvedDirectory);
 
-      if (flags.why !== undefined) {
-        await runWhy(flags.why, resolvedDirectory, userConfig);
+      const explainArgument = flags.explain ?? flags.why;
+      if (explainArgument !== undefined) {
+        await runExplain(explainArgument, resolvedDirectory, userConfig);
         return;
       }
 
