@@ -236,6 +236,64 @@ describe("discoverProject", () => {
     const projectInfo = discoverProject(projectDirectory);
     expect(projectInfo.isLibraryTargetingLegacyReact).toBe(true);
   });
+
+  it("flags library mode when peer is `*` (wildcard admits any React)", () => {
+    const projectDirectory = path.join(tempDirectory, "wildcard-peer-library");
+    fs.mkdirSync(projectDirectory, { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDirectory, "package.json"),
+      JSON.stringify({
+        name: "wildcard-peer-library",
+        peerDependencies: { react: "*" },
+      }),
+    );
+
+    const projectInfo = discoverProject(projectDirectory);
+    expect(projectInfo.reactPeerRange).toBe("*");
+    expect(projectInfo.isLibraryTargetingLegacyReact).toBe(true);
+  });
+
+  it("resolves catalog reference in peerDependencies.react via pnpm catalog", () => {
+    const monorepoRoot = path.join(tempDirectory, "catalog-peer-monorepo");
+    fs.mkdirSync(path.join(monorepoRoot, "packages", "ui"), { recursive: true });
+    fs.writeFileSync(
+      path.join(monorepoRoot, "pnpm-workspace.yaml"),
+      "packages:\n  - packages/*\n\ncatalog:\n  react: ^17.0.0 || ^18.0.0 || ^19.0.0\n",
+    );
+    fs.writeFileSync(
+      path.join(monorepoRoot, "package.json"),
+      JSON.stringify({ name: "monorepo", private: true }),
+    );
+    fs.writeFileSync(
+      path.join(monorepoRoot, "packages", "ui", "package.json"),
+      JSON.stringify({
+        name: "ui",
+        peerDependencies: { react: "catalog:" },
+        devDependencies: { react: "catalog:" },
+      }),
+    );
+
+    const projectInfo = discoverProject(path.join(monorepoRoot, "packages", "ui"));
+    expect(projectInfo.reactPeerRange).toBe("^17.0.0 || ^18.0.0 || ^19.0.0");
+    expect(projectInfo.isLibraryTargetingLegacyReact).toBe(true);
+  });
+
+  it("ignores malformed peerDependencies.react entries (non-string)", () => {
+    const projectDirectory = path.join(tempDirectory, "malformed-peer-library");
+    fs.mkdirSync(projectDirectory, { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDirectory, "package.json"),
+      JSON.stringify({
+        name: "malformed-peer-library",
+        dependencies: { react: "^19.0.0" },
+        peerDependencies: { react: null },
+      }),
+    );
+
+    const projectInfo = discoverProject(projectDirectory);
+    expect(projectInfo.reactPeerRange).toBeNull();
+    expect(projectInfo.isLibraryTargetingLegacyReact).toBe(false);
+  });
 });
 
 describe("listWorkspacePackages", () => {

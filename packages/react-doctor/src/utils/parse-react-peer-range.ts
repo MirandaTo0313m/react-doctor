@@ -7,6 +7,12 @@ import { REACT_19_DEPRECATION_MIN_MAJOR } from "../constants.js";
 // `defaultProps`, and the legacy `react-dom` root API to honor that
 // peer contract — so the React-19 deprecation rules become noise.
 //
+// Two signals trigger the "supports legacy" verdict:
+//   1. Any comparator names a major in [1, 19) — `^17.0.0`, `>=18`,
+//      `17.x || 18.x || 19.x`, `>=18 <20`.
+//   2. The whole range is a wildcard (`"*"`, `"x"`, `"x.x"`, `"x.x.x"`)
+//      that admits literally any React version — including 17/18.
+//
 // We split the raw range on the boolean operators semver allows
 // between comparators (`||` for OR, `,` and whitespace for AND) and
 // then read the FIRST integer of each comparator chunk. That first
@@ -23,15 +29,21 @@ import { REACT_19_DEPRECATION_MIN_MAJOR } from "../constants.js";
 //   ">=17"                          → true
 //   ">=18 <20"                      → true (18 admitted)
 //   "17.x || 18.x || 19.x"          → true
+//   "*"                             → true (wildcard)
+//   "x"                             → true (wildcard)
 //   "v19.0.0"                       → false
 //   "^19.0.0"                       → false
 //   "^19 || ^20"                    → false
 //   ">=19"                          → false
+//   "latest"                        → false (npm dist-tag, not a range)
+//   ""                              → false
 //
 // The `0.x` major is ignored on purpose so React experimental tags
 // (`0.0.0-experimental-*`) don't masquerade as "supports legacy" and
 // silently disable the migration nudge on canary checkouts.
 const COMPARATOR_SEPARATOR = /[\s,|]+/;
+
+const WILDCARD_COMPARATOR_PATTERN = /^[*xX](?:\.[*xX])*$/;
 
 const extractMajorFromComparator = (comparator: string): number | null => {
   const match = comparator.match(/\d+/);
@@ -44,7 +56,18 @@ export const peerRangeSupportsLegacyReact = (range: string | null | undefined): 
   if (typeof range !== "string") return false;
   const trimmed = range.trim();
   if (trimmed.length === 0) return false;
-  const comparators = trimmed.split(COMPARATOR_SEPARATOR);
+
+  const comparators = trimmed.split(COMPARATOR_SEPARATOR).filter(Boolean);
+  if (comparators.length === 0) return false;
+
+  // HACK: a range whose every comparator is a pure-wildcard admits any
+  // React version, including the legacy majors. Worth special-casing
+  // because the digit-scan below returns null for these (no integers
+  // present) and would otherwise fall through to `false`.
+  if (comparators.every((comparator) => WILDCARD_COMPARATOR_PATTERN.test(comparator))) {
+    return true;
+  }
+
   return comparators.some((comparator) => {
     const major = extractMajorFromComparator(comparator);
     if (major === null) return false;

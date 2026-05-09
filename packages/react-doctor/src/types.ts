@@ -21,10 +21,11 @@ export interface ProjectInfo {
   hasTanStackQuery: boolean;
   sourceFileCount: number;
   /**
-   * The raw `react` version range declared in `peerDependencies` (after
-   * resolving pnpm/Bun catalog references), or `null` when react is not
-   * a peer dep. Libraries published to npm typically declare react as a
-   * peer; apps don't.
+   * The `react` version range declared in `peerDependencies`, with
+   * pnpm/Bun catalog references (`"catalog:"` / `"catalog:react18"`)
+   * resolved to the catalog-defined range. `null` when react is not a
+   * peer dep of this package. Libraries published to npm typically
+   * declare react as a peer; apps don't.
    */
   reactPeerRange: string | null;
   /**
@@ -96,14 +97,6 @@ export interface PackageJson {
 export interface DependencyInfo {
   reactVersion: string | null;
   framework: Framework;
-  /**
-   * Raw `peerDependencies.react` range from the package.json the info
-   * was extracted from, or `null` when react is not a peer dep. Tracked
-   * separately from `reactVersion` (which is whichever entry won across
-   * peer/dep/devDep) so library-mode detection can inspect the peer
-   * range specifically.
-   */
-  reactPeerRange: string | null;
 }
 
 interface KnipIssue {

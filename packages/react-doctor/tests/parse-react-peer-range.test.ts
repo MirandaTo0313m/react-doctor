@@ -28,10 +28,19 @@ describe("peerRangeSupportsLegacyReact", () => {
     expect(peerRangeSupportsLegacyReact("   ")).toBe(false);
   });
 
-  it("returns false for tags and workspace protocols (no integers parsed)", () => {
+  it("returns true for pure-wildcard ranges (`*`, `x`, `x.x`, `x.x.x`)", () => {
+    expect(peerRangeSupportsLegacyReact("*")).toBe(true);
+    expect(peerRangeSupportsLegacyReact("x")).toBe(true);
+    expect(peerRangeSupportsLegacyReact("X")).toBe(true);
+    expect(peerRangeSupportsLegacyReact("x.x")).toBe(true);
+    expect(peerRangeSupportsLegacyReact("x.x.x")).toBe(true);
+  });
+
+  it("returns false for npm dist-tags and workspace protocols (no integers parsed)", () => {
     expect(peerRangeSupportsLegacyReact("latest")).toBe(false);
+    expect(peerRangeSupportsLegacyReact("next")).toBe(false);
+    expect(peerRangeSupportsLegacyReact("beta")).toBe(false);
     expect(peerRangeSupportsLegacyReact("workspace:*")).toBe(false);
-    expect(peerRangeSupportsLegacyReact("*")).toBe(false);
   });
 
   it("ignores 0.x React experimental tags", () => {

@@ -23,7 +23,7 @@ Run this at your project root:
 npx -y react-doctor@latest .
 ```
 
-You'll get a score (75+ Great, 50 to 74 Needs work, under 50 Critical) and a list of issues across state & effects, performance, architecture, security, accessibility, and dead code. Rules toggle automatically based on your framework and React version.
+You'll get a score (75+ Great, 50 to 74 Needs work, under 50 Critical) and a list of issues across state & effects, performance, architecture, security, accessibility, and dead code. Rules toggle automatically based on your framework and React version. Libraries that declare `react` as a peer dep with a range admitting React < 19 also skip the React 19 deprecation rules (`forwardRef`, `defaultProps`, legacy `react-dom` root API) since those APIs are required to honor the peer contract.
 
 https://github.com/user-attachments/assets/07cc88d9-9589-44c3-aa73-5d603cb1c570
 
