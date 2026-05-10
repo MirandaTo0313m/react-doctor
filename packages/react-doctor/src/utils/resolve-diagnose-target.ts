@@ -10,8 +10,8 @@ export const resolveDiagnoseTarget = (directory: string): string | null => {
   if (reactSubprojects.length === 0) return null;
   if (reactSubprojects.length === 1) return reactSubprojects[0].directory;
 
-  const relativeCandidates = reactSubprojects.map((subproject) =>
-    path.relative(directory, subproject.directory),
-  );
+  const relativeCandidates = reactSubprojects
+    .map((subproject) => path.relative(directory, subproject.directory))
+    .toSorted();
   throw new AmbiguousProjectError(directory, relativeCandidates);
 };

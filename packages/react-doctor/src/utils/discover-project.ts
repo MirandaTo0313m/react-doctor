@@ -386,10 +386,15 @@ const resolveReactPeerRange = (packageJson: PackageJson, rootDirectory: string):
 
 const extractDependencyInfo = (packageJson: PackageJson): DependencyInfo => {
   const allDependencies = collectAllDependencies(packageJson);
-  const rawVersion = allDependencies.react ?? null;
-  const reactVersion = rawVersion && !isCatalogReference(rawVersion) ? rawVersion : null;
+  const rawReactVersion = allDependencies.react ?? null;
+  const reactVersion =
+    rawReactVersion && !isCatalogReference(rawReactVersion) ? rawReactVersion : null;
+  const rawTailwindVersion = allDependencies.tailwindcss ?? null;
+  const tailwindVersion =
+    rawTailwindVersion && !isCatalogReference(rawTailwindVersion) ? rawTailwindVersion : null;
   return {
     reactVersion,
+    tailwindVersion,
     framework: detectFramework(allDependencies),
   };
 };
@@ -489,38 +494,53 @@ const resolveWorkspaceDirectories = (rootDirectory: string, pattern: string): st
     );
 };
 
+const EMPTY_DEPENDENCY_INFO: DependencyInfo = {
+  reactVersion: null,
+  tailwindVersion: null,
+  framework: "unknown",
+};
+
 const findDependencyInfoFromMonorepoRoot = (directory: string): DependencyInfo => {
   const monorepoRoot = findMonorepoRoot(directory);
-  if (!monorepoRoot) return { reactVersion: null, framework: "unknown" };
+  if (!monorepoRoot) return EMPTY_DEPENDENCY_INFO;
 
   const monorepoPackageJsonPath = path.join(monorepoRoot, "package.json");
-  if (!isFile(monorepoPackageJsonPath)) return { reactVersion: null, framework: "unknown" };
+  if (!isFile(monorepoPackageJsonPath)) return EMPTY_DEPENDENCY_INFO;
 
   const rootPackageJson = readPackageJson(monorepoPackageJsonPath);
   const rootInfo = extractDependencyInfo(rootPackageJson);
   const leafPackageJsonPath = path.join(directory, "package.json");
-  const leafCatalogReference = isFile(leafPackageJsonPath)
-    ? (extractCatalogName(
-        collectAllDependencies(readPackageJson(leafPackageJsonPath)).react ?? "",
-      ) ?? null)
-    : null;
-  const catalogVersion = resolveCatalogVersion(
+  const leafDependencies = isFile(leafPackageJsonPath)
+    ? collectAllDependencies(readPackageJson(leafPackageJsonPath))
+    : {};
+  const leafReactCatalogReference = extractCatalogName(leafDependencies.react ?? "") ?? null;
+  const leafTailwindCatalogReference =
+    extractCatalogName(leafDependencies.tailwindcss ?? "") ?? null;
+  const reactCatalogVersion = resolveCatalogVersion(
     rootPackageJson,
     "react",
     monorepoRoot,
-    leafCatalogReference,
+    leafReactCatalogReference,
+  );
+  const tailwindCatalogVersion = resolveCatalogVersion(
+    rootPackageJson,
+    "tailwindcss",
+    monorepoRoot,
+    leafTailwindCatalogReference,
   );
   const workspaceInfo = findReactInWorkspaces(monorepoRoot, rootPackageJson);
 
   return {
-    reactVersion: rootInfo.reactVersion ?? catalogVersion ?? workspaceInfo.reactVersion,
+    reactVersion: rootInfo.reactVersion ?? reactCatalogVersion ?? workspaceInfo.reactVersion,
+    tailwindVersion:
+      rootInfo.tailwindVersion ?? tailwindCatalogVersion ?? workspaceInfo.tailwindVersion,
     framework: rootInfo.framework !== "unknown" ? rootInfo.framework : workspaceInfo.framework,
   };
 };
 
 const findReactInWorkspaces = (rootDirectory: string, packageJson: PackageJson): DependencyInfo => {
   const patterns = getWorkspacePatterns(rootDirectory, packageJson);
-  const result: DependencyInfo = { reactVersion: null, framework: "unknown" };
+  const result: DependencyInfo = { ...EMPTY_DEPENDENCY_INFO };
 
   for (const pattern of patterns) {
     const directories = resolveWorkspaceDirectories(rootDirectory, pattern);
@@ -532,10 +552,22 @@ const findReactInWorkspaces = (rootDirectory: string, packageJson: PackageJson):
       if (info.reactVersion && !result.reactVersion) {
         result.reactVersion = info.reactVersion;
       }
+      if (info.tailwindVersion && !result.tailwindVersion) {
+        result.tailwindVersion = info.tailwindVersion;
+      }
       if (info.framework !== "unknown" && result.framework === "unknown") {
         result.framework = info.framework;
       }
 
+      // HACK: deliberately don't add `result.tailwindVersion` to the
+      // early-exit predicate. Tailwind is collected opportunistically
+      // here — but a non-Tailwind monorepo would never satisfy that
+      // gate, forcing us to read every workspace package.json on every
+      // scan. The hot path (react-only project, possibly large
+      // monorepo) keeps the original short-circuit; Tailwind users
+      // either declare it on the leaf (no walk needed) or via a
+      // catalog at the monorepo root (resolved by the cheap
+      // resolveCatalogVersion path before this fallback even runs).
       if (result.reactVersion && result.framework !== "unknown") {
         return result;
       }
@@ -554,39 +586,80 @@ const hasReactDependency = (packageJson: PackageJson): boolean => {
   );
 };
 
-export const discoverReactSubprojects = (rootDirectory: string): WorkspacePackage[] => {
-  if (!fs.existsSync(rootDirectory) || !fs.statSync(rootDirectory).isDirectory()) return [];
-
+const toReactWorkspacePackages = (directories: string[]): WorkspacePackage[] => {
   const packages: WorkspacePackage[] = [];
 
-  const rootPackageJsonPath = path.join(rootDirectory, "package.json");
-  if (isFile(rootPackageJsonPath)) {
-    const rootPackageJson = readPackageJson(rootPackageJsonPath);
-    if (hasReactDependency(rootPackageJson)) {
-      const name = rootPackageJson.name ?? path.basename(rootDirectory);
-      packages.push({ name, directory: rootDirectory });
-    }
-  }
-
-  const entries = fs.readdirSync(rootDirectory, { withFileTypes: true });
-
-  for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name.startsWith(".") || entry.name === "node_modules") {
-      continue;
-    }
-
-    const subdirectory = path.join(rootDirectory, entry.name);
-    const packageJsonPath = path.join(subdirectory, "package.json");
+  for (const directory of directories) {
+    const packageJsonPath = path.join(directory, "package.json");
     if (!isFile(packageJsonPath)) continue;
 
     const packageJson = readPackageJson(packageJsonPath);
     if (!hasReactDependency(packageJson)) continue;
 
-    const name = packageJson.name ?? entry.name;
-    packages.push({ name, directory: subdirectory });
+    const name = packageJson.name ?? path.basename(directory);
+    packages.push({ name, directory });
   }
 
   return packages;
+};
+
+const listManifestWorkspacePackages = (rootDirectory: string): WorkspacePackage[] => {
+  const packageJsonPath = path.join(rootDirectory, "package.json");
+  if (isFile(packageJsonPath)) return listWorkspacePackages(rootDirectory);
+
+  const patterns = parsePnpmWorkspacePatterns(rootDirectory);
+  const nxPatterns = patterns.length > 0 ? [] : getNxWorkspaceDirectories(rootDirectory);
+  const directories = (patterns.length > 0 ? patterns : nxPatterns).flatMap((pattern) =>
+    resolveWorkspaceDirectories(rootDirectory, pattern),
+  );
+
+  return toReactWorkspacePackages(directories);
+};
+
+const discoverReactSubprojectsByFilesystem = (rootDirectory: string): WorkspacePackage[] => {
+  const packages: WorkspacePackage[] = [];
+  const pendingDirectories = [rootDirectory];
+
+  while (pendingDirectories.length > 0) {
+    const currentDirectory = pendingDirectories.shift();
+    if (!currentDirectory) continue;
+
+    const packageJsonPath = path.join(currentDirectory, "package.json");
+    if (isFile(packageJsonPath)) {
+      const packageJson = readPackageJson(packageJsonPath);
+      if (hasReactDependency(packageJson)) {
+        const name = packageJson.name ?? path.basename(currentDirectory);
+        packages.push({ name, directory: currentDirectory });
+      }
+    }
+
+    const entries = fs
+      .readdirSync(currentDirectory, { withFileTypes: true })
+      .toSorted((firstEntry, secondEntry) => firstEntry.name.localeCompare(secondEntry.name));
+
+    for (const entry of entries) {
+      if (
+        !entry.isDirectory() ||
+        entry.name.startsWith(".") ||
+        IGNORED_DIRECTORIES.has(entry.name)
+      ) {
+        continue;
+      }
+
+      pendingDirectories.push(path.join(currentDirectory, entry.name));
+    }
+  }
+
+  return packages;
+};
+
+export const discoverReactSubprojects = (rootDirectory: string): WorkspacePackage[] => {
+  if (!fs.existsSync(rootDirectory) || !fs.statSync(rootDirectory).isDirectory()) return [];
+
+  const manifestPackages = listManifestWorkspacePackages(rootDirectory);
+  if (manifestPackages.length > 0) return manifestPackages;
+
+  return discoverReactSubprojectsByFilesystem(rootDirectory);
 };
 
 export const listWorkspacePackages = (rootDirectory: string): WorkspacePackage[] => {
@@ -687,32 +760,67 @@ export const discoverProject = (directory: string): ProjectInfo => {
 
   const packageJson = readPackageJson(packageJsonPath);
   const localInfo = extractDependencyInfo(packageJson);
-  let { reactVersion, framework } = localInfo;
+  let { reactVersion, tailwindVersion, framework } = localInfo;
   const reactPeerRange = resolveReactPeerRange(packageJson, directory);
 
   // HACK: capture the catalog reference (e.g. `catalog:react19`) from
   // the LEAF package once so every fallback resolver below can route
   // named-catalog lookups to the right group, even when the root
   // package.json has no `react` dependency to derive a name from.
-  const leafCatalogReference =
-    extractCatalogName(collectAllDependencies(packageJson).react ?? "") ?? null;
+  const leafDependencies = collectAllDependencies(packageJson);
+  const leafReactCatalogReference = extractCatalogName(leafDependencies.react ?? "") ?? null;
+  const leafTailwindCatalogReference =
+    extractCatalogName(leafDependencies.tailwindcss ?? "") ?? null;
 
   if (!reactVersion) {
-    reactVersion = resolveCatalogVersion(packageJson, "react", directory, leafCatalogReference);
+    reactVersion = resolveCatalogVersion(
+      packageJson,
+      "react",
+      directory,
+      leafReactCatalogReference,
+    );
   }
 
-  if (!reactVersion) {
+  if (!tailwindVersion) {
+    tailwindVersion = resolveCatalogVersion(
+      packageJson,
+      "tailwindcss",
+      directory,
+      leafTailwindCatalogReference,
+    );
+  }
+
+  // HACK: gate the cheap monorepo-root catalog read on either dep
+  // missing — it's a single readPackageJson + parsePnpmWorkspaceCatalogs
+  // call, free to run opportunistically for Tailwind in a non-Tailwind
+  // project. The expensive walks below (findReactInWorkspaces,
+  // findDependencyInfoFromMonorepoRoot) intentionally do NOT include
+  // `!tailwindVersion` in their gates — those iterate every workspace
+  // package.json, which a React-only monorepo with hundreds of
+  // workspace packages should not pay the cost of just to confirm
+  // Tailwind isn't there.
+  if (!reactVersion || !tailwindVersion) {
     const monorepoRoot = findMonorepoRoot(directory);
     if (monorepoRoot) {
       const monorepoPackageJsonPath = path.join(monorepoRoot, "package.json");
       if (isFile(monorepoPackageJsonPath)) {
         const rootPackageJson = readPackageJson(monorepoPackageJsonPath);
-        reactVersion = resolveCatalogVersion(
-          rootPackageJson,
-          "react",
-          monorepoRoot,
-          leafCatalogReference,
-        );
+        if (!reactVersion) {
+          reactVersion = resolveCatalogVersion(
+            rootPackageJson,
+            "react",
+            monorepoRoot,
+            leafReactCatalogReference,
+          );
+        }
+        if (!tailwindVersion) {
+          tailwindVersion = resolveCatalogVersion(
+            rootPackageJson,
+            "tailwindcss",
+            monorepoRoot,
+            leafTailwindCatalogReference,
+          );
+        }
       }
     }
   }
@@ -721,6 +829,9 @@ export const discoverProject = (directory: string): ProjectInfo => {
     const workspaceInfo = findReactInWorkspaces(directory, packageJson);
     if (!reactVersion && workspaceInfo.reactVersion) {
       reactVersion = workspaceInfo.reactVersion;
+    }
+    if (!tailwindVersion && workspaceInfo.tailwindVersion) {
+      tailwindVersion = workspaceInfo.tailwindVersion;
     }
     if (framework === "unknown" && workspaceInfo.framework !== "unknown") {
       framework = workspaceInfo.framework;
@@ -731,6 +842,9 @@ export const discoverProject = (directory: string): ProjectInfo => {
     const monorepoInfo = findDependencyInfoFromMonorepoRoot(directory);
     if (!reactVersion) {
       reactVersion = monorepoInfo.reactVersion;
+    }
+    if (!tailwindVersion) {
+      tailwindVersion = monorepoInfo.tailwindVersion;
     }
     if (framework === "unknown") {
       framework = monorepoInfo.framework;
@@ -753,6 +867,7 @@ export const discoverProject = (directory: string): ProjectInfo => {
     rootDirectory: directory,
     projectName,
     reactVersion,
+    tailwindVersion,
     framework,
     hasTypeScript,
     hasReactCompiler,

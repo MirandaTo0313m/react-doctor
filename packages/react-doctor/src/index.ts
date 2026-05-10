@@ -162,6 +162,7 @@ export const diagnose = async (
         hasTanStackQuery: projectInfo.hasTanStackQuery,
         reactMajorVersion: parseReactMajor(projectInfo.reactVersion),
         isLibraryTargetingLegacyReact: projectInfo.isLibraryTargetingLegacyReact,
+        tailwindVersion: projectInfo.tailwindVersion,
         includePaths: lintIncludePaths,
         customRulesOnly: userConfig?.customRulesOnly ?? false,
         respectInlineDisables: effectiveRespectInlineDisables,

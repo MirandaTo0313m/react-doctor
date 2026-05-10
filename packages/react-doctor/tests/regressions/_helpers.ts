@@ -87,6 +87,14 @@ export const setupReactProject = (
 export interface CollectRuleHitsOptions {
   /** React major to forward to runOxlint (default: 19). Pass null to test the unresolvable-version path. */
   reactMajorVersion?: number | null;
+  /**
+   * Tailwind dependency spec to forward to runOxlint (default: omitted →
+   * `null`, which optimistically assumes latest Tailwind so every
+   * Tailwind-version-gated rule fires). Pass an explicit string
+   * (`"^3.4.0"`, `"3.3.0"`, `"^4.0.0"`) to exercise version gating
+   * for rules like `design-no-redundant-size-axes`.
+   */
+  tailwindVersion?: string | null;
   /** Project framework hint (default: "unknown"). Set to "react-native" for RN-only rules. */
   framework?: "unknown" | "react-native";
   hasReactCompiler?: boolean;
@@ -122,6 +130,9 @@ export const collectRuleHits = async (
   const reactMajorVersion = Object.hasOwn(options, "reactMajorVersion")
     ? options.reactMajorVersion
     : 19;
+  const tailwindVersion = Object.hasOwn(options, "tailwindVersion")
+    ? options.tailwindVersion
+    : null;
   const diagnostics = await runOxlint({
     rootDirectory: projectDir,
     hasTypeScript: true,
@@ -130,6 +141,7 @@ export const collectRuleHits = async (
     hasTanStackQuery: options.hasTanStackQuery ?? false,
     reactMajorVersion,
     isLibraryTargetingLegacyReact: options.isLibraryTargetingLegacyReact ?? false,
+    tailwindVersion,
   });
   return diagnostics
     .filter((diagnostic) => diagnostic.rule === ruleId)

@@ -91,6 +91,16 @@ export const Debounced = ({ onChange }: { onChange: (value: string) => void }) =
     expect(result.project.reactVersion).toBe("^19.0.0");
   });
 
+  it("falls back to a deeply nested React subproject when the requested directory has no root package.json", async () => {
+    const wrapperDir = path.join(tempRoot, "diagnose-no-root-package-deep");
+    fs.mkdirSync(wrapperDir, { recursive: true });
+    setupReactProject(wrapperDir, "apps/web");
+
+    const result = await diagnose(wrapperDir, { lint: false, deadCode: false });
+    expect(result.project.rootDirectory).toBe(path.join(wrapperDir, "apps", "web"));
+    expect(result.project.reactVersion).toBe("^19.0.0");
+  });
+
   it("throws a clear error when the directory has no root package.json and no nested React project", async () => {
     const emptyDir = path.join(tempRoot, "diagnose-no-react-anywhere");
     fs.mkdirSync(emptyDir, { recursive: true });

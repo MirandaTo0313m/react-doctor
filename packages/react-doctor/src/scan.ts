@@ -621,6 +621,13 @@ const printProjectDetection = (
   completeStep(
     `Detecting React version. Found ${highlighter.info(`React ${projectInfo.reactVersion}`)}.`,
   );
+  completeStep(
+    `Detecting Tailwind. ${
+      projectInfo.tailwindVersion
+        ? `Found ${highlighter.info(`Tailwind ${projectInfo.tailwindVersion}`)}.`
+        : "Not found."
+    }`,
+  );
   completeStep(`Detecting language. Found ${highlighter.info(languageLabel)}.`);
   completeStep(
     `Detecting React Compiler. ${projectInfo.hasReactCompiler ? highlighter.info("Found React Compiler.") : "Not found."}`,
@@ -732,6 +739,7 @@ const runScan = async (
             hasTanStackQuery: projectInfo.hasTanStackQuery,
             reactMajorVersion: parseReactMajor(projectInfo.reactVersion),
             isLibraryTargetingLegacyReact: projectInfo.isLibraryTargetingLegacyReact,
+            tailwindVersion: projectInfo.tailwindVersion,
             includePaths: lintIncludePaths,
             nodeBinaryPath: resolvedNodeBinaryPath,
             customRulesOnly: options.customRulesOnly,
