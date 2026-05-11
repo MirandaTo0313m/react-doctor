@@ -24,6 +24,7 @@ import { runOxlint } from "../../src/utils/run-oxlint.js";
 import { createNodeReadFileLinesSync } from "../../src/utils/read-file-lines-node.js";
 import {
   buildDiagnostic,
+  buildTestProject,
   initGitRepo,
   setupReactProject,
   writeFile,
@@ -181,11 +182,10 @@ describe("issue #183: rawTextWrapperComponents suppresses string-only wrapper ch
 
     const rawDiagnostics = await runOxlint({
       rootDirectory: projectDir,
-      hasTypeScript: true,
-      framework: "react-native",
-      hasReactCompiler: false,
-      hasTanStackQuery: false,
-      reactMajorVersion: 19,
+      project: buildTestProject({
+        rootDirectory: projectDir,
+        framework: "react-native",
+      }),
     });
     const rnRawTextDiagnostics = rawDiagnostics.filter(
       (diagnostic) => diagnostic.rule === "rn-no-raw-text",

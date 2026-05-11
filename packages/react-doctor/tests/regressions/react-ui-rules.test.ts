@@ -109,20 +109,23 @@ describe("design-no-redundant-size-axes", () => {
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "design-no-redundant-size-axes");
+    const hits = await collectRuleHits(projectDir, "design-no-redundant-size-axes", {
+      tailwindVersion: "^3.4.0",
+    });
     expect(hits).toHaveLength(1);
     expect(hits[0].message).toContain("size-10");
   });
 
   it("reports every matching pair when the same axis appears multiple times", async () => {
-    // Same regression as the padding-axes case — exercise w-/h- variant.
     const projectDir = setupReactProject(tempRoot, "no-size-axes-multi", {
       files: {
         "src/Pair.tsx": `export const Pair = () => <div className="w-8 w-10 h-8 h-10" />;\n`,
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "design-no-redundant-size-axes");
+    const hits = await collectRuleHits(projectDir, "design-no-redundant-size-axes", {
+      tailwindVersion: "^3.4.0",
+    });
     expect(hits).toHaveLength(2);
     expect(hits.some((hit) => hit.message.includes("size-8"))).toBe(true);
     expect(hits.some((hit) => hit.message.includes("size-10"))).toBe(true);
@@ -135,7 +138,9 @@ describe("design-no-redundant-size-axes", () => {
       },
     });
 
-    const hits = await collectRuleHits(projectDir, "design-no-redundant-size-axes");
+    const hits = await collectRuleHits(projectDir, "design-no-redundant-size-axes", {
+      tailwindVersion: "^3.4.0",
+    });
     expect(hits).toHaveLength(0);
   });
 });

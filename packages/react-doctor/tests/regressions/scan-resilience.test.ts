@@ -42,7 +42,13 @@ import { discoverProject } from "../../src/utils/discover-project.js";
 import { extractFailedPluginName } from "../../src/utils/extract-failed-plugin-name.js";
 import { getStagedSourceFiles, materializeStagedFiles } from "../../src/utils/get-staged-files.js";
 import { sanitizeKnipConfigPatterns } from "../../src/utils/sanitize-knip-config-patterns.js";
-import { buildDiagnostic, initGitRepo, writeFile, writeJson } from "./_helpers.js";
+import {
+  buildDiagnostic,
+  buildTestProject,
+  initGitRepo,
+  writeFile,
+  writeJson,
+} from "./_helpers.js";
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "rd-scan-resilience-"));
 
@@ -292,7 +298,7 @@ describe("issue #141: oxlint config must not reference unloaded plugins", () => 
     for (const combination of allCombinations) {
       const config = createOxlintConfig({
         pluginPath: "/tmp/react-doctor-plugin.js",
-        ...combination,
+        project: buildTestProject({ rootDirectory: "/tmp/test", ...combination }),
       });
       const referencedPluginNames = collectReferencedPluginNames(config.rules);
       const loadedPluginNames = collectLoadedPluginNames(config);
@@ -309,9 +315,7 @@ describe("issue #141: oxlint config must not reference unloaded plugins", () => 
     // appear AND `react-hooks-js` must be in jsPlugins by name.
     const config = createOxlintConfig({
       pluginPath: "/tmp/react-doctor-plugin.js",
-      framework: "unknown",
-      hasReactCompiler: true,
-      hasTanStackQuery: false,
+      project: buildTestProject({ rootDirectory: "/tmp/test", hasReactCompiler: true }),
     });
 
     const reactHooksJsRuleKeys = Object.keys(config.rules).filter((ruleKey) =>
@@ -332,9 +336,7 @@ describe("issue #141: oxlint config must not reference unloaded plugins", () => 
     // works without uninstalling a workspace dependency.
     const config = createOxlintConfig({
       pluginPath: "/tmp/react-doctor-plugin.js",
-      framework: "unknown",
-      hasReactCompiler: true,
-      hasTanStackQuery: false,
+      project: buildTestProject({ rootDirectory: "/tmp/test", hasReactCompiler: true }),
       customRulesOnly: true,
     });
 
@@ -359,9 +361,7 @@ describe("issue #141: oxlint config must not reference unloaded plugins", () => 
     // shape — surfacing as warnings hid real perf regressions.
     const config = createOxlintConfig({
       pluginPath: "/tmp/react-doctor-plugin.js",
-      framework: "unknown",
-      hasReactCompiler: true,
-      hasTanStackQuery: false,
+      project: buildTestProject({ rootDirectory: "/tmp/test", hasReactCompiler: true }),
     });
 
     const compilerSeverities = Object.entries(config.rules)
@@ -382,9 +382,7 @@ describe("issue #141: oxlint config must not reference unloaded plugins", () => 
     // 'react-hooks-js'".
     const config = createOxlintConfig({
       pluginPath: "/tmp/react-doctor-plugin.js",
-      framework: "unknown",
-      hasReactCompiler: true,
-      hasTanStackQuery: false,
+      project: buildTestProject({ rootDirectory: "/tmp/test", hasReactCompiler: true }),
     });
     const pluginModule = await import("eslint-plugin-react-hooks");
     const availableRuleNames = new Set(
@@ -402,9 +400,7 @@ describe("issue #141: oxlint config must not reference unloaded plugins", () => 
   it("loads eslint-plugin-react-you-might-not-need-an-effect when installed (#187)", () => {
     const config = createOxlintConfig({
       pluginPath: "/tmp/react-doctor-plugin.js",
-      framework: "unknown",
-      hasReactCompiler: false,
-      hasTanStackQuery: false,
+      project: buildTestProject({ rootDirectory: "/tmp/test" }),
     });
 
     const effectRuleKeys = Object.keys(config.rules).filter((ruleKey) =>
@@ -422,9 +418,7 @@ describe("issue #141: oxlint config must not reference unloaded plugins", () => 
   it("emits no effect/* rules when customRulesOnly skips third-party plugins (#187)", () => {
     const config = createOxlintConfig({
       pluginPath: "/tmp/react-doctor-plugin.js",
-      framework: "unknown",
-      hasReactCompiler: false,
-      hasTanStackQuery: false,
+      project: buildTestProject({ rootDirectory: "/tmp/test" }),
       customRulesOnly: true,
     });
 
@@ -442,9 +436,7 @@ describe("issue #141: oxlint config must not reference unloaded plugins", () => 
   it("only enables effect/* rules that the resolved plugin actually exports (#187)", async () => {
     const config = createOxlintConfig({
       pluginPath: "/tmp/react-doctor-plugin.js",
-      framework: "unknown",
-      hasReactCompiler: false,
-      hasTanStackQuery: false,
+      project: buildTestProject({ rootDirectory: "/tmp/test" }),
     });
     const pluginModule = await import("eslint-plugin-react-you-might-not-need-an-effect");
     const availableRuleNames = new Set(

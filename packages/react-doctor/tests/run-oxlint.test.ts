@@ -2,6 +2,7 @@ import path from "node:path";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
 import type { Diagnostic } from "../src/types.js";
 import { runOxlint } from "../src/utils/run-oxlint.js";
+import { buildTestProject } from "./regressions/_helpers.js";
 
 const FIXTURES_DIRECTORY = path.resolve(import.meta.dirname, "fixtures");
 const BASIC_REACT_DIRECTORY = path.join(FIXTURES_DIRECTORY, "basic-react");
@@ -48,27 +49,24 @@ describe("runOxlint", () => {
   beforeAll(async () => {
     basicReactDiagnostics = await runOxlint({
       rootDirectory: BASIC_REACT_DIRECTORY,
-      hasTypeScript: true,
-      framework: "unknown",
-      hasReactCompiler: false,
-      hasTanStackQuery: true,
-      reactMajorVersion: 19,
+      project: buildTestProject({
+        rootDirectory: BASIC_REACT_DIRECTORY,
+        hasTanStackQuery: true,
+      }),
     });
     nextjsDiagnostics = await runOxlint({
       rootDirectory: NEXTJS_APP_DIRECTORY,
-      hasTypeScript: true,
-      framework: "nextjs",
-      hasReactCompiler: false,
-      hasTanStackQuery: false,
-      reactMajorVersion: 19,
+      project: buildTestProject({
+        rootDirectory: NEXTJS_APP_DIRECTORY,
+        framework: "nextjs",
+      }),
     });
     tanstackStartDiagnostics = await runOxlint({
       rootDirectory: TANSTACK_START_APP_DIRECTORY,
-      hasTypeScript: true,
-      framework: "tanstack-start",
-      hasReactCompiler: false,
-      hasTanStackQuery: false,
-      reactMajorVersion: 19,
+      project: buildTestProject({
+        rootDirectory: TANSTACK_START_APP_DIRECTORY,
+        framework: "tanstack-start",
+      }),
     });
   });
 
@@ -223,10 +221,10 @@ describe("runOxlint", () => {
     it("does not recommend next/navigation for pages-router redirects", async () => {
       const pagesRouterDiagnostics = await runOxlint({
         rootDirectory: NEXTJS_APP_DIRECTORY,
-        hasTypeScript: true,
-        framework: "nextjs",
-        hasReactCompiler: false,
-        hasTanStackQuery: false,
+        project: buildTestProject({
+          rootDirectory: NEXTJS_APP_DIRECTORY,
+          framework: "nextjs",
+        }),
         includePaths: [path.join(NEXTJS_APP_DIRECTORY, "src/pages/_app.tsx")],
       });
       const redirectIssue = pagesRouterDiagnostics.find(
@@ -872,10 +870,10 @@ describe("runOxlint", () => {
   describe("customRulesOnly mode", () => {
     const buildCustomOnlyOptions = () => ({
       rootDirectory: BASIC_REACT_DIRECTORY,
-      hasTypeScript: true,
-      framework: "unknown" as const,
-      hasReactCompiler: false,
-      hasTanStackQuery: true,
+      project: buildTestProject({
+        rootDirectory: BASIC_REACT_DIRECTORY,
+        hasTanStackQuery: true,
+      }),
       customRulesOnly: true,
     });
 
@@ -901,10 +899,9 @@ describe("runOxlint", () => {
   describe("adoptExistingLintConfig", () => {
     const buildAdoptionOptions = (overrides: Partial<Parameters<typeof runOxlint>[0]> = {}) => ({
       rootDirectory: USER_OXLINT_CONFIG_DIRECTORY,
-      hasTypeScript: true,
-      framework: "unknown" as const,
-      hasReactCompiler: false,
-      hasTanStackQuery: false,
+      project: buildTestProject({
+        rootDirectory: USER_OXLINT_CONFIG_DIRECTORY,
+      }),
       ...overrides,
     });
 
@@ -962,10 +959,10 @@ describe("runOxlint", () => {
       try {
         await runOxlint({
           rootDirectory: USER_OXLINT_CONFIG_BROKEN_DIRECTORY,
-          hasTypeScript: false,
-          framework: "unknown" as const,
-          hasReactCompiler: false,
-          hasTanStackQuery: false,
+          project: buildTestProject({
+            rootDirectory: USER_OXLINT_CONFIG_BROKEN_DIRECTORY,
+            hasTypeScript: false,
+          }),
         });
         didResolve = true;
       } finally {

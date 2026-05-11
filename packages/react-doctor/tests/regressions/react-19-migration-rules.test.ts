@@ -419,7 +419,7 @@ Button.defaultProps = { size: "md" };
     expect(hits).toHaveLength(0);
   });
 
-  it("DOES flag react-dom render on React 17 projects (deprecation-warning, fail open)", async () => {
+  it("does NOT flag react-dom render on React 17 projects (deprecated since 18, not 17)", async () => {
     const projectDir = setupReactProject(tempRoot, "gating-r17-render", {
       reactVersion: "^17.0.2",
       files: {
@@ -433,7 +433,7 @@ void render;
     const hits = await collectRuleHits(projectDir, "no-react-dom-deprecated-apis", {
       reactMajorVersion: 17,
     });
-    expect(hits.length).toBeGreaterThanOrEqual(1);
+    expect(hits).toHaveLength(0);
   });
 
   it("DOES flag react-dom render on React 18 projects (deprecated since 18)", async () => {

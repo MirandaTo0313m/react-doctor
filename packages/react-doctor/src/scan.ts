@@ -56,7 +56,6 @@ import {
 } from "./utils/resolve-compatible-node.js";
 import { resolveLintIncludePaths } from "./utils/resolve-lint-include-paths.js";
 import { runKnip } from "./utils/run-knip.js";
-import { parseReactMajor } from "./utils/parse-react-major.js";
 import { runOxlint } from "./utils/run-oxlint.js";
 import { isSpinnerSilent, setSpinnerSilent, spinner } from "./utils/spinner.js";
 
@@ -589,8 +588,16 @@ interface ResolvedScanOptions {
   share: boolean;
   respectInlineDisables: boolean;
   adoptExistingLintConfig: boolean;
-  designRules: boolean;
+  ignoredTags: ReadonlySet<string>;
 }
+
+const buildIgnoredTags = (userConfig: ReactDoctorConfig | null): ReadonlySet<string> => {
+  const tags = new Set<string>();
+  if (userConfig?.ignore?.tags) {
+    for (const tag of userConfig.ignore.tags) tags.add(tag);
+  }
+  return tags;
+};
 
 const mergeScanOptions = (
   inputOptions: ScanOptions,
@@ -608,7 +615,7 @@ const mergeScanOptions = (
   respectInlineDisables:
     inputOptions.respectInlineDisables ?? userConfig?.respectInlineDisables ?? true,
   adoptExistingLintConfig: userConfig?.adoptExistingLintConfig ?? true,
-  designRules: userConfig?.designRules ?? true,
+  ignoredTags: buildIgnoredTags(userConfig),
 });
 
 const printProjectDetection = (
@@ -729,17 +736,13 @@ const runScan = async (
         try {
           const lintDiagnostics = await runOxlint({
             rootDirectory: directory,
-            hasTypeScript: projectInfo.hasTypeScript,
-            framework: projectInfo.framework,
-            hasReactCompiler: projectInfo.hasReactCompiler,
-            hasTanStackQuery: projectInfo.hasTanStackQuery,
-            reactMajorVersion: parseReactMajor(projectInfo.reactVersion),
+            project: projectInfo,
             includePaths: lintIncludePaths,
             nodeBinaryPath: resolvedNodeBinaryPath,
             customRulesOnly: options.customRulesOnly,
             respectInlineDisables: options.respectInlineDisables,
             adoptExistingLintConfig: options.adoptExistingLintConfig,
-            designRules: options.designRules,
+            ignoredTags: options.ignoredTags,
           });
           lintSpinner?.succeed("Running lint checks.");
           return lintDiagnostics;

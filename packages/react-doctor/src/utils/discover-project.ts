@@ -17,6 +17,8 @@ import type {
 import { findMonorepoRoot, isMonorepoRoot } from "./find-monorepo-root.js";
 import { isFile } from "./is-file.js";
 import { isPlainObject } from "./is-plain-object.js";
+import { parseReactMajor } from "./parse-react-major.js";
+import { peerRangeSupportsLegacyReact } from "./parse-react-peer-range.js";
 import { readPackageJson } from "./read-package-json.js";
 
 const REACT_COMPILER_PACKAGES = new Set([
@@ -750,10 +752,19 @@ export const discoverProject = (directory: string): ProjectInfo => {
     TANSTACK_QUERY_PACKAGES.has(packageName),
   );
 
+  const installedReactMajor = parseReactMajor(reactVersion);
+  const peerReactRange = packageJson.peerDependencies?.react ?? null;
+  const effectiveReactMajor =
+    peerReactRange && peerRangeSupportsLegacyReact(peerReactRange) ? null : installedReactMajor;
+
+  const tailwindVersion = allDependencies.tailwindcss ?? null;
+
   const projectInfo: ProjectInfo = {
     rootDirectory: directory,
     projectName,
     reactVersion,
+    reactMajorVersion: effectiveReactMajor,
+    tailwindVersion,
     framework,
     hasTypeScript,
     hasReactCompiler,

@@ -15,6 +15,8 @@ export interface ProjectInfo {
   rootDirectory: string;
   projectName: string;
   reactVersion: string | null;
+  reactMajorVersion: number | null;
+  tailwindVersion: string | null;
   framework: Framework;
   hasTypeScript: boolean;
   hasReactCompiler: boolean;
@@ -199,6 +201,7 @@ interface ReactDoctorIgnoreConfig {
   rules?: string[];
   files?: string[];
   overrides?: ReactDoctorIgnoreOverride[];
+  tags?: string[];
 }
 
 export interface ReactDoctorConfig {
@@ -287,7 +290,6 @@ export interface ReactDoctorConfig {
    * Set to `false` to scan only react-doctor's curated rule set.
    */
   adoptExistingLintConfig?: boolean;
-  designRules?: boolean;
   entryFiles?: string[];
 }
 

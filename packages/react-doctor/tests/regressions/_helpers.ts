@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { runOxlint } from "../../src/utils/run-oxlint.js";
-import type { Diagnostic } from "../../src/types.js";
+import type { Diagnostic, ProjectInfo } from "../../src/types.js";
 
 export const writeFile = (filePath: string, contents: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -91,7 +91,34 @@ export interface CollectRuleHitsOptions {
   framework?: "unknown" | "react-native";
   hasReactCompiler?: boolean;
   hasTanStackQuery?: boolean;
+  tailwindVersion?: string | null;
 }
+
+export interface BuildTestProjectOptions {
+  rootDirectory: string;
+  framework?: ProjectInfo["framework"];
+  hasReactCompiler?: boolean;
+  hasTanStackQuery?: boolean;
+  reactMajorVersion?: number | null;
+  hasTypeScript?: boolean;
+  tailwindVersion?: string | null;
+}
+
+export const buildTestProject = (options: BuildTestProjectOptions): ProjectInfo => {
+  const reactMajorVersion = options.reactMajorVersion ?? 19;
+  return {
+    rootDirectory: options.rootDirectory,
+    projectName: path.basename(options.rootDirectory),
+    reactVersion: reactMajorVersion !== null ? `^${reactMajorVersion}.0.0` : null,
+    reactMajorVersion,
+    tailwindVersion: options.tailwindVersion ?? null,
+    framework: options.framework ?? "unknown",
+    hasTypeScript: options.hasTypeScript ?? true,
+    hasReactCompiler: options.hasReactCompiler ?? false,
+    hasTanStackQuery: options.hasTanStackQuery ?? false,
+    sourceFileCount: 0,
+  };
+};
 
 export interface RuleHit {
   filePath: string;
@@ -114,15 +141,23 @@ export const collectRuleHits = async (
   options: CollectRuleHitsOptions = {},
 ): Promise<RuleHit[]> => {
   const reactMajorVersion = Object.hasOwn(options, "reactMajorVersion")
-    ? options.reactMajorVersion
+    ? (options.reactMajorVersion ?? null)
     : 19;
-  const diagnostics = await runOxlint({
+  const project: ProjectInfo = {
     rootDirectory: projectDir,
-    hasTypeScript: true,
+    projectName: path.basename(projectDir),
+    reactVersion: reactMajorVersion !== null ? `^${reactMajorVersion}.0.0` : null,
+    reactMajorVersion,
+    tailwindVersion: options.tailwindVersion ?? null,
     framework: options.framework ?? "unknown",
+    hasTypeScript: true,
     hasReactCompiler: options.hasReactCompiler ?? false,
     hasTanStackQuery: options.hasTanStackQuery ?? false,
-    reactMajorVersion,
+    sourceFileCount: 0,
+  };
+  const diagnostics = await runOxlint({
+    rootDirectory: projectDir,
+    project,
   });
   return diagnostics
     .filter((diagnostic) => diagnostic.rule === ruleId)
