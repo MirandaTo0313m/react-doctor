@@ -1,57 +1,70 @@
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import {
   BACKGROUND_COLOR,
-  BOX_BOTTOM,
-  BOX_TOP,
   DIAGNOSTICS,
+  ERROR_BADGE_BACKGROUND_COLOR,
+  ERROR_BADGE_TEXT_COLOR,
+  ERROR_ROW_BACKGROUND_COLOR,
+  FILE_ROW_GAP_PX,
+  FILE_ROW_HORIZONTAL_PADDING_PX,
+  FILE_ROW_VERTICAL_PADDING_PX,
+  FILE_SCAN_FONT_SIZE_PX,
+  FILE_SCAN_INITIAL_DELAY_FRAMES,
+  FRAMES_PER_FILE,
   GREEN_COLOR,
   MUTED_COLOR,
   PERFECT_SCORE,
   RED_COLOR,
+  SCANNED_ISSUES,
+  SCENE_FILE_SCAN_DURATION_FRAMES,
   SCORE_ANIMATION_FRAMES,
   SCORE_BAR_WIDTH,
+  SEVERITY_BADGE_RADIUS_PX,
+  SEVERITY_BADGE_SIZE_PX,
   TARGET_SCORE,
   TEXT_COLOR,
+  WARNING_BADGE_BACKGROUND_COLOR,
 } from "../constants";
+import { DoctorFace } from "../components/doctor-face";
 import { fontFamily } from "../utils/font";
-import { getDoctorFace, getScoreColor, getScoreLabel } from "../utils/score-display";
+import { getDoctorMood, getScoreColor, getScoreLabel } from "../utils/score-display";
 
 const HERO_FACE_FONT_SIZE_PX = 80;
-const HERO_NUMBER_FONT_SIZE_PX = 96;
+const HERO_NUMBER_FONT_SIZE_PX = 140;
 const HERO_LABEL_FONT_SIZE_PX = 56;
 const HERO_BAR_FONT_SIZE_PX = 48;
 const HERO_GAP_PX = 48;
 const HERO_TOP_PX = 348;
-const HERO_LEFT_PX = 300;
+const HERO_LEFT_PX = 350;
 
-const BADGE_FACE_FONT_SIZE_PX = 36;
-const BADGE_NUMBER_FONT_SIZE_PX = 40;
-const BADGE_LABEL_FONT_SIZE_PX = 28;
-const BADGE_BAR_FONT_SIZE_PX = 24;
-const BADGE_GAP_PX = 28;
-const BADGE_TOP_PX = 60;
-const BADGE_LEFT_PX = 1170;
+const BADGE_FACE_FONT_SIZE_PX = 0;
+const BADGE_NUMBER_FONT_SIZE_PX = 64;
+const BADGE_LABEL_FONT_SIZE_PX = 40;
+const BADGE_BAR_FONT_SIZE_PX = 32;
+const BADGE_GAP_PX = 16;
+const BADGE_TOP_PX = 840;
+const BADGE_LEFT_PX = 80;
 
-const SCORE_FADE_IN_FRAMES = 10;
-const HERO_HOLD_END_FRAME = 50;
-const TRANSITION_END_FRAME = 88;
+const SCORE_FADE_IN_FRAMES = 8;
+const HERO_HOLD_END_FRAME = 40;
+const TRANSITION_END_FRAME = 70;
 
-const HEADER_FADE_START_FRAME = 70;
-const HEADER_FADE_FRAMES = 14;
+const HEADER_FADE_START_FRAME = 55;
+const HEADER_FADE_FRAMES = 12;
 const HEADER_SLIDE_DOWN_PX = 30;
 
-const PROMPT_FADE_START_FRAME = 86;
-const PROMPT_FADE_FRAMES = 10;
+const PROMPT_FADE_START_FRAME = 55;
+const PROMPT_FADE_FRAMES = 12;
 
-const ITEMS_START_FRAME = 96;
+const ITEMS_START_FRAME = 78;
 const ITEM_STAGGER_FRAMES = 4;
-const ITEM_FADE_FRAMES = 6;
+const ITEM_FADE_FRAMES = 5;
 
-const SPINNER_APPEAR_FRAME = 124;
-const FIX_START_FRAME = 130;
-const FIX_INTERVAL_FRAMES = 6;
-const FIX_FADE_FRAMES = 8;
-const ALL_FIXED_FADE_FRAMES = 10;
+const SPINNER_APPEAR_FRAME = 75;
+const FIX_START_FRAME = 106;
+const FIX_INTERVAL_FRAMES = 1;
+const FIX_FADE_FRAMES = 3;
+const ALL_FIXED_FADE_FRAMES = 8;
 
 const SCENE_HORIZONTAL_PADDING_PX = 80;
 const SCENE_TOP_PADDING_PX = 60;
@@ -61,7 +74,8 @@ const ITEMS_TOP_PX = 460;
 
 const LOGO_FONT_SIZE_PX = 40;
 const PROMPT_FONT_SIZE_PX = 44;
-const DIAGNOSTIC_FONT_SIZE_PX = 36;
+const DIAGNOSTIC_FONT_SIZE_PX = 32;
+const DIAGNOSTIC_ROW_HEIGHT_PX = DIAGNOSTIC_FONT_SIZE_PX * 1.7;
 const STATUS_FONT_SIZE_PX = 36;
 
 const CLAUDE_LOGO_ART = ` ▐▛███▜▌`;
@@ -71,7 +85,24 @@ const CLAUDE_LOGO_COLOR = "#d77757";
 
 const SPINNER_CHARS = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const SPINNER_SPEED = 3;
-const SPINNER_COLOR = "#c084fc";
+const SPINNER_COLOR = "#d77757";
+
+const BACKGROUND_LINE_HEIGHT = 1.6;
+const BACKGROUND_ROW_HEIGHT_PX =
+  FILE_SCAN_FONT_SIZE_PX * BACKGROUND_LINE_HEIGHT + FILE_ROW_VERTICAL_PADDING_PX * 2;
+const BACKGROUND_TOTAL_HEIGHT_PX = SCANNED_ISSUES.length * BACKGROUND_ROW_HEIGHT_PX;
+const BACKGROUND_OPACITY = 0.07;
+const SCROLL_PX_PER_FRAME = (BACKGROUND_TOTAL_HEIGHT_PX * 0.15) / 40;
+
+const VIEWPORT_HEIGHT_PX = 1080;
+const CONTENT_PADDING_PX = 40;
+const USABLE_HEIGHT_PX = VIEWPORT_HEIGHT_PX - CONTENT_PADDING_PX * 2;
+const VISIBLE_ROW_COUNT = Math.floor(USABLE_HEIGHT_PX / BACKGROUND_ROW_HEIGHT_PX);
+const FILE_SCAN_MAX_SCROLL_PX = Math.max(0, BACKGROUND_TOTAL_HEIGHT_PX - USABLE_HEIGHT_PX);
+const FILE_SCAN_SCROLL_START = FILE_SCAN_INITIAL_DELAY_FRAMES + VISIBLE_ROW_COUNT * FRAMES_PER_FILE;
+const FILE_SCAN_SCROLL_END = FILE_SCAN_INITIAL_DELAY_FRAMES + SCANNED_ISSUES.length * FRAMES_PER_FILE;
+const FILE_SCAN_END_PROGRESS = Math.min(1, (SCENE_FILE_SCAN_DURATION_FRAMES - FILE_SCAN_SCROLL_START) / (FILE_SCAN_SCROLL_END - FILE_SCAN_SCROLL_START));
+const BACKGROUND_SCROLL_OFFSET_PX = FILE_SCAN_MAX_SCROLL_PX * Easing.inOut(Easing.quad)(Math.max(0, FILE_SCAN_END_PROGRESS));
 
 const lerpSize = (heroSize: number, smallSize: number, progress: number) =>
   heroSize + (smallSize - heroSize) * progress;
@@ -186,7 +217,7 @@ export const DiagnoseAndFix = () => {
       Math.round((PERFECT_SCORE - TARGET_SCORE) * (fixedDiagnosticCount / DIAGNOSTICS.length));
   }
   const scoreColor = getScoreColor(displayScore);
-  const [doctorEyes, doctorMouth] = getDoctorFace(displayScore);
+  const doctorMood = getDoctorMood(displayScore);
   const filledBarCount = Math.round((displayScore / PERFECT_SCORE) * SCORE_BAR_WIDTH);
   const emptyBarCount = SCORE_BAR_WIDTH - filledBarCount;
 
@@ -195,13 +226,92 @@ export const DiagnoseAndFix = () => {
       <div
         style={{
           position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          overflow: "hidden",
+          opacity: BACKGROUND_OPACITY * interpolate(frame, [HERO_HOLD_END_FRAME, TRANSITION_END_FRAME], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+          padding: "40px 60px",
+        }}
+      >
+        <div
+          style={{
+            transform: `translateY(-${BACKGROUND_SCROLL_OFFSET_PX + frame * SCROLL_PX_PER_FRAME}px)`,
+          }}
+        >
+          {[...SCANNED_ISSUES, ...SCANNED_ISSUES, ...SCANNED_ISSUES].map((issue, repeatIndex) => {
+            const isError = issue.severity === "error";
+            const isWarning = issue.severity === "warning";
+            const isOk = issue.severity === "ok";
+            return (
+              <div
+                key={`${issue.message}-${repeatIndex}`}
+                style={{
+                  fontFamily,
+                  fontSize: FILE_SCAN_FONT_SIZE_PX,
+                  lineHeight: BACKGROUND_LINE_HEIGHT,
+                  color: isOk ? MUTED_COLOR : TEXT_COLOR,
+                  whiteSpace: "nowrap",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: FILE_ROW_GAP_PX,
+                  padding: `${FILE_ROW_VERTICAL_PADDING_PX}px ${FILE_ROW_HORIZONTAL_PADDING_PX}px`,
+                  backgroundColor: isError ? ERROR_ROW_BACKGROUND_COLOR : "transparent",
+                  borderRadius: 6,
+                }}
+              >
+                <span
+                  style={{
+                    width: SEVERITY_BADGE_SIZE_PX,
+                    height: SEVERITY_BADGE_SIZE_PX,
+                    flexShrink: 0,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: SEVERITY_BADGE_RADIUS_PX,
+                    backgroundColor: isError
+                      ? ERROR_BADGE_BACKGROUND_COLOR
+                      : isWarning
+                        ? WARNING_BADGE_BACKGROUND_COLOR
+                        : "transparent",
+                    color: isOk ? GREEN_COLOR : ERROR_BADGE_TEXT_COLOR,
+                    fontSize: FILE_SCAN_FONT_SIZE_PX * 0.7,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                  }}
+                >
+                  {isOk ? "✓" : "!"}
+                </span>
+
+                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {issue.message}
+                </span>
+
+                <span
+                  style={{
+                    color: MUTED_COLOR,
+                    flexShrink: 0,
+                    fontSize: FILE_SCAN_FONT_SIZE_PX * 0.75,
+                  }}
+                >
+                  {issue.file}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
           top: SCENE_TOP_PADDING_PX,
           left: SCENE_HORIZONTAL_PADDING_PX,
           fontFamily,
           fontSize: LOGO_FONT_SIZE_PX,
           lineHeight: 1.4,
-          opacity: headerOpacity,
-          transform: `translateY(${headerTranslateY}px)`,
+          opacity: headerOpacity * interpolate(frame, [ITEMS_START_FRAME - 10, ITEMS_START_FRAME], [1, 0.5], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
           whiteSpace: "pre",
         }}
       >
@@ -230,11 +340,12 @@ export const DiagnoseAndFix = () => {
           color: TEXT_COLOR,
           opacity: promptOpacity,
           borderTop: "1px solid rgba(255,255,255,0.15)",
+          borderBottom: "1px solid rgba(255,255,255,0.15)",
           padding: "8px 0",
         }}
       >
         <span style={{ color: MUTED_COLOR }}>❯ </span>
-        <span style={{ color: "white" }}>Fix these react-doctor issues</span>
+        <span style={{ color: "white" }}>fix my React code</span>
       </div>
 
       <div
@@ -249,7 +360,7 @@ export const DiagnoseAndFix = () => {
         {isSpinnerVisible && (
           <>
             <span style={{ color: SPINNER_COLOR }}>{spinnerChar}</span>
-            <span style={{ color: MUTED_COLOR }}>{" Fixing issues..."}</span>
+            <span style={{ color: SPINNER_COLOR }}>{" Fixing issues..."}</span>
           </>
         )}
         {allFixed && (
@@ -263,54 +374,106 @@ export const DiagnoseAndFix = () => {
           top: ITEMS_TOP_PX,
           left: SCENE_HORIZONTAL_PADDING_PX,
           right: SCENE_HORIZONTAL_PADDING_PX,
+          height: 350,
+          overflow: "hidden",
+          zIndex: 10,
+          opacity: interpolate(frame, [ITEMS_START_FRAME, ITEMS_START_FRAME + 10], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
         }}
       >
-        {DIAGNOSTICS.map((diagnostic, diagnosticIndex) => {
-          const itemAppearStart = ITEMS_START_FRAME + diagnosticIndex * ITEM_STAGGER_FRAMES;
-          const itemOpacity = interpolate(
-            frame - itemAppearStart,
-            [0, ITEM_FADE_FRAMES],
-            [0, 1],
-            {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-              easing: Easing.out(Easing.cubic),
-            },
-          );
-          const itemFixFrame = FIX_START_FRAME + diagnosticIndex * FIX_INTERVAL_FRAMES;
-          const itemFixProgress = interpolate(
-            frame - itemFixFrame,
-            [0, FIX_FADE_FRAMES],
-            [0, 1],
-            {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-              easing: Easing.out(Easing.cubic),
-            },
-          );
-          const isItemFixed = isFixing && diagnosticIndex < fixedDiagnosticCount;
-          const showAsFixed = isItemFixed && itemFixProgress > 0.3;
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 60,
+            background: `linear-gradient(to bottom, ${BACKGROUND_COLOR} 0%, transparent 100%)`,
+            zIndex: 2,
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 60,
+            background: `linear-gradient(to top, ${BACKGROUND_COLOR} 0%, transparent 100%)`,
+            zIndex: 2,
+            pointerEvents: "none",
+          }}
+        />
+        <div
+          style={{
+            transform: `translateY(-${interpolate(frame, [ITEMS_START_FRAME, FIX_START_FRAME + DIAGNOSTICS.length * FIX_INTERVAL_FRAMES], [0, Math.max(0, DIAGNOSTICS.length * DIAGNOSTIC_ROW_HEIGHT_PX - 350)], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}px)`,
+            padding: "12px 0",
+          }}
+        >
+          {DIAGNOSTICS.map((diagnostic, diagnosticIndex) => {
+            const itemFixFrame = FIX_START_FRAME + diagnosticIndex * FIX_INTERVAL_FRAMES;
+            const itemFixProgress = interpolate(
+              frame - itemFixFrame,
+              [0, FIX_FADE_FRAMES],
+              [0, 1],
+              {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+                easing: Easing.out(Easing.cubic),
+              },
+            );
+            const isItemFixed = isFixing && diagnosticIndex < fixedDiagnosticCount;
+            const showAsFixed = isItemFixed && itemFixProgress > 0.3;
 
-          return (
-            <div
-              key={diagnostic.message}
-              style={{
-                fontFamily,
-                fontSize: DIAGNOSTIC_FONT_SIZE_PX,
-                lineHeight: 1.7,
-                color: showAsFixed ? MUTED_COLOR : TEXT_COLOR,
-                textDecoration: showAsFixed ? "line-through" : "none",
-                opacity: itemOpacity,
-              }}
-            >
-              <span style={{ color: showAsFixed ? GREEN_COLOR : RED_COLOR }}>
-                {showAsFixed ? " ✓" : " ✗"}
-              </span>
-              {` ${diagnostic.message} `}
-              <span style={{ color: MUTED_COLOR }}>({diagnostic.count})</span>
-            </div>
+            const isError = diagnostic.severity === "error";
+            const isWarning = diagnostic.severity === "warning";
+
+            return (
+              <div
+                key={diagnostic.message}
+                style={{
+                  fontFamily,
+                  fontSize: DIAGNOSTIC_FONT_SIZE_PX,
+                  lineHeight: 1.7,
+                  color: showAsFixed ? MUTED_COLOR : TEXT_COLOR,
+                  textDecoration: showAsFixed ? "line-through" : "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <span
+                  style={{
+                    width: 32,
+                    height: 32,
+                    flexShrink: 0,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: SEVERITY_BADGE_RADIUS_PX,
+                    backgroundColor: showAsFixed
+                      ? "transparent"
+                      : isError
+                        ? ERROR_BADGE_BACKGROUND_COLOR
+                        : isWarning
+                          ? WARNING_BADGE_BACKGROUND_COLOR
+                          : "transparent",
+                    color: showAsFixed ? GREEN_COLOR : ERROR_BADGE_TEXT_COLOR,
+                    fontSize: DIAGNOSTIC_FONT_SIZE_PX * 0.7,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                  }}
+                >
+                  {showAsFixed ? "✓" : "!"}
+                </span>
+                <span style={{ flex: 1 }}>{diagnostic.message}</span>
+                <span style={{ color: MUTED_COLOR, flexShrink: 0, fontSize: DIAGNOSTIC_FONT_SIZE_PX * 0.8 }}>
+                  {diagnostic.file}
+                </span>
+              </div>
           );
         })}
+        </div>
       </div>
 
       <div
@@ -322,19 +485,22 @@ export const DiagnoseAndFix = () => {
           gap: scoreGap,
           alignItems: "flex-start",
           opacity: scoreBlockOpacity,
+          zIndex: 5,
         }}
       >
-        <pre
+        <div
           style={{
-            color: scoreColor,
-            lineHeight: 1.2,
-            fontSize: faceFontSize,
-            fontFamily,
-            margin: 0,
+            opacity: 1 - transitionProgress,
+            overflow: "hidden",
+            width: lerpSize(faceFontSize * 3.5, 0, transitionProgress),
           }}
         >
-          {`${BOX_TOP}\n│ ${doctorEyes} │\n│ ${doctorMouth} │\n${BOX_BOTTOM}`}
-        </pre>
+          <DoctorFace
+            size={faceFontSize * 3.5}
+            color={scoreColor}
+            mood={doctorMood}
+          />
+        </div>
         <div>
           <div>
             <span
@@ -374,8 +540,22 @@ export const DiagnoseAndFix = () => {
               fontFamily,
             }}
           >
-            <span style={{ color: scoreColor }}>{"█".repeat(filledBarCount)}</span>
-            <span style={{ color: "#525252" }}>{"░".repeat(emptyBarCount)}</span>
+            <div
+              style={{
+                width: 900,
+                height: barFontSize,
+                backgroundColor: "#525252",
+                display: "flex",
+              }}
+            >
+              <div
+                style={{
+                  width: `${(filledBarCount / SCORE_BAR_WIDTH) * 100}%`,
+                  height: "100%",
+                  backgroundColor: scoreColor,
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>

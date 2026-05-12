@@ -18,8 +18,8 @@ export const getScoreLabel = (score: number): string => {
   return "Critical";
 };
 
-export const getDoctorFace = (score: number): [string, string] => {
-  if (score >= SCORE_GOOD_THRESHOLD) return ["◠ ◠", " ▽ "];
-  if (score >= SCORE_OK_THRESHOLD) return ["• •", " ─ "];
-  return ["x x", " ▽ "];
+export const getDoctorMood = (score: number): "happy" | "neutral" | "sad" => {
+  if (score >= SCORE_GOOD_THRESHOLD) return "happy";
+  if (score >= SCORE_OK_THRESHOLD) return "neutral";
+  return "sad";
 };

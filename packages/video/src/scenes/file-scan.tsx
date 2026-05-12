@@ -8,16 +8,12 @@ import {
   FILE_ROW_HORIZONTAL_PADDING_PX,
   FILE_ROW_VERTICAL_PADDING_PX,
   FILE_SCAN_FONT_SIZE_PX,
-  FILE_SCAN_INITIAL_DELAY_FRAMES,
-  FRAMES_PER_FILE,
-  LINE_NUMBER_COLUMN_WIDTH_PX,
+  GREEN_COLOR,
   MUTED_COLOR,
   OVERLAY_GRADIENT_BOTTOM_PADDING_PX,
   OVERLAY_GRADIENT_HEIGHT_PX,
   OVERLAY_GRADIENT_HORIZONTAL_PADDING_PX,
-  POINTS_LOST_COLUMN_WIDTH_PX,
-  RED_COLOR,
-  SCANNED_FILES,
+  SCANNED_ISSUES,
   SCENE_FILE_SCAN_DURATION_FRAMES,
   SEVERITY_BADGE_RADIUS_PX,
   SEVERITY_BADGE_SIZE_PX,
@@ -30,57 +26,28 @@ import { fontFamily } from "../utils/font";
 const LINE_HEIGHT_MULTIPLIER = 1.6;
 const ROW_HEIGHT_PX =
   FILE_SCAN_FONT_SIZE_PX * LINE_HEIGHT_MULTIPLIER + FILE_ROW_VERTICAL_PADDING_PX * 2;
-const FADE_IN_FRAMES = 6;
-const VIEWPORT_HEIGHT_PX = 1080;
 const CONTENT_PADDING_PX = 40;
-const USABLE_HEIGHT_PX = VIEWPORT_HEIGHT_PX - CONTENT_PADDING_PX * 2;
-const VISIBLE_ROW_COUNT = Math.floor(USABLE_HEIGHT_PX / ROW_HEIGHT_PX);
-const TOTAL_LIST_HEIGHT_PX = SCANNED_FILES.length * ROW_HEIGHT_PX;
-const MAX_SCROLL_PX = Math.max(0, TOTAL_LIST_HEIGHT_PX - USABLE_HEIGHT_PX);
-const SCROLL_START_FRAME = FILE_SCAN_INITIAL_DELAY_FRAMES + VISIBLE_ROW_COUNT * FRAMES_PER_FILE;
-const SCROLL_END_FRAME = FILE_SCAN_INITIAL_DELAY_FRAMES + SCANNED_FILES.length * FRAMES_PER_FILE;
+const TOTAL_LIST_HEIGHT_PX = SCANNED_ISSUES.length * ROW_HEIGHT_PX;
+const TYPING_SCENE_END_SCROLL_PX = TOTAL_LIST_HEIGHT_PX * 0.15;
+const SCROLL_PX_PER_FRAME = TYPING_SCENE_END_SCROLL_PX / 40;
 
-const OVERLAY_START_FRAME = Math.floor(SCENE_FILE_SCAN_DURATION_FRAMES * 0.25);
-const OVERLAY_FADE_IN_FRAMES = 15;
-const OVERLAY_HOLD_FRAMES = 60;
-const OVERLAY_FADE_OUT_FRAMES = 15;
-const OVERLAY_END_FRAME =
-  OVERLAY_START_FRAME + OVERLAY_FADE_IN_FRAMES + OVERLAY_HOLD_FRAMES + OVERLAY_FADE_OUT_FRAMES;
+const FRAMES_PER_ISSUE = 2;
+const FADE_IN_FRAMES = 6;
+
 const TITLE_FONT_SIZE_PX = 88;
+const TITLE_FADE_IN_START_FRAME = 5;
+const TITLE_FADE_IN_FRAMES = 12;
 
 export const FileScan = () => {
   const frame = useCurrentFrame();
 
-  const scrollY = interpolate(frame, [SCROLL_START_FRAME, SCROLL_END_FRAME], [0, MAX_SCROLL_PX], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: Easing.inOut(Easing.quad),
-  });
-
-  const overlayOpacity = interpolate(
-    frame,
-    [
-      OVERLAY_START_FRAME,
-      OVERLAY_START_FRAME + OVERLAY_FADE_IN_FRAMES,
-      OVERLAY_END_FRAME - OVERLAY_FADE_OUT_FRAMES,
-      OVERLAY_END_FRAME,
-    ],
-    [0, 1, 1, 0],
-    {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    },
-  );
+  const scrollStartFrame = 20;
+  const scrollY = frame > scrollStartFrame ? (frame - scrollStartFrame) * SCROLL_PX_PER_FRAME : 0;
 
   const titleOpacity = interpolate(
     frame,
-    [
-      OVERLAY_START_FRAME + 5,
-      OVERLAY_START_FRAME + OVERLAY_FADE_IN_FRAMES + 5,
-      OVERLAY_END_FRAME - OVERLAY_FADE_OUT_FRAMES - 5,
-      OVERLAY_END_FRAME - 5,
-    ],
-    [0, 1, 1, 0],
+    [TITLE_FADE_IN_START_FRAME, TITLE_FADE_IN_START_FRAME + TITLE_FADE_IN_FRAMES],
+    [0, 1],
     {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
@@ -103,49 +70,34 @@ export const FileScan = () => {
         }}
       >
         <div style={{ transform: `translateY(-${scrollY}px)` }}>
-          {SCANNED_FILES.map((file, fileIndex) => {
-            const fileStartFrame = FILE_SCAN_INITIAL_DELAY_FRAMES + fileIndex * FRAMES_PER_FILE;
-            const localFrame = frame - fileStartFrame;
-            const fileOpacity = interpolate(localFrame, [0, FADE_IN_FRAMES], [0, 1], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-              easing: Easing.out(Easing.cubic),
-            });
-
-            const hasErrors = file.errors > 0;
-            const hasWarnings = file.warnings > 0;
-            const lineNumberLabel = String(fileIndex + 1);
-            const pointsLostLabel = file.pointsLost > 0 ? `-${file.pointsLost}` : "";
-
+          {SCANNED_ISSUES.map((issue, issueIndex) => {
+            const issueOpacity = interpolate(
+              frame,
+              [issueIndex * FRAMES_PER_ISSUE, issueIndex * FRAMES_PER_ISSUE + FADE_IN_FRAMES],
+              [0, 1],
+              { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+            );
+            const isError = issue.severity === "error";
+            const isWarning = issue.severity === "warning";
+            const isOk = issue.severity === "ok";
             return (
               <div
-                key={file.path}
+                key={issue.message}
                 style={{
-                  opacity: fileOpacity,
+                  opacity: issueOpacity,
                   fontFamily,
                   fontSize: FILE_SCAN_FONT_SIZE_PX,
                   lineHeight: LINE_HEIGHT_MULTIPLIER,
-                  color: TEXT_COLOR,
+                  color: isOk ? MUTED_COLOR : TEXT_COLOR,
                   whiteSpace: "nowrap",
                   display: "flex",
                   alignItems: "center",
                   gap: FILE_ROW_GAP_PX,
                   padding: `${FILE_ROW_VERTICAL_PADDING_PX}px ${FILE_ROW_HORIZONTAL_PADDING_PX}px`,
-                  backgroundColor: hasErrors ? ERROR_ROW_BACKGROUND_COLOR : "transparent",
+                  backgroundColor: isError ? ERROR_ROW_BACKGROUND_COLOR : "transparent",
                   borderRadius: 6,
                 }}
               >
-                <span
-                  style={{
-                    color: MUTED_COLOR,
-                    width: LINE_NUMBER_COLUMN_WIDTH_PX,
-                    textAlign: "right",
-                    flexShrink: 0,
-                  }}
-                >
-                  {lineNumberLabel}
-                </span>
-
                 <span
                   style={{
                     width: SEVERITY_BADGE_SIZE_PX,
@@ -155,34 +107,32 @@ export const FileScan = () => {
                     alignItems: "center",
                     justifyContent: "center",
                     borderRadius: SEVERITY_BADGE_RADIUS_PX,
-                    backgroundColor: hasErrors
+                    backgroundColor: isError
                       ? ERROR_BADGE_BACKGROUND_COLOR
-                      : hasWarnings
+                      : isWarning
                         ? WARNING_BADGE_BACKGROUND_COLOR
                         : "transparent",
-                    color: ERROR_BADGE_TEXT_COLOR,
+                    color: isOk ? GREEN_COLOR : ERROR_BADGE_TEXT_COLOR,
                     fontSize: FILE_SCAN_FONT_SIZE_PX * 0.7,
                     fontWeight: 700,
                     lineHeight: 1,
                   }}
                 >
-                  {hasErrors || hasWarnings ? "!" : ""}
+                  {isOk ? "✓" : "!"}
                 </span>
 
                 <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {file.path}
+                  {issue.message}
                 </span>
 
                 <span
                   style={{
-                    width: POINTS_LOST_COLUMN_WIDTH_PX,
-                    color: RED_COLOR,
-                    textAlign: "right",
+                    color: MUTED_COLOR,
                     flexShrink: 0,
-                    fontVariantNumeric: "tabular-nums",
+                    fontSize: FILE_SCAN_FONT_SIZE_PX * 0.75,
                   }}
                 >
-                  {pointsLostLabel}
+                  {issue.file}
                 </span>
               </div>
             );
@@ -192,28 +142,31 @@ export const FileScan = () => {
 
       <AbsoluteFill
         style={{
-          justifyContent: "flex-end",
+          justifyContent: "flex-start",
+          pointerEvents: "none",
         }}
       >
         <div
           style={{
             width: "100%",
             height: OVERLAY_GRADIENT_HEIGHT_PX,
-            background: getBottomOverlayGradient(overlayOpacity),
+            background: getBottomOverlayGradient(titleOpacity).replace("to top", "to bottom"),
             display: "flex",
             justifyContent: "center",
-            alignItems: "flex-end",
-            padding: `0 ${OVERLAY_GRADIENT_HORIZONTAL_PADDING_PX}px ${OVERLAY_GRADIENT_BOTTOM_PADDING_PX}px`,
+            alignItems: "flex-start",
+            padding: `${OVERLAY_GRADIENT_BOTTOM_PADDING_PX}px ${OVERLAY_GRADIENT_HORIZONTAL_PADDING_PX}px 0`,
           }}
         >
           <div
             style={{
               fontFamily,
               fontSize: TITLE_FONT_SIZE_PX,
+              fontWeight: 400,
               color: "white",
               opacity: titleOpacity,
               textAlign: "center",
               lineHeight: 1.4,
+              textShadow: "0 0 40px rgba(10,10,10,0.95), 0 0 80px rgba(10,10,10,0.9), 0 0 120px rgba(10,10,10,0.8)",
             }}
           >
             Scan for React issues

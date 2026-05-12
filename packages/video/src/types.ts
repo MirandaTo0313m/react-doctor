@@ -1,6 +1,6 @@
-export interface ScannedFile {
-  path: string;
-  errors: number;
-  warnings: number;
+export interface ScannedIssue {
+  message: string;
+  severity: "error" | "warning" | "ok";
   pointsLost: number;
+  file: string;
 }
