@@ -55,9 +55,10 @@
   },
   "dependencies": {
     "commander": "^14.0.3",
-    "oxlint": "^1.63.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "oxc-parser": "^0.130.0",
     "oxc-resolver": "^11.19.1",
+    "oxlint": "^1.63.0",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {

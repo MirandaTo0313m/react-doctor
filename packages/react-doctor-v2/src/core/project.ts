@@ -54,6 +54,36 @@ const REACT_COMPILER_PACKAGES: ReadonlySet<string> = new Set([
   "react-compiler-runtime",
 ]);
 
+const REACT_COMPILER_PACKAGE_REFERENCE_PATTERN =
+  /babel-plugin-react-compiler|react-compiler-runtime|eslint-plugin-react-compiler|["']react-compiler["']/;
+const REACT_COMPILER_ENABLED_FLAG_PATTERN = /["']?reactCompiler["']?\s*:\s*(?:true\b|\{)/;
+
+const NEXT_CONFIG_FILENAMES: ReadonlyArray<string> = [
+  "next.config.cjs",
+  "next.config.js",
+  "next.config.mjs",
+  "next.config.ts",
+];
+const BABEL_CONFIG_FILENAMES: ReadonlyArray<string> = [
+  ".babelrc",
+  ".babelrc.json",
+  "babel.config.cjs",
+  "babel.config.js",
+  "babel.config.json",
+  "babel.config.mjs",
+];
+const VITE_CONFIG_FILENAMES: ReadonlyArray<string> = [
+  "vite.config.cjs",
+  "vite.config.cts",
+  "vite.config.js",
+  "vite.config.mjs",
+  "vite.config.mts",
+  "vite.config.ts",
+  "vitest.config.js",
+  "vitest.config.ts",
+];
+const EXPO_CONFIG_FILENAMES: ReadonlyArray<string> = ["app.config.js", "app.config.ts", "app.json"];
+
 const TANSTACK_AI_PACKAGES: ReadonlySet<string> = new Set([
   "@tanstack/ai",
   "@tanstack/ai-code-mode",
@@ -157,6 +187,9 @@ const hasAnyDependency = (
   return false;
 };
 
+const hasReactCompilerDependency = (manifest: PackageJsonObject | null): boolean =>
+  hasAnyDependency(collectDependencies(manifest), REACT_COMPILER_PACKAGES);
+
 const detectFramework = (dependencies: ReadonlyMap<string, string>): ReactProjectFramework => {
   for (const [packageName, framework] of Object.entries(FRAMEWORK_PACKAGES)) {
     if (dependencies.has(packageName)) return framework;
@@ -202,10 +235,73 @@ const getDependencyInfo = (packageInfo: PackageInfo): DependencyInfo => {
       catalogs,
     ),
     framework: detectFramework(dependencies),
-    hasReactCompiler: hasAnyDependency(dependencies, REACT_COMPILER_PACKAGES),
+    hasReactCompiler: hasReactCompilerDependency(manifest),
     hasTanStackAI: hasAnyDependency(dependencies, TANSTACK_AI_PACKAGES),
     hasTanStackQuery: hasAnyDependency(dependencies, TANSTACK_QUERY_PACKAGES),
   };
+};
+
+const readTextFile = async (filePath: string): Promise<string | null> => {
+  try {
+    return await fs.readFile(filePath, "utf8");
+  } catch {
+    return null;
+  }
+};
+
+const hasReactCompilerConfigText = (content: string): boolean =>
+  REACT_COMPILER_ENABLED_FLAG_PATTERN.test(content) ||
+  REACT_COMPILER_PACKAGE_REFERENCE_PATTERN.test(content);
+
+const hasReactCompilerInConfigFiles = async (
+  directory: string,
+  filenames: ReadonlyArray<string>,
+): Promise<boolean> => {
+  for (const filename of filenames) {
+    const content = await readTextFile(path.join(directory, filename));
+    if (content && hasReactCompilerConfigText(content)) return true;
+  }
+  return false;
+};
+
+const hasReactCompilerInLocalConfig = async (directory: string): Promise<boolean> =>
+  (await hasReactCompilerInConfigFiles(directory, NEXT_CONFIG_FILENAMES)) ||
+  (await hasReactCompilerInConfigFiles(directory, BABEL_CONFIG_FILENAMES)) ||
+  (await hasReactCompilerInConfigFiles(directory, VITE_CONFIG_FILENAMES)) ||
+  (await hasReactCompilerInConfigFiles(directory, EXPO_CONFIG_FILENAMES));
+
+const hasWorkspaceBoundary = (manifest: PackageJsonObject | null): boolean =>
+  Boolean(manifest?.workspaces);
+
+const hasDirectoryEntry = async (directory: string, entryName: string): Promise<boolean> => {
+  try {
+    await fs.access(path.join(directory, entryName));
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const hasReactCompilerInAncestorPackage = async (rootDirectory: string): Promise<boolean> => {
+  let currentDirectory = path.dirname(rootDirectory);
+  while (currentDirectory !== path.dirname(currentDirectory)) {
+    const manifest = await readPackageJson(currentDirectory);
+    if (hasReactCompilerDependency(manifest)) return true;
+    if (hasWorkspaceBoundary(manifest) || (await hasDirectoryEntry(currentDirectory, ".git"))) {
+      return false;
+    }
+    currentDirectory = path.dirname(currentDirectory);
+  }
+  return false;
+};
+
+const detectReactCompiler = async (
+  rootDirectory: string,
+  manifest: PackageJsonObject | null,
+): Promise<boolean> => {
+  if (hasReactCompilerDependency(manifest)) return true;
+  if (await hasReactCompilerInLocalConfig(rootDirectory)) return true;
+  return hasReactCompilerInAncestorPackage(rootDirectory);
 };
 
 const collectSourceFileInfo = async (rootDirectory: string): Promise<SourceFileInfo> => {
@@ -269,6 +365,9 @@ export const discoverReactProject = async (rootDirectory: string): Promise<React
   const packageInfo = await readNearestPackageInfo(resolvedRootDirectory);
   const dependencyInfo = getDependencyInfo(packageInfo);
   const sourceFileInfo = await collectSourceFileInfo(resolvedRootDirectory);
+  const hasReactCompiler =
+    dependencyInfo.hasReactCompiler ||
+    (await detectReactCompiler(resolvedRootDirectory, packageInfo.manifest));
 
   return {
     rootDirectory: resolvedRootDirectory,
@@ -280,7 +379,7 @@ export const discoverReactProject = async (rootDirectory: string): Promise<React
     tailwindVersion: dependencyInfo.tailwindVersion,
     framework: dependencyInfo.framework,
     hasTypeScript: sourceFileInfo.hasTypeScript,
-    hasReactCompiler: dependencyInfo.hasReactCompiler,
+    hasReactCompiler,
     hasTanStackAI: dependencyInfo.hasTanStackAI,
     hasTanStackQuery: dependencyInfo.hasTanStackQuery,
     sourceFileCount: sourceFileInfo.count,

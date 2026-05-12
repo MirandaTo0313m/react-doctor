@@ -206,4 +206,40 @@ describe("oxlint rules", () => {
     expect(libraryConfig.rules["react-doctor/no-react19-deprecated-apis"]).toBeUndefined();
     expect(libraryConfig.rules["react-doctor/no-default-props"]).toBeUndefined();
   });
+
+  it("adds React Compiler frontend rules when the compiler is detected", () => {
+    const config = createReactDoctorOxlintConfig({
+      pluginPath: "/tmp/react-doctor-plugin.js",
+      project: {
+        framework: "react",
+        hasReactCompiler: true,
+      },
+    });
+
+    expect(config.jsPlugins).toContainEqual(
+      expect.objectContaining({
+        name: "react-hooks-js",
+      }),
+    );
+    expect(config.rules).toMatchObject({
+      "react/rules-of-hooks": "error",
+      "react/exhaustive-deps": "warn",
+      "react-hooks-js/component-hook-factories": "error",
+      "react-hooks-js/error-boundaries": "error",
+      "react-hooks-js/globals": "error",
+      "react-hooks-js/hooks": "error",
+      "react-hooks-js/immutability": "error",
+      "react-hooks-js/incompatible-library": "error",
+      "react-hooks-js/preserve-manual-memoization": "error",
+      "react-hooks-js/purity": "error",
+      "react-hooks-js/refs": "error",
+      "react-hooks-js/set-state-in-effect": "error",
+      "react-hooks-js/set-state-in-render": "error",
+      "react-hooks-js/static-components": "error",
+      "react-hooks-js/todo": "error",
+      "react-hooks-js/unsupported-syntax": "error",
+      "react-hooks-js/use-memo": "error",
+      "react-hooks-js/void-use-memo": "error",
+    });
+  });
 });

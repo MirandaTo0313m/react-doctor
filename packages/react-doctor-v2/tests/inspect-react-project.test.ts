@@ -126,6 +126,42 @@ describe("inspectReactProject", () => {
     expect(result.project.reactVersion).toBe("^19.0.0");
     expect(result.project.reactMajorVersion).toBe(19);
   });
+
+  it("detects React Compiler from framework config files", async () => {
+    const rootDirectory = await createFixtureProject({
+      "package.json": JSON.stringify({
+        name: "web",
+        dependencies: { react: "^19.0.0", next: "^16.0.0" },
+      }),
+      "next.config.ts": "export default { reactCompiler: true };\n",
+      "src/main.tsx": "console.log('ok');\n",
+    });
+
+    const result = await inspectReactProject({ rootDirectory });
+
+    expect(result.project.hasReactCompiler).toBe(true);
+  });
+
+  it("detects React Compiler from ancestor package manifests", async () => {
+    const rootDirectory = await createFixtureProject({
+      "package.json": JSON.stringify({
+        name: "workspace",
+        devDependencies: { "babel-plugin-react-compiler": "^1.0.0" },
+        workspaces: ["apps/*"],
+      }),
+      "apps/web/package.json": JSON.stringify({
+        name: "web",
+        dependencies: { react: "^19.0.0" },
+      }),
+      "apps/web/src/main.tsx": "console.log('ok');\n",
+    });
+
+    const result = await inspectReactProject({
+      rootDirectory: path.join(rootDirectory, "apps/web"),
+    });
+
+    expect(result.project.hasReactCompiler).toBe(true);
+  });
 });
 
 describe("createReactDoctor", () => {
