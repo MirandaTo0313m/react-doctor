@@ -597,13 +597,13 @@ export const buildCapabilities = (project: ProjectInfo): ReadonlySet<string> => 
     capabilities.add(`react:${major}`);
   }
 
-  if (project.tailwindVersion) {
+  if (project.tailwindVersion !== null) {
+    capabilities.add("tailwind");
     const tailwind = parseTailwindMajorMinor(project.tailwindVersion);
-    if (tailwind) {
-      capabilities.add("tailwind");
-      if (isTailwindAtLeast(tailwind, { major: 3, minor: 4 })) {
-        capabilities.add("tailwind:3.4");
-      }
+    // HACK: when version is unparseable (dist-tag, workspace protocol),
+    // assume latest so version-gated rules still fire.
+    if (isTailwindAtLeast(tailwind, { major: 3, minor: 4 })) {
+      capabilities.add("tailwind:3.4");
     }
   }
 

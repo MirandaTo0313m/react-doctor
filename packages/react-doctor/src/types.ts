@@ -86,6 +86,7 @@ export interface PackageJson {
 
 export interface DependencyInfo {
   reactVersion: string | null;
+  tailwindVersion: string | null;
   framework: Framework;
 }
 
