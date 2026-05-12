@@ -13,7 +13,12 @@ import { batchIncludePaths } from "./batch-include-paths.js";
 import { canOxlintExtendConfig } from "./can-oxlint-extend-config.js";
 import { collectIgnorePatterns } from "./collect-ignore-patterns.js";
 import { detectUserLintConfigPaths } from "./detect-user-lint-config.js";
-import { ALL_REACT_DOCTOR_RULE_KEYS, RULE_METADATA, createOxlintConfig } from "../oxlint-config.js";
+import {
+  ALL_REACT_DOCTOR_RULE_KEYS,
+  FRAMEWORK_SPECIFIC_RULE_KEYS,
+  RULE_METADATA,
+  createOxlintConfig,
+} from "../oxlint-config.js";
 import type { CleanedDiagnostic, Diagnostic, OxlintOutput, ProjectInfo } from "../types.js";
 import { neutralizeDisableDirectives } from "./neutralize-disable-directives.js";
 
@@ -880,7 +885,7 @@ const validateRuleRegistration = (): void => {
     if (!Object.hasOwn(RULE_HELP_MAP, ruleName)) {
       missingHelp.push(fullKey);
     }
-    if (!RULE_METADATA.has(fullKey)) {
+    if (FRAMEWORK_SPECIFIC_RULE_KEYS.has(fullKey) && !RULE_METADATA.has(fullKey)) {
       missingMetadata.push(fullKey);
     }
   }

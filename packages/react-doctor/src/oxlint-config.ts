@@ -417,6 +417,13 @@ export const ALL_REACT_DOCTOR_RULE_KEYS: ReadonlySet<string> = new Set([
   ...Object.keys(TANSTACK_QUERY_RULES),
 ]);
 
+export const FRAMEWORK_SPECIFIC_RULE_KEYS: ReadonlySet<string> = new Set([
+  ...Object.keys(NEXTJS_RULES),
+  ...Object.keys(REACT_NATIVE_RULES),
+  ...Object.keys(TANSTACK_START_RULES),
+  ...Object.keys(TANSTACK_QUERY_RULES),
+]);
+
 export interface RuleMetadataEntry {
   requires?: ReadonlyArray<string>;
   tags: ReadonlySet<string>;
@@ -667,19 +674,18 @@ export const createOxlintConfig = ({
   const capabilities = buildCapabilities(project);
 
   const enabledReactDoctorRules: Record<string, RuleSeverity> = {};
-  const frameworkRuleMaps = [
+  const allRuleMaps = [
+    GLOBAL_REACT_DOCTOR_RULES,
     NEXTJS_RULES,
     REACT_NATIVE_RULES,
     TANSTACK_START_RULES,
     TANSTACK_QUERY_RULES,
   ];
-  const allRuleMaps = [GLOBAL_REACT_DOCTOR_RULES, ...frameworkRuleMaps];
-  const frameworkRuleKeys = new Set(frameworkRuleMaps.flatMap(Object.keys));
   for (const ruleMap of allRuleMaps) {
     for (const [ruleKey, severity] of Object.entries(ruleMap)) {
       const metadata = RULE_METADATA.get(ruleKey);
       if (!metadata) {
-        if (frameworkRuleKeys.has(ruleKey)) continue;
+        if (FRAMEWORK_SPECIFIC_RULE_KEYS.has(ruleKey)) continue;
         enabledReactDoctorRules[ruleKey] = severity;
         continue;
       }
