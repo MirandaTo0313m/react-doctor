@@ -239,14 +239,14 @@ When a suppression isn't working, `--explain <file:line>` (or its alias `--why <
 | `rawTextWrapperComponents` | `string[]`                       | `[]`     |
 | `respectInlineDisables`    | `boolean`                        | `true`   |
 | `adoptExistingLintConfig`  | `boolean`                        | `true`   |
-| `designRules`              | `boolean`                        | `true`   |
+| `ignore.tags`              | `string[]`                       | `[]`     |
 | `entryFiles`               | `string[]`                       | `[]`     |
 
 `textComponents` is the broad escape hatch for `rn-no-raw-text` — list components that themselves behave like React Native's `<Text>` (custom `Typography`, `NativeTabs.Trigger.Label`, etc.) and the rule will treat them as text containers regardless of what their children look like.
 
 `rawTextWrapperComponents` is the narrower option for components that are not text elements but safely route string-only children through an internal `<Text>` (e.g. `heroui-native`'s `Button`, which stringifies its children and renders them through a `ButtonLabel`). Listed wrappers suppress `rn-no-raw-text` only when their children are entirely stringifiable. A wrapper with mixed children — e.g. `<Button>Save<Icon /></Button>` — still reports because the wrapper can't safely route raw text alongside a sibling JSX element.
 
-`designRules` controls whether opinionated design rules (gradient text, pure black backgrounds, side tab borders, default Tailwind palettes, and `design-*` prefixed rules) are included in the scan. Set `false` to disable the entire category.
+`ignore.tags` suppresses entire categories of rules by tag. For example, `"tags": ["design"]` disables all opinionated design rules (gradient text, pure black backgrounds, side tab borders, default Tailwind palettes). Available tags: `"design"`.
 
 `entryFiles` tells the dead-code detector about files that are executed directly but not imported (test runner configs, eval scripts, CLI entry points). These are forwarded to [knip](https://knip.dev) as additional entry points. Example: `"entryFiles": ["scripts/*.ts", "evalite.config.ts"]`. If your project already has a `knip.json`, those entry points are respected automatically.
 

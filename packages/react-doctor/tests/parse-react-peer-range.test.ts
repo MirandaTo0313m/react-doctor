@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
-import { peerRangeSupportsLegacyReact } from "../src/utils/parse-react-peer-range.js";
+import {
+  peerRangeMinMajor,
+  peerRangeSupportsLegacyReact,
+} from "../src/utils/parse-react-peer-range.js";
 
 describe("peerRangeSupportsLegacyReact", () => {
   it("returns true when the range admits any React major below 19", () => {
@@ -51,5 +54,25 @@ describe("peerRangeSupportsLegacyReact", () => {
   it("does not double-count `0` patch / minor digits in modern releases", () => {
     expect(peerRangeSupportsLegacyReact("^19.0.0")).toBe(false);
     expect(peerRangeSupportsLegacyReact("19.2.0")).toBe(false);
+  });
+});
+
+describe("peerRangeMinMajor", () => {
+  it("returns the lowest concrete major from OR ranges", () => {
+    expect(peerRangeMinMajor("^17.0.0 || ^18.0.0 || ^19.0.0")).toBe(17);
+    expect(peerRangeMinMajor("^18.0.0 || ^19.0.0")).toBe(18);
+    expect(peerRangeMinMajor("^19.0.0")).toBe(19);
+  });
+
+  it("returns null for wildcards, tags, and missing input", () => {
+    expect(peerRangeMinMajor("*")).toBeNull();
+    expect(peerRangeMinMajor("latest")).toBeNull();
+    expect(peerRangeMinMajor(null)).toBeNull();
+    expect(peerRangeMinMajor(undefined)).toBeNull();
+    expect(peerRangeMinMajor("")).toBeNull();
+  });
+
+  it("ignores 0.x experimental versions", () => {
+    expect(peerRangeMinMajor("0.0.0-experimental")).toBeNull();
   });
 });

@@ -39,3 +39,23 @@ export const peerRangeSupportsLegacyReact = (range: string | null | undefined): 
   if (typeof range !== "string") return false;
   return range.trim().split(COMPARATOR_SEPARATOR).filter(Boolean).some(comparatorAdmitsLegacyReact);
 };
+
+const extractComparatorMajor = (comparator: string): number | null => {
+  if (WILDCARD_COMPARATOR.test(comparator)) return null;
+  const firstIntegerMatch = comparator.match(/\d+/);
+  if (!firstIntegerMatch) return null;
+  const major = Number.parseInt(firstIntegerMatch[0], 10);
+  return major >= 1 ? major : null;
+};
+
+export const peerRangeMinMajor = (range: string | null | undefined): number | null => {
+  if (typeof range !== "string") return null;
+  let lowestMajor: number | null = null;
+  for (const comparator of range.trim().split(COMPARATOR_SEPARATOR).filter(Boolean)) {
+    const major = extractComparatorMajor(comparator);
+    if (major !== null && (lowestMajor === null || major < lowestMajor)) {
+      lowestMajor = major;
+    }
+  }
+  return lowestMajor;
+};

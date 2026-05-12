@@ -18,7 +18,7 @@ import { findMonorepoRoot, isMonorepoRoot } from "./find-monorepo-root.js";
 import { isFile } from "./is-file.js";
 import { isPlainObject } from "./is-plain-object.js";
 import { parseReactMajor } from "./parse-react-major.js";
-import { peerRangeSupportsLegacyReact } from "./parse-react-peer-range.js";
+import { peerRangeMinMajor } from "./parse-react-peer-range.js";
 import { readPackageJson } from "./read-package-json.js";
 
 const REACT_COMPILER_PACKAGES = new Set([
@@ -753,9 +753,11 @@ export const discoverProject = (directory: string): ProjectInfo => {
   );
 
   const installedReactMajor = parseReactMajor(reactVersion);
-  const peerReactRange = packageJson.peerDependencies?.react ?? null;
+  const peerFloor = peerRangeMinMajor(packageJson.peerDependencies?.react);
   const effectiveReactMajor =
-    peerReactRange && peerRangeSupportsLegacyReact(peerReactRange) ? null : installedReactMajor;
+    peerFloor !== null && installedReactMajor !== null
+      ? Math.min(installedReactMajor, peerFloor)
+      : (peerFloor ?? installedReactMajor);
 
   const tailwindVersion = allDependencies.tailwindcss ?? null;
 
