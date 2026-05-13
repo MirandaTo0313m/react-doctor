@@ -4,6 +4,18 @@ import path from "node:path";
 const IGNORE_FILENAMES = [".eslintignore", ".oxlintignore"];
 const PRETTIERIGNORE_FILENAME = ".prettierignore";
 
+const BUILTIN_IGNORE_PATTERNS = [
+  "*.min.js",
+  "*.min.mjs",
+  "*.bundle.js",
+  "*.global.js",
+  "*.umd.js",
+  "*.production.js",
+  "*.development.js",
+  "vendor/**",
+  "vendors/**",
+];
+
 // HACK: `.prettierignore` patterns that would exclude source files by extension
 // (e.g. `*.ts`, `*.tsx`) must be dropped — Prettier uses these to skip
 // formatting, not to declare files off-limits for analysis. But directory-level
@@ -99,6 +111,7 @@ export const collectIgnorePatterns = (rootDirectory: string): string[] => {
     seen.add(pattern);
     patterns.push(pattern);
   };
+  for (const builtinPattern of BUILTIN_IGNORE_PATTERNS) add(builtinPattern);
   let currentDirectory = rootDirectory;
   while (true) {
     const relPath = path.relative(currentDirectory, rootDirectory);

@@ -48,7 +48,6 @@ const REACT_PROJECT_DEPENDENCIES = new Set([
   "react",
   "react-native",
   "react-scripts",
-  "vite",
 ]);
 
 interface CliFlags {
