@@ -7,7 +7,8 @@ import {
 } from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
-const NON_OPTIMIZABLE_SRC_PATTERN = /^(?:data:|blob:)/;
+const NON_OPTIMIZABLE_SRC_PATTERN =
+  /^(?:data:|blob:)|\.svg(?:[?#].*)?$|(?:^|\/)(?:favicon|icon|logo|mark|badge)(?:[/?#.]|$)/i;
 
 const isNonOptimizableSrc = (openingElement: EsTreeNode): boolean => {
   const srcAttribute = findJsxAttribute(openingElement.attributes ?? [], "src");

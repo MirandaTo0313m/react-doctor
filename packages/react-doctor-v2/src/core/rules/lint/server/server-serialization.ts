@@ -1,5 +1,10 @@
 import { defineRule } from "../../registry.js";
-import { APP_ROUTER_FILE_PATTERN, DERIVING_ARRAY_METHODS, hasDirective, isNodeOfType } from "./utils/index.js";
+import {
+  APP_ROUTER_FILE_PATTERN,
+  DERIVING_ARRAY_METHODS,
+  hasDirective,
+  isNodeOfType,
+} from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
 const isUppercaseJsxElement = (node: EsTreeNode): boolean => {

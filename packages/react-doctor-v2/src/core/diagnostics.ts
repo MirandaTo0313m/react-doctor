@@ -8,8 +8,11 @@ const WRAPPED_RULE_ID_PATTERN = /^([a-zA-Z][\w-]*)\(([^)]+)\)$/;
 const REACT_BUILTIN_RULE_PREFIX = /^(?:react|jsx-a11y)\//;
 const JSX_A11Y_RULE_PREFIX = "jsx-a11y/";
 const OG_IMAGE_FILE_PATTERN = /\/(?:opengraph-image|twitter-image|icon|apple-icon)\.[jt]sx?$/;
+const OG_JSX_FILE_PATTERN =
+  /\/(?:api\/)?og(?:\/|$)|\/(?:opengraph-image|twitter-image|icon|apple-icon)\.[jt]sx?$/;
 const NON_REACT_JSX_IMPORT_PATTERN = /(?:^|\n)\s*import\s.*from\s+['"](?:solid-js|preact)/;
 const NON_REACT_JSX_SOURCES = new Set(["preact", "solid-js", "vue", "svelte"]);
+const EMOTION_IMPORT_PATTERN = /(?:^|\n)\s*import\s.*from\s+['"]@emotion\/react['"]/;
 
 const toMetadataRuleKey = (issue: ReactDoctorIssue): string | null => {
   const ruleId = issue.source?.ruleId;
@@ -210,6 +213,22 @@ const isSuppressedRnRawTextIssue = (
   return false;
 };
 
+const isSuppressedUnknownPropertyIssue = (
+  issue: ReactDoctorIssue,
+  relativeFilePath: string,
+  sourceLines: string[] | undefined,
+): boolean => {
+  const ruleKey = toMetadataRuleKey(issue) ?? normalizeRuleId(issue);
+  if (ruleKey !== "react/no-unknown-property") return false;
+  if (OG_JSX_FILE_PATTERN.test(relativeFilePath)) return true;
+  if (!sourceLines) return false;
+  if (EMOTION_IMPORT_PATTERN.test(sourceLines.slice(0, 30).join("\n"))) return true;
+  const line = issue.location?.line;
+  if (!line) return false;
+  const sourceLine = sourceLines[line - 1] ?? "";
+  return sourceLine.includes("<style") && sourceLine.includes("jsx");
+};
+
 export interface FilterReactDoctorIssuesOptions {
   jsxImportSource?: string;
 }
@@ -245,9 +264,16 @@ export const filterReactDoctorIssues = (
 
     const ruleId = normalizeRuleId(issue);
     const unwrappedRuleId = toMetadataRuleKey(issue) ?? ruleId;
+    const sourceLines = relativeFilePath ? readSourceLines?.(relativeFilePath) : undefined;
     if (
       REACT_BUILTIN_RULE_PREFIX.test(unwrappedRuleId) &&
       (isNonReactJsxProject || (relativeFilePath && isNonReactJsxFile(relativeFilePath)))
+    ) {
+      return false;
+    }
+    if (
+      relativeFilePath &&
+      isSuppressedUnknownPropertyIssue(issue, relativeFilePath, sourceLines)
     ) {
       return false;
     }
@@ -270,14 +296,11 @@ export const filterReactDoctorIssues = (
     if (
       config.respectInlineDisables !== false &&
       relativeFilePath &&
-      isDisabledByInlineComment(issue, readSourceLines?.(relativeFilePath))
+      isDisabledByInlineComment(issue, sourceLines)
     ) {
       return false;
     }
-    if (
-      relativeFilePath &&
-      isSuppressedRnRawTextIssue(issue, config, readSourceLines?.(relativeFilePath))
-    ) {
+    if (relativeFilePath && isSuppressedRnRawTextIssue(issue, config, sourceLines)) {
       return false;
     }
     return true;
@@ -299,7 +322,6 @@ export const filterReactDoctorIssues = (
     ["effect/no-adjust-state-on-prop-change", "effect-adjust-prop"],
     ["react-doctor/effect-no-initialize-state", "effect-init-state"],
     ["effect/no-initialize-state", "effect-init-state"],
-    ["react-doctor/effect-no-event-handler", "effect-event-handler"],
     ["react-doctor/effect-no-pass-data-to-parent", "effect-pass-parent"],
     ["effect/no-pass-data-to-parent", "effect-pass-parent"],
     ["react-doctor/effect-no-pass-live-state-to-parent", "effect-pass-live-state"],
