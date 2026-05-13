@@ -6,7 +6,11 @@ import {
 import { TEST_OR_INFRA_FILE_PATTERN, isNodeOfType } from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
-const SERVER_OR_CLI_FILE_PATTERN = /\/(?:server|cli|bin|scripts|workers?|cron|jobs?|commands?|api)\//;
+const SERVER_OR_CLI_FILE_PATTERN =
+  /\/(?:server|cli|bin|scripts|workers?|cron|jobs?|commands?|api)\//;
+
+const EVENT_HANDLER_PROP_PATTERN = /^on[A-Z]/;
+const CALLBACK_HOOK_NAMES = new Set(["useCallback", "useMemo"]);
 
 const isDeferrableCall = (node: EsTreeNode): boolean => {
   if (!isNodeOfType(node, "CallExpression")) return false;
@@ -18,6 +22,29 @@ const isDeferrableCall = (node: EsTreeNode): boolean => {
     ANALYTICS_DEFERRABLE_OBJECTS.has(callee.object.name) &&
     ANALYTICS_DEFERRABLE_METHODS.has(callee.property.name)
   );
+};
+
+const isInsideEventHandlerContext = (node: EsTreeNode): boolean => {
+  let current: EsTreeNode | null | undefined = node.parent;
+  while (current) {
+    if (
+      isNodeOfType(current, "JSXExpressionContainer") &&
+      isNodeOfType(current.parent, "JSXAttribute") &&
+      isNodeOfType(current.parent.name, "JSXIdentifier") &&
+      EVENT_HANDLER_PROP_PATTERN.test(current.parent.name.name)
+    ) {
+      return true;
+    }
+    if (
+      isNodeOfType(current, "CallExpression") &&
+      isNodeOfType(current.callee, "Identifier") &&
+      CALLBACK_HOOK_NAMES.has(current.callee.name)
+    ) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
 };
 
 export const jsRequestIdleCallback = defineRule<Rule>({
@@ -32,13 +59,13 @@ export const jsRequestIdleCallback = defineRule<Rule>({
   create: (context: RuleContext) => {
     const filename = context.getFilename?.() ?? "";
     const isNonBrowserFile =
-      TEST_OR_INFRA_FILE_PATTERN.test(filename) ||
-      SERVER_OR_CLI_FILE_PATTERN.test(filename);
+      TEST_OR_INFRA_FILE_PATTERN.test(filename) || SERVER_OR_CLI_FILE_PATTERN.test(filename);
 
     return {
       CallExpression(node: EsTreeNode) {
         if (isNonBrowserFile) return;
         if (!isDeferrableCall(node)) return;
+        if (isInsideEventHandlerContext(node)) return;
         context.report({
           node,
           message:

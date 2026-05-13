@@ -148,7 +148,8 @@ const isLikelyStringReceiver = (receiver: EsTreeNode | null | undefined): boolea
   if (
     isNodeOfType(receiver, "MemberExpression") &&
     isNodeOfType(receiver.property, "Identifier") &&
-    STRING_TYPED_PROPERTY_NAMES.has(receiver.property.name)
+    (STRING_TYPED_PROPERTY_NAMES.has(receiver.property.name) ||
+      STRING_TYPED_IDENTIFIER_SUFFIX_PATTERN.test(receiver.property.name))
   ) {
     return true;
   }
@@ -187,6 +188,7 @@ export const jsSetMapLookups = defineRule<Rule>({
           return;
         const methodName = node.callee.property.name;
         if (methodName !== "includes" && methodName !== "indexOf") return;
+        if (methodName === "indexOf" && (node.arguments?.length ?? 0) >= 2) return;
         if (isLikelyStringReceiver(node.callee.object)) return;
         if (
           isNodeOfType(node.callee.object, "ArrayExpression") &&

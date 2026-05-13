@@ -1,6 +1,16 @@
 import { defineRule } from "../../registry.js";
-import { isNodeOfType } from "./utils/index.js";
+import { isMotionElement, isNodeOfType } from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
+
+const ANIMATION_STYLE_KEYS = new Set(["transition", "animation", "animationName"]);
+
+const hasAnimationSibling = (properties: EsTreeNode[]): boolean =>
+  properties.some(
+    (property) =>
+      isNodeOfType(property, "Property") &&
+      isNodeOfType(property.key, "Identifier") &&
+      ANIMATION_STYLE_KEYS.has(property.key.name),
+  );
 
 export const noPermanentWillChange = defineRule<Rule>({
   recommendation:
@@ -19,7 +29,12 @@ export const noPermanentWillChange = defineRule<Rule>({
       const expression = node.value.expression;
       if (!isNodeOfType(expression, "ObjectExpression")) return;
 
-      for (const property of expression.properties ?? []) {
+      if (isMotionElement(node)) return;
+
+      const properties = expression.properties ?? [];
+      if (hasAnimationSibling(properties)) return;
+
+      for (const property of properties) {
         if (!isNodeOfType(property, "Property")) continue;
         const key = isNodeOfType(property.key, "Identifier") ? property.key.name : null;
         if (key !== "willChange") continue;

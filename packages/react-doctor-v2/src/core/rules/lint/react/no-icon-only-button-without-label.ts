@@ -4,6 +4,17 @@ import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
 const BUTTON_COMPONENT_PATTERN = /Button$/;
 const ICON_COMPONENT_PATTERN = /(?:Icon|Spinner|Loader|Glyph)$/;
+const KNOWN_SELF_LABELED_BUTTON_COMPONENTS = new Set(["CloseButton"]);
+const ICON_PROP_NAMES = new Set([
+  "icon",
+  "Icon",
+  "leftIcon",
+  "rightIcon",
+  "startIcon",
+  "endIcon",
+  "prefixIcon",
+  "suffixIcon",
+]);
 
 const getJsxName = (node: EsTreeNode | undefined): string | null => {
   if (!node) return null;
@@ -28,10 +39,18 @@ const hasNonEmptyAttributeValue = (attribute: EsTreeNode | undefined): boolean =
   return !isNodeOfType(expression, "Identifier") || expression.name !== "undefined";
 };
 
+const TEXT_CONTENT_PROP_NAMES = [
+  "aria-label",
+  "aria-labelledby",
+  "accessibilityLabel",
+  "accessibilityLabelledBy",
+  "text",
+  "label",
+];
+
 const hasAccessibleNameAttribute = (openingElement: EsTreeNode): boolean =>
-  Boolean(
-    hasNonEmptyAttributeValue(findJsxAttribute(openingElement.attributes ?? [], "aria-label")) ||
-    hasNonEmptyAttributeValue(findJsxAttribute(openingElement.attributes ?? [], "aria-labelledby")),
+  TEXT_CONTENT_PROP_NAMES.some((propName) =>
+    hasNonEmptyAttributeValue(findJsxAttribute(openingElement.attributes ?? [], propName)),
   );
 
 const hasTextContent = (node: EsTreeNode): boolean => {
@@ -44,6 +63,7 @@ const hasTextContent = (node: EsTreeNode): boolean => {
         continue;
       }
       if (isNodeOfType(expression, "TemplateLiteral")) return true;
+      if (isNodeOfType(expression, "ConditionalExpression")) return true;
       if (isNodeOfType(expression, "Identifier") || isNodeOfType(expression, "MemberExpression"))
         return true;
     }
@@ -59,6 +79,15 @@ const hasIconLikeChild = (node: EsTreeNode): boolean =>
     return childName === "svg" || Boolean(childName && ICON_COMPONENT_PATTERN.test(childName));
   });
 
+const hasIconLikeAttribute = (openingElement: EsTreeNode): boolean =>
+  (openingElement.attributes ?? []).some(
+    (attribute: EsTreeNode) =>
+      isNodeOfType(attribute, "JSXAttribute") &&
+      isNodeOfType(attribute.name, "JSXIdentifier") &&
+      ICON_PROP_NAMES.has(attribute.name.name) &&
+      hasNonEmptyAttributeValue(attribute),
+  );
+
 export const noIconOnlyButtonWithoutLabel = defineRule<Rule>({
   recommendation:
     "Give icon-only buttons an explicit accessible name and hide decorative icons from assistive tech; adding a tooltip is not enough because it is not the button name.",
@@ -73,9 +102,15 @@ export const noIconOnlyButtonWithoutLabel = defineRule<Rule>({
       const openingElement = node.openingElement;
       const elementName = getJsxName(openingElement?.name);
       if (elementName !== "button" && !BUTTON_COMPONENT_PATTERN.test(elementName ?? "")) return;
+      if (elementName && KNOWN_SELF_LABELED_BUTTON_COMPONENTS.has(elementName)) return;
       if (hasAccessibleNameAttribute(openingElement)) return;
       if (hasTextContent(node)) return;
-      if (!hasIconLikeChild(node) && (node.children ?? []).length > 0) return;
+      const isNativeButton = elementName === "button";
+      const hasIconEvidence = hasIconLikeChild(node) || hasIconLikeAttribute(openingElement);
+      if (!hasIconEvidence) {
+        if (!isNativeButton) return;
+        if ((node.children ?? []).length > 0) return;
+      }
       context.report({
         node: openingElement,
         message:

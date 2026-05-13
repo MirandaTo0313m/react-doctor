@@ -365,6 +365,7 @@ const RULE_METADATA: ReadonlyMap<string, RuleMetadataEntry> = new Map([
   withReactDoctorRuleKey("no-outline-none", { tags: DESIGN_AND_TEST_NOISE_TAGS }),
   withReactDoctorRuleKey("no-long-transition-duration", { tags: DESIGN_AND_TEST_NOISE_TAGS }),
   withReactDoctorRuleKey("no-render-in-render", { tags: TEST_NOISE_TAGS }),
+  withReactDoctorRuleKey("rerender-split-combined-hooks", { tags: PEDANTIC_TAGS }),
 ]);
 
 const EMPTY_TAG_SET: ReadonlySet<string> = new Set();

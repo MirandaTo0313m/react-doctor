@@ -1,9 +1,5 @@
 import { defineRule } from "../../registry.js";
-import {
-  TEST_OR_INFRA_FILE_PATTERN,
-  isAddEventListenerCall,
-  isNodeOfType,
-} from "./utils/index.js";
+import { TEST_OR_INFRA_FILE_PATTERN, isAddEventListenerCall, isNodeOfType } from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
 const UPPERCASE_PATTERN = /^[A-Z]/;

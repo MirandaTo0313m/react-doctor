@@ -17,6 +17,29 @@ import { isNodeOfType } from "../../utils/index.js";
 // `defaultValue` via spread, and we can't see through it without scope
 // analysis. False-negative > false-positive on a heavily used pattern.
 
+const isModuleScopeConstArray = (receiver: EsTreeNode): boolean => {
+  if (!isNodeOfType(receiver, "Identifier")) return false;
+  const targetName = receiver.name;
+  let programNode: EsTreeNode | null | undefined = receiver;
+  while (programNode && !isNodeOfType(programNode, "Program")) {
+    programNode = programNode.parent;
+  }
+  if (!programNode) return false;
+  for (const statement of programNode.body ?? []) {
+    if (!isNodeOfType(statement, "VariableDeclaration") || statement.kind !== "const") continue;
+    for (const declarator of statement.declarations ?? []) {
+      if (
+        isNodeOfType(declarator.id, "Identifier") &&
+        declarator.id.name === targetName &&
+        isNodeOfType(declarator.init, "ArrayExpression")
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
 export const isInsideStaticPlaceholderMap = (node: EsTreeNode): boolean => {
   let current = node;
   while (current.parent) {
@@ -27,6 +50,8 @@ export const isInsideStaticPlaceholderMap = (node: EsTreeNode): boolean => {
       current.callee.property?.name === "map"
     ) {
       const receiver = current.callee.object;
+      if (isNodeOfType(receiver, "ArrayExpression")) return true;
+      if (isModuleScopeConstArray(receiver)) return true;
       if (isNodeOfType(receiver, "CallExpression")) {
         const callee = receiver.callee;
         if (

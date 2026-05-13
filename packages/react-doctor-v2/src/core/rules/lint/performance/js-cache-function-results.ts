@@ -4,12 +4,25 @@ import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
 const REACT_HOOK_PATTERN = /^use[A-Z]/;
 const FACTORY_FUNCTION_PATTERN = /^(?:create|make|build|new|init|generate|clone)[A-Z]/;
+const GUARD_FUNCTION_PATTERN = /^(?:check|assert|verify|ensure|validate|throw|require)[A-Z]/;
+const ID_GENERATOR_NAMES = new Set([
+  "uuid",
+  "nanoid",
+  "danoid",
+  "cuid",
+  "ulid",
+  "randomUUID",
+  "randomId",
+  "uniqueId",
+]);
 
 const getSimpleCallKey = (node: EsTreeNode): string | null => {
   if (!isNodeOfType(node, "CallExpression")) return null;
   if (!isNodeOfType(node.callee, "Identifier")) return null;
   if (REACT_HOOK_PATTERN.test(node.callee.name)) return null;
   if (FACTORY_FUNCTION_PATTERN.test(node.callee.name)) return null;
+  if (GUARD_FUNCTION_PATTERN.test(node.callee.name)) return null;
+  if (ID_GENERATOR_NAMES.has(node.callee.name)) return null;
   const argumentKeys: string[] = [];
   for (const argument of node.arguments ?? []) {
     if (isNodeOfType(argument, "Identifier")) argumentKeys.push(argument.name);

@@ -78,6 +78,9 @@ const collectAssignedIdentifierNames = (node: EsTreeNode): Set<string> => {
     if (isNodeOfType(child, "VariableDeclarator") && isNodeOfType(child.init, "AwaitExpression")) {
       collectPatternIdentifierNames(child.id, assignedIdentifierNames);
     }
+    if (isNodeOfType(child, "UpdateExpression") && isNodeOfType(child.argument, "Identifier")) {
+      assignedIdentifierNames.add(child.argument.name);
+    }
   });
   return assignedIdentifierNames;
 };
@@ -112,6 +115,26 @@ const hasLoopCarriedDependency = (node: EsTreeNode): boolean => {
   return false;
 };
 
+const isAlreadyParallelized = (awaitNode: EsTreeNode): boolean => {
+  const argument = awaitNode.argument;
+  if (!isNodeOfType(argument, "CallExpression")) return false;
+  if (!isNodeOfType(argument.callee, "MemberExpression")) return false;
+  if (!isNodeOfType(argument.callee.object, "Identifier")) return false;
+  if (argument.callee.object.name !== "Promise") return false;
+  if (!isNodeOfType(argument.callee.property, "Identifier")) return false;
+  return ["all", "allSettled", "race", "any"].includes(argument.callee.property.name);
+};
+
+const isStreamReaderRead = (awaitNode: EsTreeNode): boolean => {
+  const argument = awaitNode.argument;
+  if (!isNodeOfType(argument, "CallExpression")) return false;
+  if (!isNodeOfType(argument.callee, "MemberExpression")) return false;
+  if (!isNodeOfType(argument.callee.property, "Identifier")) return false;
+  const methodName = argument.callee.property.name;
+  if (methodName !== "read" && methodName !== "next") return false;
+  return (argument.arguments?.length ?? 0) === 0;
+};
+
 const loopBodyHasOnlySleepLikeAwaits = (node: EsTreeNode): boolean => {
   let hasAwait = false;
   let allAwaitsAreSleepLike = true;
@@ -143,12 +166,13 @@ export const asyncAwaitInLoop = defineRule<Rule>({
       if (loopBodyHasOnlySleepLikeAwaits(loopBody)) return;
       if (hasLoopCarriedDependency(loopBody)) return;
       const firstAwait = findFirstAwaitOutsideNestedFunctions(loopBody);
-      if (firstAwait) {
-        context.report({
-          node: firstAwait,
-          message: `await inside a ${label} runs the calls sequentially - for independent operations, collect them and use \`await Promise.all(items.map(...))\` to run them concurrently`,
-        });
-      }
+      if (!firstAwait) return;
+      if (isAlreadyParallelized(firstAwait)) return;
+      if (isStreamReaderRead(firstAwait)) return;
+      context.report({
+        node: firstAwait,
+        message: `await inside a ${label} runs the calls sequentially - for independent operations, collect them and use \`await Promise.all(items.map(...))\` to run them concurrently`,
+      });
     };
 
     return {

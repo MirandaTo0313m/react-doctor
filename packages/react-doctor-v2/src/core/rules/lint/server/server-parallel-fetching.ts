@@ -47,15 +47,34 @@ return <Profile><Posts /></Profile>;`,
           parent = parent.parent;
         }
         if (!parent?.body?.body) return;
-        const hasAwaitBeforeReturn = parent.body.body.some(
-          (statement: EsTreeNode) =>
-            statement !== node &&
+        const isPromiseConcurrencyAwait = (declarator: EsTreeNode): boolean => {
+          if (!isNodeOfType(declarator.init, "AwaitExpression")) return false;
+          const argument = declarator.init.argument;
+          if (!isNodeOfType(argument, "CallExpression")) return false;
+          const callee = argument.callee;
+          return (
+            isNodeOfType(callee, "MemberExpression") &&
+            isNodeOfType(callee.object, "Identifier") &&
+            callee.object.name === "Promise" &&
+            isNodeOfType(callee.property, "Identifier") &&
+            (callee.property.name === "all" || callee.property.name === "allSettled")
+          );
+        };
+        let sequentialAwaitCount = 0;
+        for (const statement of parent.body.body) {
+          if (statement === node) break;
+          if (
             isNodeOfType(statement, "VariableDeclaration") &&
-            statement.declarations?.some((declarator: EsTreeNode) =>
-              isNodeOfType(declarator.init, "AwaitExpression"),
-            ),
-        );
-        if (!hasAwaitBeforeReturn) return;
+            statement.declarations?.some(
+              (declarator: EsTreeNode) =>
+                isNodeOfType(declarator.init, "AwaitExpression") &&
+                !isPromiseConcurrencyAwait(declarator),
+            )
+          ) {
+            sequentialAwaitCount++;
+          }
+        }
+        if (sequentialAwaitCount < 2) return;
         context.report({
           node,
           message:

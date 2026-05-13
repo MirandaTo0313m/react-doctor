@@ -1,6 +1,30 @@
 import { defineRule } from "../../registry.js";
-import { OG_IMAGE_FILE_PATTERN, OG_ROUTE_PATTERN, isNodeOfType } from "./utils/index.js";
+import {
+  OG_IMAGE_FILE_PATTERN,
+  OG_ROUTE_PATTERN,
+  findJsxAttribute,
+  isNodeOfType,
+} from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
+
+const NON_OPTIMIZABLE_SRC_PATTERN = /^(?:data:|blob:)/;
+
+const isNonOptimizableSrc = (openingElement: EsTreeNode): boolean => {
+  const srcAttribute = findJsxAttribute(openingElement.attributes ?? [], "src");
+  if (!srcAttribute) return false;
+  const value = srcAttribute.value;
+  if (isNodeOfType(value, "Literal") && typeof value.value === "string") {
+    return NON_OPTIMIZABLE_SRC_PATTERN.test(value.value);
+  }
+  if (
+    isNodeOfType(value, "JSXExpressionContainer") &&
+    isNodeOfType(value.expression, "Literal") &&
+    typeof value.expression.value === "string"
+  ) {
+    return NON_OPTIMIZABLE_SRC_PATTERN.test(value.expression.value);
+  }
+  return false;
+};
 
 export const nextjsNoImgElement = defineRule<Rule>({
   recommendation:
@@ -19,6 +43,7 @@ export const nextjsNoImgElement = defineRule<Rule>({
       JSXOpeningElement(node: EsTreeNode) {
         if (isOgImageFile) return;
         if (isNodeOfType(node.name, "JSXIdentifier") && node.name.name === "img") {
+          if (isNonOptimizableSrc(node)) return;
           context.report({
             node,
             message:

@@ -1,6 +1,9 @@
 import { defineRule } from "../../registry.js";
-import { isNodeOfType } from "./utils/index.js";
+import { TEST_OR_INFRA_FILE_PATTERN, isNodeOfType } from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
+
+const NODE_TOOLING_FILE_PATTERN =
+  /(?:^|\/)(?:scripts?|bin|cli|tools?|config|configs|webpack|vite|rollup|esbuild|babel|jest|eslint|storybook)(?:\/|\.|-)|\.(?:config|setup)\.[cm]?[jt]sx?$/i;
 
 export const noDynamicImportPath = defineRule<Rule>({
   recommendation:
@@ -11,8 +14,13 @@ export const noDynamicImportPath = defineRule<Rule>({
       after: `const widgets = { chart: () => import("./widgets/chart") };`,
     },
   ],
-  create: (context: RuleContext) => ({
-    ImportExpression(node: EsTreeNode) {
+  create: (context: RuleContext) => {
+    const filename = context.getFilename?.() ?? "";
+    const isToolingFile =
+      TEST_OR_INFRA_FILE_PATTERN.test(filename) || NODE_TOOLING_FILE_PATTERN.test(filename);
+    return {
+      ImportExpression(node: EsTreeNode) {
+        if (isToolingFile) return;
       const source = node.source;
       if (source && !isNodeOfType(source, "Literal") && !isNodeOfType(source, "TemplateLiteral")) {
         context.report({
@@ -29,8 +37,9 @@ export const noDynamicImportPath = defineRule<Rule>({
             "Template literal with interpolation in dynamic import - use a string literal so the bundler can split this chunk",
         });
       }
-    },
-    CallExpression(node: EsTreeNode) {
+      },
+      CallExpression(node: EsTreeNode) {
+        if (isToolingFile) return;
       if (!isNodeOfType(node.callee, "Identifier") || node.callee.name !== "require") return;
       const argument = node.arguments?.[0];
       if (!argument) return;
@@ -49,6 +58,7 @@ export const noDynamicImportPath = defineRule<Rule>({
             "Template literal with interpolation in require() - use a string literal so the bundler can trace this dependency",
         });
       }
-    },
-  }),
+      },
+    };
+  },
 });

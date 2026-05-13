@@ -10,7 +10,8 @@ export const NONDETERMINISTIC_RENDER_PATTERNS: Array<{
     matches: (node) =>
       isNodeOfType(node, "NewExpression") &&
       isNodeOfType(node.callee, "Identifier") &&
-      node.callee.name === "Date",
+      node.callee.name === "Date" &&
+      (node.arguments?.length ?? 0) === 0,
   },
   {
     display: "Date.now()",

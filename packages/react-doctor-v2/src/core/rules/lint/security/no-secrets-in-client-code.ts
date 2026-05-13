@@ -4,9 +4,17 @@ import {
   SECRET_MIN_LENGTH_CHARS,
   SECRET_PATTERNS,
   SECRET_VARIABLE_PATTERN,
+  TEST_OR_INFRA_FILE_PATTERN,
   isNodeOfType,
 } from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
+
+const URL_LITERAL_PATTERN = /^(?:https?:|wss?:|mailto:)/;
+
+const getTrailingNameSegment = (name: string): string => {
+  const normalizedName = name.replace(/([a-z0-9])([A-Z])/g, "$1_$2");
+  return normalizedName.split("_").pop()?.toLowerCase() ?? "";
+};
 
 export const noSecretsInClientCode = defineRule<Rule>({
   recommendation:
@@ -17,15 +25,19 @@ export const noSecretsInClientCode = defineRule<Rule>({
       after: `const apiKey = process.env.NEXT_PUBLIC_ANALYTICS_KEY;`,
     },
   ],
-  create: (context: RuleContext) => ({
-    VariableDeclarator(node: EsTreeNode) {
+  create: (context: RuleContext) => {
+    const filename = context.getFilename?.() ?? "";
+    if (TEST_OR_INFRA_FILE_PATTERN.test(filename)) return {};
+    return {
+      VariableDeclarator(node: EsTreeNode) {
       if (!isNodeOfType(node.id, "Identifier")) return;
       if (!isNodeOfType(node.init, "Literal") || typeof node.init.value !== "string") return;
 
       const variableName = node.id.name;
       const literalValue = node.init.value;
+      if (URL_LITERAL_PATTERN.test(literalValue)) return;
 
-      const trailingSuffix = variableName.split("_").pop()?.toLowerCase() ?? "";
+      const trailingSuffix = getTrailingNameSegment(variableName);
       const isUiConstant = SECRET_FALSE_POSITIVE_SUFFIXES.has(trailingSuffix);
 
       if (
@@ -47,5 +59,6 @@ export const noSecretsInClientCode = defineRule<Rule>({
         });
       }
     },
-  }),
+    };
+  },
 });

@@ -5,6 +5,11 @@ import type { ReactDoctorConfig, ReactDoctorIssue } from "./types.js";
 
 const TEST_NOISE_TAG = "test-noise";
 const WRAPPED_RULE_ID_PATTERN = /^([a-zA-Z][\w-]*)\(([^)]+)\)$/;
+const REACT_BUILTIN_RULE_PREFIX = /^(?:react|jsx-a11y)\//;
+const JSX_A11Y_RULE_PREFIX = "jsx-a11y/";
+const OG_IMAGE_FILE_PATTERN = /\/(?:opengraph-image|twitter-image|icon|apple-icon)\.[jt]sx?$/;
+const NON_REACT_JSX_IMPORT_PATTERN = /(?:^|\n)\s*import\s.*from\s+['"](?:solid-js|preact)/;
+const NON_REACT_JSX_SOURCES = new Set(["preact", "solid-js", "vue", "svelte"]);
 
 const toMetadataRuleKey = (issue: ReactDoctorIssue): string | null => {
   const ruleId = issue.source?.ruleId;
@@ -106,7 +111,7 @@ const isIgnoredByOverride = (
   return false;
 };
 
-const isDisabledByReactDoctorComment = (
+const isDisabledByInlineComment = (
   issue: ReactDoctorIssue,
   sourceLines: string[] | undefined,
 ): boolean => {
@@ -116,12 +121,26 @@ const isDisabledByReactDoctorComment = (
   const ruleId = stripRuleNamespace(normalizeRuleId(issue));
   const sameLine = sourceLines[line - 1] ?? "";
   const previousLine = sourceLines[line - 2] ?? "";
-  return (
+  if (
     (sameLine.includes("react-doctor-disable-line") &&
       (sameLine.includes(ruleId) || !sameLine.includes("react-doctor/"))) ||
     (previousLine.includes("react-doctor-disable-next-line") &&
       (previousLine.includes(ruleId) || !previousLine.includes("react-doctor/")))
-  );
+  ) {
+    return true;
+  }
+  if (
+    previousLine.includes("eslint-disable-next-line") ||
+    previousLine.includes("oxlint-disable-next-line")
+  ) {
+    if (previousLine.includes(ruleId)) return true;
+    const baseRuleName = ruleId.replace(
+      /^(?:nextjs|rn|tailwind|query|swr|mobx|shadcn|radix|rhf|r3f|storybook|testing)-/,
+      "",
+    );
+    if (baseRuleName !== ruleId && previousLine.includes(baseRuleName)) return true;
+  }
+  return false;
 };
 
 const toLineStartIndex = (sourceLines: string[], line: number): number => {
@@ -191,19 +210,55 @@ const isSuppressedRnRawTextIssue = (
   return false;
 };
 
+export interface FilterReactDoctorIssuesOptions {
+  jsxImportSource?: string;
+}
+
 export const filterReactDoctorIssues = (
   issues: ReactDoctorIssue[],
   config: ReactDoctorConfig,
   rootDirectory: string,
   readSourceLines?: (filePath: string) => string[] | undefined,
+  options?: FilterReactDoctorIssuesOptions,
 ): ReactDoctorIssue[] => {
   const ignoredRules = new Set(config.ignore?.rules ?? []);
   const ignoredFiles = config.ignore?.files ?? [];
   const overrides = compileOverrides(config);
 
-  return issues.filter((issue) => {
+  const isNonReactJsxProject =
+    options?.jsxImportSource !== undefined && NON_REACT_JSX_SOURCES.has(options.jsxImportSource);
+  const nonReactJsxFileCache = new Map<string, boolean>();
+  const isNonReactJsxFile = (relPath: string): boolean => {
+    const cached = nonReactJsxFileCache.get(relPath);
+    if (cached !== undefined) return cached;
+    const lines = readSourceLines?.(relPath);
+    const isNonReact = Boolean(
+      lines && NON_REACT_JSX_IMPORT_PATTERN.test(lines.slice(0, 30).join("\n")),
+    );
+    nonReactJsxFileCache.set(relPath, isNonReact);
+    return isNonReact;
+  };
+
+  const filtered = issues.filter((issue) => {
     const relativeFilePath = toRelativeIssuePath(issue, rootDirectory);
     if (isAutoSuppressedTestNoise(issue, relativeFilePath)) return false;
+
+    const ruleId = normalizeRuleId(issue);
+    const unwrappedRuleId = toMetadataRuleKey(issue) ?? ruleId;
+    if (
+      REACT_BUILTIN_RULE_PREFIX.test(unwrappedRuleId) &&
+      (isNonReactJsxProject || (relativeFilePath && isNonReactJsxFile(relativeFilePath)))
+    ) {
+      return false;
+    }
+    if (
+      unwrappedRuleId.startsWith(JSX_A11Y_RULE_PREFIX) &&
+      relativeFilePath &&
+      OG_IMAGE_FILE_PATTERN.test(relativeFilePath)
+    ) {
+      return false;
+    }
+
     if (matchesRule(issue, ignoredRules)) return false;
     if (
       relativeFilePath &&
@@ -215,7 +270,7 @@ export const filterReactDoctorIssues = (
     if (
       config.respectInlineDisables !== false &&
       relativeFilePath &&
-      isDisabledByReactDoctorComment(issue, readSourceLines?.(relativeFilePath))
+      isDisabledByInlineComment(issue, readSourceLines?.(relativeFilePath))
     ) {
       return false;
     }
@@ -225,6 +280,54 @@ export const filterReactDoctorIssues = (
     ) {
       return false;
     }
+    return true;
+  });
+
+  const seen = new Set<string>();
+
+  const EFFECT_RULE_ALIASES: ReadonlyMap<string, string> = new Map([
+    ["react-doctor/effect-no-event-handler", "effect-event-handler"],
+    ["react-doctor/no-effect-event-handler", "effect-event-handler"],
+    ["effect/no-event-handler", "effect-event-handler"],
+    ["react-doctor/effect-no-derived-state", "effect-derived-state"],
+    ["react-doctor/no-derived-state-effect", "effect-derived-state"],
+    ["effect/no-derived-state", "effect-derived-state"],
+    ["react-doctor/effect-no-chain-state-updates", "effect-chain-state"],
+    ["react-doctor/no-effect-chain", "effect-chain-state"],
+    ["effect/no-chain-state-updates", "effect-chain-state"],
+    ["react-doctor/effect-no-adjust-state-on-prop-change", "effect-adjust-prop"],
+    ["effect/no-adjust-state-on-prop-change", "effect-adjust-prop"],
+    ["react-doctor/effect-no-initialize-state", "effect-init-state"],
+    ["effect/no-initialize-state", "effect-init-state"],
+    ["react-doctor/effect-no-event-handler", "effect-event-handler"],
+    ["react-doctor/effect-no-pass-data-to-parent", "effect-pass-parent"],
+    ["effect/no-pass-data-to-parent", "effect-pass-parent"],
+    ["react-doctor/effect-no-pass-live-state-to-parent", "effect-pass-live-state"],
+    ["effect/no-pass-live-state-to-parent", "effect-pass-live-state"],
+    ["react-doctor/effect-no-reset-all-state-on-prop-change", "effect-reset-state"],
+    ["effect/no-reset-all-state-on-prop-change", "effect-reset-state"],
+  ]);
+
+  const toCanonicalEffectKey = (ruleId: string): string | null =>
+    EFFECT_RULE_ALIASES.get(ruleId) ?? null;
+
+  return filtered.filter((issue) => {
+    const loc = issue.location;
+    if (!loc?.filePath || loc.line === undefined) return true;
+
+    const unwrapped = toMetadataRuleKey(issue) ?? normalizeRuleId(issue);
+    const baseKey = `${loc.filePath}:${loc.line}`;
+    const dedupeKey = `${baseKey}:${unwrapped}`;
+    if (seen.has(dedupeKey)) return false;
+    seen.add(dedupeKey);
+
+    const canonicalEffect = toCanonicalEffectKey(unwrapped);
+    if (canonicalEffect) {
+      const effectCanonKey = `${baseKey}:effect-canonical:${canonicalEffect}`;
+      if (seen.has(effectCanonKey)) return false;
+      seen.add(effectCanonKey);
+    }
+
     return true;
   });
 };

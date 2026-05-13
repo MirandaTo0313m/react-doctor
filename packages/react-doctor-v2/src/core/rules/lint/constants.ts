@@ -4,6 +4,19 @@ export const RELATED_USE_STATE_THRESHOLD = 5;
 export const DEEP_NESTING_THRESHOLD = 3;
 export const DUPLICATE_STORAGE_READ_THRESHOLD = 2;
 export const SEQUENTIAL_AWAIT_THRESHOLD = 3;
+export const SEQUENTIAL_DELAY_FUNCTION_NAMES = new Set([
+  "sleep",
+  "delay",
+  "wait",
+  "waitForTimeout",
+  "waitForSelector",
+  "waitForNavigation",
+  "waitForLoadState",
+  "waitForEvent",
+  "waitForResponse",
+  "waitForRequest",
+  "waitFor",
+]);
 export const PROPERTY_ACCESS_REPEAT_THRESHOLD = 3;
 export const BOOLEAN_PROP_THRESHOLD = 4;
 export const RENDER_PROP_PROLIFERATION_THRESHOLD = 3;
@@ -131,6 +144,9 @@ export const SECRET_FALSE_POSITIVE_SUFFIXES = new Set([
   "id",
   "key",
   "url",
+  "uri",
+  "endpoint",
+  "location",
   "path",
   "route",
   "page",
@@ -363,6 +379,7 @@ export const EXECUTABLE_SCRIPT_TYPES = new Set([
 export const APP_DIRECTORY_PATTERN = /\/app\//;
 
 export const ROUTE_HANDLER_FILE_PATTERN = /\/route\.(tsx?|jsx?)$/;
+export const CRON_ROUTE_PATTERN = /\/cron[-_]?/i;
 
 export const MUTATION_METHOD_NAMES = new Set([
   "create",

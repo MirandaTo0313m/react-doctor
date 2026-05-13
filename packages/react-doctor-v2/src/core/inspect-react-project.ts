@@ -67,6 +67,18 @@ const readSourceLines = (rootDirectory: string, filePath: string): string[] | un
   }
 };
 
+const readJsxImportSource = (rootDirectory: string): string | undefined => {
+  try {
+    const tsconfigPath = path.resolve(rootDirectory, "tsconfig.json");
+    const raw = fs.readFileSync(tsconfigPath, "utf8");
+    const cleaned = raw.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    const parsed = JSON.parse(cleaned);
+    return parsed?.compilerOptions?.jsxImportSource;
+  } catch {
+    return undefined;
+  }
+};
+
 const createOxlintCheck = async (
   rootDirectory: string,
   config: ReactDoctorConfig,
@@ -161,6 +173,7 @@ export const inspectReactProjectCore = async (
     config,
     rootDirectory,
     (filePath) => readSourceLines(rootDirectory, filePath),
+    { jsxImportSource: readJsxImportSource(rootDirectory) },
   );
   const filteredChecks = applyIssueFiltering(allChecks, issues);
   const hasFailedChecks = filteredChecks.some((check) => check.status === "failed");

@@ -5,6 +5,7 @@ import {
   findSideEffect,
   getExportedGetHandlerBody,
 } from "./utils/index.js";
+import { CRON_ROUTE_PATTERN } from "../constants.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
 export const nextjsNoSideEffectInGetHandler = defineRule<Rule>({
@@ -20,6 +21,7 @@ export const nextjsNoSideEffectInGetHandler = defineRule<Rule>({
     ExportNamedDeclaration(node: EsTreeNode) {
       const filename = context.getFilename?.() ?? "";
       if (!ROUTE_HANDLER_FILE_PATTERN.test(filename)) return;
+      if (CRON_ROUTE_PATTERN.test(filename)) return;
 
       const handlerBody = getExportedGetHandlerBody(node);
       if (!handlerBody) return;

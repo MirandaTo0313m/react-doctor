@@ -1,0 +1,1 @@
+{"version":3,"file":"oxlint-plugin.js","names":[],"sources":["../src/oxlint-plugin.ts"],"sourcesContent":["import { reactDoctorOxlintPlugin } from \"./core/rules/index.js\";\n\nexport { reactDoctorOxlintPlugin };\nexport default reactDoctorOxlintPlugin;\n"],"mappings":";;AAGA,IAAA,wBAAe"}

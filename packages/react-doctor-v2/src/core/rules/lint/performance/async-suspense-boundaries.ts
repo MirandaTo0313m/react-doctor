@@ -7,13 +7,23 @@ import {
 } from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
-const containsJsxSuspense = (node: EsTreeNode): boolean => {
-  let foundSuspense = false;
+const containsJsxNode = (node: EsTreeNode, targetName?: string): boolean => {
+  let found = false;
   const visit = (child: EsTreeNode): void => {
-    if (foundSuspense) return;
+    if (found) return;
     if (isNodeOfType(child, "JSXOpeningElement")) {
+      if (!targetName) {
+        found = true;
+        return;
+      }
       const name = child.name;
-      if (isNodeOfType(name, "JSXIdentifier") && name.name === "Suspense") foundSuspense = true;
+      if (isNodeOfType(name, "JSXIdentifier") && name.name === targetName) found = true;
+    }
+    if (isNodeOfType(child, "JSXFragment")) {
+      if (!targetName) {
+        found = true;
+        return;
+      }
     }
     for (const key of Object.keys(child)) {
       if (key === "parent") continue;
@@ -24,7 +34,7 @@ const containsJsxSuspense = (node: EsTreeNode): boolean => {
     }
   };
   visit(node);
-  return foundSuspense;
+  return found;
 };
 
 export const asyncSuspenseBoundaries = defineRule<Rule>({
@@ -44,7 +54,8 @@ export const asyncSuspenseBoundaries = defineRule<Rule>({
     const checkAsyncComponent = (node: EsTreeNode, body: EsTreeNode | null | undefined): void => {
       if (isSkippedFile) return;
       if (!node.async || !body) return;
-      if (containsJsxSuspense(body)) return;
+      if (!containsJsxNode(body)) return;
+      if (containsJsxNode(body, "Suspense")) return;
       context.report({
         node,
         message:

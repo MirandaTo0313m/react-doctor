@@ -23,7 +23,21 @@ export const getTailwindTokenGroup = (token: string): TailwindTokenGroup | null 
   ) {
     return { token, group: `${variant}text-size` };
   }
-  if (/^bg-(?!opacity-)/.test(baseToken)) return { token, group: `${variant}background` };
+  if (/^bg-gradient-/.test(baseToken)) return { token, group: `${variant}bg-gradient` };
+  if (/^bg-(?:cover|contain|auto)$/.test(baseToken)) return { token, group: `${variant}bg-size` };
+  if (
+    /^bg-(?:center|top|right|bottom|left|left-top|left-bottom|right-top|right-bottom)$/.test(
+      baseToken,
+    )
+  )
+    return { token, group: `${variant}bg-position` };
+  if (/^bg-(?:repeat|no-repeat|repeat-x|repeat-y|repeat-round|repeat-space)$/.test(baseToken))
+    return { token, group: `${variant}bg-repeat` };
+  if (/^bg-(?:fixed|local|scroll)$/.test(baseToken))
+    return { token, group: `${variant}bg-attachment` };
+  if (/^bg-clip-/.test(baseToken)) return { token, group: `${variant}bg-clip` };
+  if (/^bg-origin-/.test(baseToken)) return { token, group: `${variant}bg-origin` };
+  if (/^bg-(?!opacity-)/.test(baseToken)) return { token, group: `${variant}bg-color` };
   if (/^z-/.test(baseToken)) return { token, group: `${variant}z-index` };
   return null;
 };

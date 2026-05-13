@@ -1,6 +1,5 @@
 import { defineRule } from "../../registry.js";
-import { APP_DIRECTORY_PATTERN } from "../constants.js";
-import { DERIVING_ARRAY_METHODS, hasDirective, isNodeOfType } from "./utils/index.js";
+import { APP_ROUTER_FILE_PATTERN, DERIVING_ARRAY_METHODS, hasDirective, isNodeOfType } from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
 const isUppercaseJsxElement = (node: EsTreeNode): boolean => {
@@ -19,7 +18,7 @@ export const serverSerialization = defineRule<Rule>({
   ],
   create: (context: RuleContext) => {
     const filename = context.getFilename?.() ?? "";
-    const isAppRouterFile = APP_DIRECTORY_PATTERN.test(filename);
+    const isAppRouterFile = APP_ROUTER_FILE_PATTERN.test(filename);
     let isClientComponent = false;
 
     return {
