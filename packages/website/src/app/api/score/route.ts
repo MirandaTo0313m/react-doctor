@@ -1,4 +1,4 @@
-import { calculateScore, getScoreLabel, type ScoreDiagnostic } from "react-doctor-v2/score";
+import { calculateScore, getScoreLabel, type ScoreDiagnostic } from "react-doctor/score";
 
 const MAX_REQUEST_BODY_BYTES = 1_000_000;
 const MAX_DIAGNOSTICS_PER_REQUEST = 50_000;

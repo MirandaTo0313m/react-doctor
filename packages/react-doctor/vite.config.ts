@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite-plus";
 
 const packageRoot = path.dirname(fileURLToPath(import.meta.url));
-const WASM_FILE_SUFFIX = ".wasm";
 
 const packageJson = JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf8")) as {
   version: string;
@@ -13,8 +12,8 @@ const packageJson = JSON.parse(fs.readFileSync(path.join(packageRoot, "package.j
 // HACK: agent-install's parseSkillManifest silently returns `null` when
 // frontmatter is missing or invalid `name:` / `description:` fields,
 // which caused `react-doctor install` to print success while writing
-// zero files (see review-report.md H1). Validate at build time so a
-// broken SKILL.md is caught here, not at install time.
+// zero files. Validate at build time so a broken SKILL.md is caught
+// here, not at install time.
 const assertSkillManifestParseable = (manifestPath: string): void => {
   const raw = fs.readFileSync(manifestPath, "utf8");
   const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -31,7 +30,7 @@ const assertSkillManifestParseable = (manifestPath: string): void => {
   }
 };
 
-const copySkillToDist = () => {
+const copySkillToDist = (): void => {
   const skillSource = path.resolve(packageRoot, "../../skills/react-doctor");
   const skillTarget = path.resolve(packageRoot, "dist/skills/react-doctor");
   if (!fs.existsSync(skillSource)) {
@@ -44,35 +43,15 @@ const copySkillToDist = () => {
 };
 
 export default defineConfig({
-  plugins: [
-    {
-      name: "react-doctor-wasm-binary-loader",
-      enforce: "pre",
-      load: (id) => {
-        if (!id.endsWith(WASM_FILE_SUFFIX)) return null;
-        const base64 = fs.readFileSync(id).toString("base64");
-        return `const binary = atob(${JSON.stringify(base64)});
-export default Uint8Array.from(binary, (character) => character.charCodeAt(0));`;
-      },
-    },
-  ],
   pack: [
     {
-      entry: { cli: "./src/cli.ts" },
-      deps: { neverBundle: ["oxlint", "knip", "knip/session"] },
+      entry: { cli: "./src/cli/index.ts" },
       dts: true,
       target: "node22",
       platform: "node",
       env: {
         VERSION: process.env.VERSION ?? packageJson.version,
       },
-      // HACK: no shebang on dist/cli.js — the published `bin` entry is
-      // bin/react-doctor.js, which owns the `#!/usr/bin/env node` line
-      // (and the V8 compile-cache warm-up). dist/cli.js is loaded via
-      // `await import(...)` from that shim, where a stray shebang on
-      // line 1 isn't useful and just bloats the bundle. (Programmatic
-      // `import "react-doctor"` consumers don't care either way — Node
-      // ignores a shebang in ESM imports — but we don't need it there.)
       fixedExtension: false,
       hooks: {
         "build:done": () => {
@@ -81,38 +60,17 @@ export default Uint8Array.from(binary, (character) => character.charCodeAt(0));`
       },
     },
     {
-      entry: { index: "./src/index.ts" },
-      deps: { neverBundle: ["oxlint", "knip", "knip/session"] },
-      dts: true,
-      target: "node22",
-      platform: "node",
-      fixedExtension: false,
-    },
-    {
-      entry: { "react-doctor-plugin": "./src/plugin/index.ts" },
-      target: "node22",
-      platform: "node",
-      fixedExtension: false,
-    },
-    {
-      entry: { "eslint-plugin": "./src/eslint-plugin.ts" },
-      dts: true,
-      target: "node22",
-      platform: "node",
-      fixedExtension: false,
-      env: {
-        VERSION: process.env.VERSION ?? packageJson.version,
+      entry: {
+        sdk: "./src/sdk/index.ts",
+        compat: "./src/sdk/compat.ts",
+        score: "./src/core/score.ts",
+        "eslint-plugin": "./src/eslint-plugin.ts",
+        "oxlint-plugin": "./src/oxlint-plugin.ts",
       },
-    },
-    {
-      entry: { "browser-poc": "./src/browser-poc.ts" },
       dts: true,
-      target: "es2022",
-      platform: "browser",
+      target: "node22",
+      platform: "node",
       fixedExtension: false,
     },
   ],
-  test: {
-    testTimeout: 30_000,
-  },
 });

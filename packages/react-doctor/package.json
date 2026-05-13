@@ -41,61 +41,47 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./dist/cli.d.ts",
-      "default": "./dist/cli.js"
+      "types": "./dist/sdk.d.ts",
+      "default": "./dist/sdk.js"
     },
     "./api": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/compat.d.ts",
+      "default": "./dist/compat.js"
     },
-    "./oxlint-plugin": {
-      "types": "./dist/react-doctor-plugin.d.ts",
-      "default": "./dist/react-doctor-plugin.js"
+    "./score": {
+      "types": "./dist/score.d.ts",
+      "default": "./dist/score.js"
     },
     "./eslint-plugin": {
       "types": "./dist/eslint-plugin.d.ts",
       "default": "./dist/eslint-plugin.js"
     },
-    "./browser-poc": {
-      "types": "./dist/browser-poc.d.ts",
-      "default": "./dist/browser-poc.js"
+    "./oxlint-plugin": {
+      "types": "./dist/oxlint-plugin.d.ts",
+      "default": "./dist/oxlint-plugin.js"
     }
   },
   "scripts": {
     "dev": "vp pack --watch",
-    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && NODE_ENV=production vp pack && esbuild src/browser-poc.ts --bundle --format=iife --global-name=ReactDoctorBrowserPoc --platform=browser --target=es2022 --loader:.wasm=binary --outfile=dist/browser-poc.global.js",
-    "poc:browser": "vite --host 127.0.0.1",
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && NODE_ENV=production vp pack",
     "typecheck": "tsc --noEmit",
     "test": "vp test run"
   },
   "dependencies": {
-    "@oxc-parser/wasm": "^0.60.0",
     "agent-install": "0.0.5",
-    "bippy": "^0.5.39",
     "commander": "^14.0.3",
-    "knip": "^6.10.0",
-    "ora": "^9.4.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "oxc-parser": "^0.130.0",
+    "oxc-resolver": "^11.19.1",
     "oxlint": "^1.63.0",
     "picocolors": "^1.1.1",
-    "prompts": "^2.4.2",
-    "typescript": ">=5.0.4 <7"
+    "prompts": "^2.4.2"
   },
   "devDependencies": {
+    "@oxc-project/types": "^0.130.0",
+    "@types/node": "^25.6.0",
     "@types/prompts": "^2.4.9",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-you-might-not-need-an-effect": "^0.10.1"
-  },
-  "peerDependencies": {
-    "eslint-plugin-react-hooks": "^6 || ^7",
-    "eslint-plugin-react-you-might-not-need-an-effect": "^0.10"
-  },
-  "peerDependenciesMeta": {
-    "eslint-plugin-react-hooks": {
-      "optional": true
-    },
-    "eslint-plugin-react-you-might-not-need-an-effect": {
-      "optional": true
-    }
+    "vite-plus": "^0.1.15"
   },
   "engines": {
     "node": ">=22"

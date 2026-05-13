@@ -1,72 +1,51 @@
-export const SOURCE_FILE_PATTERN = /\.(tsx?|jsx?)$/;
-
-export const JSX_FILE_PATTERN = /\.(tsx|jsx)$/;
-
-export const MILLISECONDS_PER_SECOND = 1000;
-
-export const ERROR_PREVIEW_LENGTH_CHARS = 200;
-
-export const BROWSER_POC_FUNCTION_SOURCE_MAX_CHARS = 20_000;
-
-export const BROWSER_POC_HOST_SELECTOR_MAX_COUNT = 4;
-
+export const CANONICAL_GITHUB_URL = "https://github.com/millionco/react-doctor";
+export const DEFAULT_DIRECTORY = ".";
+export const EXIT_FAILURE_CODE = 1;
+export const REACT_DOCTOR_CONFIG_FILENAME = "react-doctor.config.json";
+export const PACKAGE_JSON_FILENAME = "package.json";
+export const PACKAGE_JSON_CONFIG_KEY = "reactDoctor";
 export const PERFECT_SCORE = 100;
-
 export const SCORE_GOOD_THRESHOLD = 75;
-
 export const SCORE_OK_THRESHOLD = 50;
-
 export const SCORE_BAR_WIDTH_CHARS = 50;
-
-export const SCORE_API_URL = "https://www.react.doctor/api/score";
-
+export const REACT_REVIEW_URL = "https://react.review";
 export const SHARE_BASE_URL = "https://www.react.doctor/share";
-
-export const FETCH_TIMEOUT_MS = 10_000;
-
-export const GIT_LS_FILES_MAX_BUFFER_BYTES = 50 * 1024 * 1024;
-
-// HACK: Windows CreateProcessW limits total command-line length to 32,767 chars.
-// Use a conservative threshold to leave room for the executable path and quoting overhead.
-export const SPAWN_ARGS_MAX_LENGTH_CHARS = 24_000;
-
-// HACK: oxlint can SIGABRT on very large file sets due to memory pressure.
-// Cap each batch to avoid OOM crashes on projects with 100+ source files.
-export const OXLINT_MAX_FILES_PER_BATCH = 500;
-
-export const OFFLINE_MESSAGE = "Score calculated locally (offline mode).";
-
-export const DEFAULT_BRANCH_CANDIDATES = ["main", "master"];
-
 export const ERROR_RULE_PENALTY = 1.5;
-
 export const WARNING_RULE_PENALTY = 0.75;
+export const PER_RULE_LOG_AMPLIFICATION_CAP = 4;
+export const SCORE_API_URL = "https://www.react.doctor/api/score";
+export const FETCH_TIMEOUT_MS = 10_000;
+export const MILLISECONDS_PER_SECOND = 1000;
+export const MAX_CATEGORY_GROUPS_SHOWN_NON_VERBOSE = 3;
+export const MAX_RULE_GROUPS_PER_CATEGORY_NON_VERBOSE = 3;
+export const DEFAULT_BRANCH_CANDIDATES = ["main", "master"];
+export const GIT_SHOW_MAX_BUFFER_BYTES = 50 * 1024 * 1024;
+export const SOURCE_FILE_PATTERN = /\.(cjs|cts|js|jsx|mjs|mts|ts|tsx)$/;
 
-export const KNIP_CONFIG_LOCATIONS = [
-  "knip.json",
-  "knip.jsonc",
-  ".knip.json",
-  ".knip.jsonc",
-  "knip.ts",
-  "knip.js",
-  "knip.config.ts",
-  "knip.config.js",
-];
+export const FRAMEWORK_DISPLAY_NAMES: Record<string, string> = {
+  nextjs: "Next.js",
+  "react-native": "React Native",
+  "tanstack-start": "TanStack Start",
+  cra: "Create React App",
+  expo: "Expo",
+  gatsby: "Gatsby",
+  remix: "Remix",
+  vite: "Vite",
+  react: "React",
+};
 
-// JSON-format oxlint / eslint configs react-doctor can fold into the
-// scan via oxlint's `extends` field. JS / TS configs need a runtime
-// to evaluate and aren't supported by oxlint's `extends`. Listed in
-// detection priority order — oxlint native first, eslint legacy as a
-// compatibility fallback. Also used by tests as the source of truth.
-export const ADOPTABLE_LINT_CONFIG_FILENAMES = [".oxlintrc.json", ".eslintrc.json"];
+export const REACT_PROJECT_DEPENDENCIES = new Set([
+  "@remix-run/react",
+  "@tanstack/react-start",
+  "expo",
+  "gatsby",
+  "next",
+  "react",
+  "react-native",
+  "react-scripts",
+]);
 
-export const OXLINT_NODE_REQUIREMENT = "^20.19.0 || >=22.12.0";
-
-export const OXLINT_RECOMMENDED_NODE_MAJOR = 24;
-
-export const GIT_SHOW_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
-
-export const IGNORED_DIRECTORIES = new Set([
+export const FILESYSTEM_WALK_IGNORED_DIRECTORIES = new Set([
   ".git",
   ".next",
   ".nuxt",
@@ -81,60 +60,4 @@ export const IGNORED_DIRECTORIES = new Set([
   "storybook-static",
 ]);
 
-export const CANONICAL_GITHUB_URL = "https://github.com/millionco/react-doctor";
-
-export const SKILL_NAME = "react-doctor";
-
-export const KNIP_TOTAL_ATTEMPTS = 6;
-
-export const PROXY_OUTPUT_MAX_BYTES = 50 * 1024 * 1024;
-
-export const buildNoReactDependencyError = (directory: string): string =>
-  `No React dependency found in ${directory}/package.json. Add "react" to dependencies (or peerDependencies) and re-run.`;
-
-// HACK: minimum React major versions for the deprecation rule gates in
-// `oxlint-config.ts`. React-19-deprecated APIs (forwardRef, useContext,
-// Foo.defaultProps) shouldn't fire on 17/18 codebases — those are still
-// the current surface there. The legacy react-dom root API
-// (render/hydrate/unmountComponentAtNode/findDOMNode) was deprecated
-// in 18, so we light those up one major earlier.
-export const REACT_19_DEPRECATION_MIN_MAJOR = 19;
-
-export const REACT_DOM_LEGACY_API_MIN_MAJOR = 18;
-
-// HACK: lookahead cap for JSX opener-span scanning; bounds worst-case
-// work on pathological files. Real openers stay well under this.
-export const JSX_OPENER_SCAN_MAX_LINES = 32;
-
-// HACK: lookback cap for stacked / near-miss disable-next-line scanning.
-// Larger gaps stop being intentional suppressions and become noise.
-export const SUPPRESSION_NEAR_MISS_MAX_LINES = 10;
-
-// `useEffectEvent` requires React 19+. Below the threshold, the rule
-// that suggests it (`prefer-use-effect-event`) stays silent.
-export const USE_EFFECT_EVENT_MIN_MAJOR = 19;
-
-// HACK: minimum Tailwind major.minor for the `size-N` shorthand. The
-// rule that suggests collapsing `w-N h-N` (`design-no-redundant-size-axes`)
-// requires Tailwind v3.4+ — recommending `size-N` to a v3.0…v3.3
-// project would generate classes that simply don't compile. Below
-// the threshold the rule stays silent. v4 inherits the shorthand,
-// so a single major.minor floor covers every supported Tailwind line.
-export const TAILWIND_SIZE_SHORTHAND_MIN_MAJOR = 3;
-export const TAILWIND_SIZE_SHORTHAND_MIN_MINOR = 4;
-
-// In the default human output, show several category sections like an
-// audit report, but cap each section so one noisy category does not
-// bury the rest of the scan.
-export const MAX_CATEGORY_GROUPS_SHOWN_NON_VERBOSE = 5;
-
-export const MAX_RULE_GROUPS_PER_CATEGORY_NON_VERBOSE = 3;
-
-// Minimum width of the rule-name column in the diagnostics list. Pads
-// shorter rule names so the right-aligned `N sites` count stays in a
-// consistent column even when one rule has a much longer identifier.
-export const RULE_NAME_COLUMN_WIDTH_CHARS = 36;
-
-export const OUTPUT_DETAIL_WRAP_WIDTH_CHARS = 88;
-
-export const SPINNER_INDENT_CHARS = 0;
+export const SEVERITY_ORDER: Record<string, number> = { error: 0, warning: 1, info: 2 };
