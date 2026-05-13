@@ -1539,6 +1539,7 @@ const program = new Command()
             ),
             silentLogs: isQuiet,
             config,
+            loadedConfig,
           };
 
           const snapshotProjects = await discoverProjects(
@@ -1628,7 +1629,13 @@ const program = new Command()
           console.log("");
         }
       } else if (!effectiveFlags.staged) {
-        includePaths = resolveIncludePaths(scanRootDirectory, effectiveFlags);
+        // When --diff was requested but diff detection failed, we already
+        // told the user "Running full scan" — so suppress the diff flag here
+        // to avoid resolveIncludePaths invoking a doomed git command that
+        // returns [] and silently scans nothing.
+        const includePathsFlags: CliFlags =
+          wantsDiffMode && !isDiffMode ? { ...effectiveFlags, diff: false } : effectiveFlags;
+        includePaths = resolveIncludePaths(scanRootDirectory, includePathsFlags);
       }
 
       const shouldSkipSourceChecks =
