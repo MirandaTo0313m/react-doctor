@@ -18,7 +18,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vite-plus/test";
 
-import { scan } from "../../src/scan.js";
+import { scan } from "../../src/core/scan.js";
 import type { ReactDoctorConfig, ScanResult } from "../../src/types.js";
 import {
   encodeAnnotationProperty,

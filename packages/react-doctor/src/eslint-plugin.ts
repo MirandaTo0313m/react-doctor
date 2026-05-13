@@ -6,7 +6,7 @@ import {
   TANSTACK_QUERY_RULES,
   TANSTACK_START_RULES,
   type RuleSeverity,
-} from "./oxlint-config.js";
+} from "./core/runners/oxlint-config.js";
 import type { EsTreeNode, Rule as PluginRule, RuleVisitors } from "./plugin/types.js";
 
 interface EslintRuleContext {

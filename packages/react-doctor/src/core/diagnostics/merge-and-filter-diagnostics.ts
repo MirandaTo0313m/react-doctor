@@ -1,4 +1,4 @@
-import { RULE_METADATA } from "../../oxlint-config.js";
+import { RULE_METADATA } from "../runners/oxlint-config.js";
 import type { Diagnostic, ReactDoctorConfig } from "../../types.js";
 import { filterIgnoredDiagnostics, filterInlineSuppressions } from "./filter-diagnostics.js";
 import { isLikelyBuildEntry } from "../config/is-likely-build-entry.js";

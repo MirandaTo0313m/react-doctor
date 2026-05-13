@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it, vi } from "vite-plus/test";
-import { scan } from "../src/scan.js";
+import { scan } from "../src/core/scan.js";
 import { clearConfigCache } from "../src/core/config/load-config.js";
 import { setupReactProject } from "./regressions/_helpers.js";
 

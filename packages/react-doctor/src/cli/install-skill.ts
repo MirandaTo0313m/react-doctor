@@ -2,13 +2,13 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { installSkillsFromSource, SKILL_MANIFEST_FILE, type SkillAgentType } from "agent-install";
-import { SKILL_NAME } from "./constants.js";
-import { detectAvailableAgents } from "./cli/detect-agents.js";
-import { highlighter } from "./cli/highlighter.js";
-import { logger } from "./cli/logger.js";
-import { prompts } from "./cli/prompts.js";
-import { spinner } from "./cli/spinner.js";
-import { toDisplayName } from "./cli/to-display-name.js";
+import { SKILL_NAME } from "../constants.js";
+import { detectAvailableAgents } from "./detect-agents.js";
+import { highlighter } from "./highlighter.js";
+import { logger } from "./logger.js";
+import { prompts } from "./prompts.js";
+import { spinner } from "./spinner.js";
+import { toDisplayName } from "./to-display-name.js";
 
 interface InstallSkillOptions {
   yes?: boolean;

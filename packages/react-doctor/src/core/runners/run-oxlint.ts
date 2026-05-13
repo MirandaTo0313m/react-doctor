@@ -18,7 +18,7 @@ import {
   FRAMEWORK_SPECIFIC_RULE_KEYS,
   RULE_METADATA,
   createOxlintConfig,
-} from "../../oxlint-config.js";
+} from "./oxlint-config.js";
 import type { CleanedDiagnostic, Diagnostic, OxlintOutput, ProjectInfo } from "../../types.js";
 import { neutralizeDisableDirectives } from "../diagnostics/neutralize-disable-directives.js";
 

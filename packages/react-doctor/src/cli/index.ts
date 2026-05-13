@@ -4,8 +4,8 @@ import path from "node:path";
 import { performance } from "node:perf_hooks";
 import { Command } from "commander";
 import { CANONICAL_GITHUB_URL } from "../constants.js";
-import { runInstallSkill } from "../install-skill.js";
-import { scan } from "../scan.js";
+import { runInstallSkill } from "./install-skill.js";
+import { scan } from "../core/scan.js";
 import type {
   Diagnostic,
   DiffInfo,
