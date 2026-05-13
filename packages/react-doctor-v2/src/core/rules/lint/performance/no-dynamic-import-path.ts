@@ -3,7 +3,7 @@ import { TEST_OR_INFRA_FILE_PATTERN, isNodeOfType } from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
 const NODE_TOOLING_FILE_PATTERN =
-  /(?:^|\/)(?:scripts?|bin|cli|tools?|config|configs|webpack|vite|rollup|esbuild|babel|jest|eslint|storybook)(?:\/|\.|-)|\.(?:config|setup)\.[cm]?[jt]sx?$/i;
+  /(?:^|\/)(?:scripts?|bin|cli)(?:\/|\.|-)|(?:^|\/)(?:webpack|vite|rollup|esbuild|babel|jest|eslint|storybook)\.config\.[cm]?[jt]sx?$|\.(?:config|setup)\.[cm]?[jt]sx?$/i;
 
 export const noDynamicImportPath = defineRule<Rule>({
   recommendation:

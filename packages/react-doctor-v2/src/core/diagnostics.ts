@@ -13,6 +13,10 @@ const OG_JSX_FILE_PATTERN =
 const NON_REACT_JSX_IMPORT_PATTERN = /(?:^|\n)\s*import\s.*from\s+['"](?:solid-js|preact)/;
 const NON_REACT_JSX_SOURCES = new Set(["preact", "solid-js", "vue", "svelte"]);
 const EMOTION_IMPORT_PATTERN = /(?:^|\n)\s*import\s.*from\s+['"]@emotion\/react['"]/;
+const IMAGE_RESPONSE_IMPORT_PATTERN =
+  /(?:^|\n)\s*import\s.*\bImageResponse\b.*from\s+['"](?:next\/og|@vercel\/og)['"]/;
+const SATORI_TW_PROP_PATTERN = /\btw\s*=/;
+const EMOTION_CSS_PROP_PATTERN = /\bcss\s*=/;
 
 const toMetadataRuleKey = (issue: ReactDoctorIssue): string | null => {
   const ruleId = issue.source?.ruleId;
@@ -220,12 +224,20 @@ const isSuppressedUnknownPropertyIssue = (
 ): boolean => {
   const ruleKey = toMetadataRuleKey(issue) ?? normalizeRuleId(issue);
   if (ruleKey !== "react/no-unknown-property") return false;
-  if (OG_JSX_FILE_PATTERN.test(relativeFilePath)) return true;
   if (!sourceLines) return false;
-  if (EMOTION_IMPORT_PATTERN.test(sourceLines.slice(0, 30).join("\n"))) return true;
   const line = issue.location?.line;
   if (!line) return false;
   const sourceLine = sourceLines[line - 1] ?? "";
+  const sourceHeader = sourceLines.slice(0, 30).join("\n");
+  if (
+    SATORI_TW_PROP_PATTERN.test(sourceLine) &&
+    (OG_JSX_FILE_PATTERN.test(relativeFilePath) || IMAGE_RESPONSE_IMPORT_PATTERN.test(sourceHeader))
+  ) {
+    return true;
+  }
+  if (EMOTION_CSS_PROP_PATTERN.test(sourceLine) && EMOTION_IMPORT_PATTERN.test(sourceHeader)) {
+    return true;
+  }
   return sourceLine.includes("<style") && sourceLine.includes("jsx");
 };
 

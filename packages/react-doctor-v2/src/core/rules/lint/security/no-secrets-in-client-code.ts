@@ -11,6 +11,8 @@ import type { RuleVisitors } from "../utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
 const URL_LITERAL_PATTERN = /^(?:https?:|wss?:|mailto:)/;
+const URL_CREDENTIAL_PATTERN =
+  /:\/\/[^/\s:@]+:[^/\s@]+@|[?&#](?:api_?key|access_?token|auth|client_?secret|credential|password|secret|token)=|(?:[:/?#&=]|^)(?:sk_live_|sk_test_|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|github_pat_|glpat-|xox[bporas]-|sk-[a-zA-Z0-9]{32,})/i;
 
 const getTrailingNameSegment = (name: string): string => {
   const normalizedName = name.replace(/([a-z0-9])([A-Z])/g, "$1_$2");
@@ -38,7 +40,16 @@ export const noSecretsInClientCode = defineRule<Rule>({
 
         const variableName = node.id.name;
         const literalValue = node.init.value;
-        if (URL_LITERAL_PATTERN.test(literalValue)) return;
+        if (URL_LITERAL_PATTERN.test(literalValue) && URL_CREDENTIAL_PATTERN.test(literalValue)) {
+          context.report({
+            node,
+            message: "Hardcoded secret detected in URL literal - use environment variables instead",
+          });
+          return;
+        }
+        if (URL_LITERAL_PATTERN.test(literalValue) && !URL_CREDENTIAL_PATTERN.test(literalValue)) {
+          return;
+        }
 
         const trailingSuffix = getTrailingNameSegment(variableName);
         const isUiConstant = SECRET_FALSE_POSITIVE_SUFFIXES.has(trailingSuffix);

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   BUILTIN_A11Y_OXLINT_RULES,
   BUILTIN_REACT_OXLINT_RULES,
+  CURATED_OXLINT_RULES,
   REACT_DOCTOR_OXLINT_RULE_ID_PREFIX,
   REACT_DOCTOR_CUSTOM_OXLINT_RULES,
   createReactDoctorOxlintConfig,
@@ -156,7 +157,14 @@ describe("oxlint rules", () => {
       "react-doctor/effect-no-initialize-state": "warn",
       "react-doctor/query-no-unstable-query-key": "error",
     });
+    expect(config.rules["react-hooks-js/todo"]).toBeUndefined();
     expect(config.rules["react-doctor/design-no-three-period-ellipsis"]).toBeUndefined();
+  });
+
+  it("keeps React Compiler rules out of the generic curated export", () => {
+    expect(CURATED_OXLINT_RULES["react-hooks-js/todo"]).toBeUndefined();
+    expect(CURATED_OXLINT_RULES["react/rules-of-hooks"]).toBe("error");
+    expect(CURATED_OXLINT_RULES["react-doctor/no-fetch-in-effect"]).toBe("warn");
   });
 
   it("supports custom-rule-only oxlint configs", () => {

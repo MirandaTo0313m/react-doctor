@@ -9,8 +9,7 @@ import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
 const INITIAL_VALUE_PROP_PATTERN = /^(?:default|initial)[A-Z]/;
 
-const isInitialValueProp = (propName: string): boolean =>
-  INITIAL_VALUE_PROP_PATTERN.test(propName);
+const isInitialValueProp = (propName: string): boolean => INITIAL_VALUE_PROP_PATTERN.test(propName);
 
 export const noDerivedUseState = defineRule<Rule>({
   recommendation:
