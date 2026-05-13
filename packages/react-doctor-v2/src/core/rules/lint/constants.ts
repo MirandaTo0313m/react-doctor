@@ -332,7 +332,7 @@ export const INTERNAL_PAGE_PATH_PATTERN =
 
 export const TEST_FILE_PATTERN = /\.(?:test|spec|stories)\.[tj]sx?$/;
 export const TEST_OR_INFRA_FILE_PATTERN =
-  /(?:\.(?:test|spec|stories|e2e|integration)\.[tj]sx?$|\/(?:__tests__|tests?|__mocks__|__fixtures__|fixtures)\/)/;
+  /(?:\.(?:test|spec|stories|e2e|integration)\.[tj]sx?$|\/(?:__tests__|tests?|__mocks__|__fixtures__|fixtures|e2e|playwright)\/)/;
 export const OG_ROUTE_PATTERN = /\/og\b/i;
 export const OG_IMAGE_FILE_PATTERN =
   /\/(?:opengraph-image|twitter-image|icon|apple-icon)\.[jt]sx?$|\.opengraph\.[jt]sx?$/;

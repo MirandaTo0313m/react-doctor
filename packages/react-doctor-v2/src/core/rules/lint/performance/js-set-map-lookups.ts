@@ -117,7 +117,14 @@ const STRING_TYPED_IDENTIFIER_NAMES: ReadonlySet<string> = new Set([
   "search",
   "haystack",
   "needle",
+  "route",
+  "key",
+  "token",
+  "tag",
 ]);
+
+const STRING_TYPED_IDENTIFIER_SUFFIX_PATTERN =
+  /(?:Text|Name|Label|Title|Url|Path|Key|Route|Slug|Token|Tag|Id|Code|Type|Value)$/;
 
 const isLikelyStringReceiver = (receiver: EsTreeNode | null | undefined): boolean => {
   if (!receiver) return false;
@@ -152,7 +159,13 @@ const isLikelyStringReceiver = (receiver: EsTreeNode | null | undefined): boolea
   ) {
     return true;
   }
-  return isNodeOfType(receiver, "Identifier") && STRING_TYPED_IDENTIFIER_NAMES.has(receiver.name);
+  if (isNodeOfType(receiver, "Identifier")) {
+    return (
+      STRING_TYPED_IDENTIFIER_NAMES.has(receiver.name) ||
+      STRING_TYPED_IDENTIFIER_SUFFIX_PATTERN.test(receiver.name)
+    );
+  }
+  return false;
 };
 
 export const jsSetMapLookups = defineRule<Rule>({
@@ -175,6 +188,12 @@ export const jsSetMapLookups = defineRule<Rule>({
         const methodName = node.callee.property.name;
         if (methodName !== "includes" && methodName !== "indexOf") return;
         if (isLikelyStringReceiver(node.callee.object)) return;
+        if (
+          isNodeOfType(node.callee.object, "ArrayExpression") &&
+          (node.callee.object.elements?.length ?? 0) < 8
+        ) {
+          return;
+        }
         context.report({
           node,
           message: `array.${methodName}() in a loop is O(n) per call - convert to a Set for O(1) lookups`,
