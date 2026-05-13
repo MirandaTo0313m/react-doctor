@@ -3,8 +3,10 @@ import {
   ANALYTICS_DEFERRABLE_METHODS,
   ANALYTICS_DEFERRABLE_OBJECTS,
 } from "../server/utils/index.js";
-import { isNodeOfType } from "./utils/index.js";
+import { TEST_OR_INFRA_FILE_PATTERN, isNodeOfType } from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
+
+const SERVER_OR_CLI_FILE_PATTERN = /\/(?:server|cli|bin|scripts|workers?|cron|jobs?|commands?|api)\//;
 
 const isDeferrableCall = (node: EsTreeNode): boolean => {
   if (!isNodeOfType(node, "CallExpression")) return false;
@@ -27,14 +29,22 @@ export const jsRequestIdleCallback = defineRule<Rule>({
       after: `requestIdleCallback(() => analytics.track("view"));`,
     },
   ],
-  create: (context: RuleContext) => ({
-    CallExpression(node: EsTreeNode) {
-      if (!isDeferrableCall(node)) return;
-      context.report({
-        node,
-        message:
-          "non-critical analytics/logging runs immediately - schedule it with requestIdleCallback (with a timeout if required) so input and animation work stay responsive",
-      });
-    },
-  }),
+  create: (context: RuleContext) => {
+    const filename = context.getFilename?.() ?? "";
+    const isNonBrowserFile =
+      TEST_OR_INFRA_FILE_PATTERN.test(filename) ||
+      SERVER_OR_CLI_FILE_PATTERN.test(filename);
+
+    return {
+      CallExpression(node: EsTreeNode) {
+        if (isNonBrowserFile) return;
+        if (!isDeferrableCall(node)) return;
+        context.report({
+          node,
+          message:
+            "non-critical analytics/logging runs immediately - schedule it with requestIdleCallback (with a timeout if required) so input and animation work stay responsive",
+        });
+      },
+    };
+  },
 });

@@ -1,6 +1,34 @@
 import { defineRule } from "../../registry.js";
-import { TEST_OR_INFRA_FILE_PATTERN, isAddEventListenerCall, isNodeOfType } from "./utils/index.js";
+import {
+  TEST_OR_INFRA_FILE_PATTERN,
+  isAddEventListenerCall,
+  isNodeOfType,
+} from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
+
+const UPPERCASE_PATTERN = /^[A-Z]/;
+
+const isInsideComponentOrHook = (node: EsTreeNode): boolean => {
+  let current: EsTreeNode | null | undefined = node.parent;
+  while (current) {
+    if (
+      isNodeOfType(current, "FunctionDeclaration") &&
+      current.id?.name &&
+      (UPPERCASE_PATTERN.test(current.id.name) || current.id.name.startsWith("use"))
+    ) {
+      return true;
+    }
+    if (
+      isNodeOfType(current, "VariableDeclarator") &&
+      isNodeOfType(current.id, "Identifier") &&
+      (UPPERCASE_PATTERN.test(current.id.name) || current.id.name.startsWith("use"))
+    ) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
+};
 
 export const clientEventListeners = defineRule<Rule>({
   recommendation:
@@ -22,6 +50,7 @@ export const clientEventListeners = defineRule<Rule>({
         const eventTarget = node.callee?.object;
         if (!isNodeOfType(eventTarget, "Identifier")) return;
         if (eventTarget.name !== "window" && eventTarget.name !== "document") return;
+        if (!isInsideComponentOrHook(node)) return;
         context.report({
           node,
           message:
