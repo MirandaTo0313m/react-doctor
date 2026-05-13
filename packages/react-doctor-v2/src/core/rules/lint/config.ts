@@ -333,6 +333,8 @@ const RULE_METADATA: ReadonlyMap<string, RuleMetadataEntry> = new Map([
     requires: ["react:19"],
     tags: TEST_NOISE_TAGS,
   }),
+  withReactDoctorRuleKey("no-nested-component-definition", { tags: TEST_NOISE_TAGS }),
+  withReactDoctorRuleKey("no-eval", { tags: TEST_NOISE_TAGS }),
   withReactDoctorRuleKey("design-no-bold-heading", { tags: DESIGN_AND_TEST_NOISE_TAGS }),
   withReactDoctorRuleKey("tailwind-no-redundant-padding-axes", {
     tags: DESIGN_AND_TEST_NOISE_TAGS,
