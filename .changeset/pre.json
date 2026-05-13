@@ -5,5 +5,9 @@
     "react-doctor": "0.1.6",
     "website": "0.1.0"
   },
-  "changesets": []
+  "changesets": [
+    "tailwind-version-detection",
+    "v2-categorization-and-compat",
+    "v2-rewrite"
+  ]
 }

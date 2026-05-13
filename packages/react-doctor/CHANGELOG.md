@@ -1,5 +1,62 @@
 # react-doctor
 
+## 0.2.0-beta.0
+
+### Minor Changes
+
+- [#217](https://github.com/millionco/react-doctor/pull/217) [`cfc65f2`](https://github.com/millionco/react-doctor/commit/cfc65f28c8ccd3e540cdacce97574dd65b99ef19) Thanks [@aidenybai](https://github.com/aidenybai)! - v2 rewrite: SDK-first surface (`react-doctor` exports the SDK; the legacy
+  `diagnose()` shape lives at `react-doctor/api`). Adds a new
+  `react-doctor/score` subpath. Drops the `react-doctor/browser-poc` export.
+  Drops the `eslint-plugin-react-hooks` /
+  `eslint-plugin-react-you-might-not-need-an-effect` peer dependencies
+  (`eslint-plugin-react-hooks` is now a regular dependency; the
+  "you-might-not-need-an-effect" rules are skipped unless the plugin is
+  installed in the consumer project). Other runtime deps trimmed: `knip`,
+  `bippy`, `@oxc-parser/wasm` dropped; `oxc-parser`, `oxc-resolver` added.
+
+### Patch Changes
+
+- [#202](https://github.com/millionco/react-doctor/pull/202) [`53fa4df`](https://github.com/millionco/react-doctor/commit/53fa4dffe837e0157fb850fef700fccaaec191ea) Thanks [@aidenybai](https://github.com/aidenybai)! - Detect the project's Tailwind version (`tailwindcss` in `package.json`,
+  including pnpm and Bun catalog references) and gate Tailwind-aware
+  rules on it. `design-no-redundant-size-axes` (which suggests collapsing
+  `w-N h-N` → `size-N`) now stays silent on Tailwind v3.0 … v3.3 — those
+  versions predate the `size-N` shorthand and the suggestion would
+  generate classes that don't compile. The rule still fires on Tailwind
+  v3.4+, v4+, and when the version cannot be resolved (the same
+  "assume latest" fallback used by the React-major gate).
+
+  A new `tailwindVersion` field is added to `ProjectInfo` and printed
+  during scans so it's visible alongside the detected React version and
+  framework.
+
+- [#217](https://github.com/millionco/react-doctor/pull/217) [`7797985`](https://github.com/millionco/react-doctor/commit/77979851d288e29b19f808168742e1b15e5ec8ae) Thanks [@aidenybai](https://github.com/aidenybai)! - Fixes carried out alongside the v2 rewrite:
+
+  - **Restore the v1 error-class surface on `react-doctor/api`.** The compat
+    module now re-exports `AmbiguousProjectError`, `NoReactDependencyError`,
+    `PackageJsonNotFoundError`, `ProjectNotFoundError`, `ReactDoctorError`, and
+    `isReactDoctorError` so existing v1 consumers (sandbox runners,
+    third-party diagnose wrappers) keep importing the same names.
+  - **Fix oxlint category routing.** The runner had a stale duplicate
+    `RULE_CATEGORY_MAP` that covered only ~half the v2 rules; the other half
+    (`tailwind-*`, `client-*`, `effect-*`, `nextjs-*`, `tanstack-*`, `rn-*`,
+    many `no-*`, …) silently fell through to the `Other` category. Switched
+    the runner to the comprehensive `resolveOxlintDiagnosticCategory()` that
+    already existed in `core/rules/lint/utils`, deleted the duplicated map,
+    and added a registry test that asserts every rule resolves to a real
+    category (never `Other`). Category breakdowns now look meaningful:
+    Performance/Architecture/Accessibility/State & Effects/etc. instead of a
+    giant `Other` bucket.
+    Scoring calibration note: v2's local score function is more expressive
+    than v1's (`100 - errorRules*1.5 - warningRules*0.75`) — per-category
+    caps and log-scaled per-rule amplification mean high-instance rules cost
+    more and many small categories cost more than v1's flat per-unique-rule
+    penalty. The same project will score lower under v2 than v1 even when v2
+    finds fewer total issues. The remote `react.doctor` score endpoint
+    should be updated to use this package's `react-doctor/score` export so
+    server and local results match; until then, the remote API will reject
+    the v2 payload shape and clients will silently fall back to local v2
+    scoring.
+
 ## 0.1.6
 
 ### Patch Changes
