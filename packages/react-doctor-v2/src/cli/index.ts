@@ -9,9 +9,12 @@ import {
   CANONICAL_GITHUB_URL,
   DEFAULT_DIRECTORY,
   EXIT_FAILURE_CODE,
+  FILESYSTEM_WALK_IGNORED_DIRECTORIES,
   MAX_CATEGORY_GROUPS_SHOWN_NON_VERBOSE,
   MAX_RULE_GROUPS_PER_CATEGORY_NON_VERBOSE,
   MILLISECONDS_PER_SECOND,
+  REACT_PROJECT_DEPENDENCIES,
+  SEVERITY_ORDER,
   SHARE_BASE_URL,
   SOURCE_FILE_PATTERN,
 } from "../constants.js";
@@ -39,16 +42,6 @@ import type {
 import type { WorkspaceInfo } from "../core/rules/codebase/analyzer/index.js";
 
 const VERSION = process.env.VERSION ?? "0.0.0";
-const REACT_PROJECT_DEPENDENCIES = new Set([
-  "@remix-run/react",
-  "@tanstack/react-start",
-  "expo",
-  "gatsby",
-  "next",
-  "react",
-  "react-native",
-  "react-scripts",
-]);
 
 interface CliFlags {
   json: boolean;
@@ -115,21 +108,6 @@ const isReactWorkspace = (workspace: WorkspaceInfo): boolean =>
   [...REACT_PROJECT_DEPENDENCIES].some((dependencyName) =>
     workspace.dependencyNames.has(dependencyName),
   );
-
-const FILESYSTEM_WALK_IGNORED_DIRECTORIES = new Set([
-  ".git",
-  ".next",
-  ".nuxt",
-  ".output",
-  ".svelte-kit",
-  ".turbo",
-  "build",
-  "coverage",
-  "dist",
-  "node_modules",
-  "out",
-  "storybook-static",
-]);
 
 interface FilesystemPackageManifest {
   dependencies?: Record<string, unknown>;
@@ -321,8 +299,6 @@ interface CategoryGroup {
   issues: ReactDoctorIssue[];
   ruleGroups: [string, ReactDoctorIssue[]][];
 }
-
-const SEVERITY_ORDER: Record<string, number> = { error: 0, warning: 1, info: 2 };
 
 const buildCategoryGroups = (issues: ReactDoctorIssue[]): CategoryGroup[] => {
   const categoryMap = new Map<string, ReactDoctorIssue[]>();

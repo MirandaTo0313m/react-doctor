@@ -61,16 +61,3 @@ export const FILESYSTEM_WALK_IGNORED_DIRECTORIES = new Set([
 ]);
 
 export const SEVERITY_ORDER: Record<string, number> = { error: 0, warning: 1, info: 2 };
-
-export const STAGED_PROJECT_CONFIG_FILENAMES = [
-  "tsconfig.json",
-  "tsconfig.base.json",
-  "package.json",
-  "react-doctor.config.json",
-  "knip.json",
-  "knip.jsonc",
-  ".knip.json",
-  ".knip.jsonc",
-  "oxlint.json",
-  ".oxlintrc.json",
-];

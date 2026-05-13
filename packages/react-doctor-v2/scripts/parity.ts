@@ -109,11 +109,10 @@ const REGRESSION_TEST_REPOS = [
   "grafana/grafana",
 ];
 
-const LOCAL_FIXTURES = [
-  "/Users/rasmus/dev/ami-2/apps/frontend",
-  "/Users/rasmus/dev/cheffect",
-  "/Users/rasmus/dev/bunnings-lite",
-];
+const LOCAL_FIXTURES = (process.env.REACT_DOCTOR_PARITY_LOCAL_FIXTURES ?? "")
+  .split(path.delimiter)
+  .map((entry) => entry.trim())
+  .filter((entry) => entry.length > 0);
 
 // Monorepos where we only want to lint a specific workspace, not the whole
 // clone. The clone happens once per `slug`; each entry below becomes its
