@@ -11,10 +11,8 @@ import {
   EXIT_FAILURE_CODE,
   FILESYSTEM_WALK_IGNORED_DIRECTORIES,
   FRAMEWORK_DISPLAY_NAMES,
-  MAX_CATEGORY_GROUPS_SHOWN_NON_VERBOSE,
-  MAX_INLINE_SUB_RULES_SHOWN,
-  MAX_RULE_GROUPS_PER_CATEGORY_NON_VERBOSE,
   MAX_SCORE_DRAINS_SHOWN,
+  NON_VERBOSE_LOCATIONS_PER_GROUP,
   PER_CATEGORY_PENALTY_CAP,
   PERFECT_SCORE,
   REACT_PROJECT_DEPENDENCIES,
@@ -357,93 +355,52 @@ const getWorstScoreValue = (results: ReactDoctorResult[]): number => {
   return scores.length > 0 ? Math.min(...scores.map((score) => score.value)) : PERFECT_SCORE;
 };
 
-// Mirror how the score collapses custom checks: dead-code, dependencies,
-// react-architecture, ... all emit many sub-ruleIds under one rule
-// definition for display clarity, so they should render as ONE row.
-const getRuleGroupKey = (issue: ReactDoctorIssue): string => getScoringRuleKey(issue);
-
-interface SubRuleCount {
+interface TitleGroup {
   title: string;
-  count: number;
-}
-
-interface RuleGroup {
-  groupKey: string;
   issues: ReactDoctorIssue[];
-  subRuleCounts: SubRuleCount[];
 }
-
-const groupIssuesByRule = (issues: ReactDoctorIssue[]): RuleGroup[] => {
-  const groups = new Map<string, ReactDoctorIssue[]>();
-  for (const issue of issues) {
-    const groupKey = getRuleGroupKey(issue);
-    const ruleIssues = groups.get(groupKey) ?? [];
-    ruleIssues.push(issue);
-    groups.set(groupKey, ruleIssues);
-  }
-  return [...groups.entries()].map(([groupKey, groupIssues]) => {
-    const subRuleCountMap = new Map<string, number>();
-    for (const issue of groupIssues) {
-      subRuleCountMap.set(issue.title, (subRuleCountMap.get(issue.title) ?? 0) + 1);
-    }
-    const subRuleCounts = [...subRuleCountMap.entries()]
-      .map(([title, count]) => ({ title, count }))
-      .toSorted((first, second) => second.count - first.count);
-    return { groupKey, issues: groupIssues, subRuleCounts };
-  });
-};
-
-const getRuleGroupDisplayTitle = (
-  ruleGroup: RuleGroup,
-  checkNameByCheckId: ReadonlyMap<string, string>,
-): string => {
-  if (ruleGroup.subRuleCounts.length === 1) return ruleGroup.subRuleCounts[0].title;
-  const checkName = checkNameByCheckId.get(ruleGroup.groupKey);
-  return checkName ?? ruleGroup.groupKey;
-};
-
-const formatSubRuleBreakdown = (subRuleCounts: SubRuleCount[]): string => {
-  const visible = subRuleCounts.slice(0, MAX_INLINE_SUB_RULES_SHOWN);
-  const remaining = subRuleCounts.length - visible.length;
-  const inlineParts = visible.map(({ title, count }) => `${title} ×${count}`);
-  if (remaining > 0) inlineParts.push(`+${remaining} more`);
-  return inlineParts.join(", ");
-};
 
 interface CategoryGroup {
   category: string;
   issues: ReactDoctorIssue[];
-  ruleGroups: RuleGroup[];
+  groups: TitleGroup[];
 }
 
-const buildCategoryGroups = (issues: ReactDoctorIssue[]): CategoryGroup[] => {
-  const categoryMap = new Map<string, ReactDoctorIssue[]>();
-  for (const issue of issues) {
-    const categoryIssues = categoryMap.get(issue.category) ?? [];
-    categoryIssues.push(issue);
-    categoryMap.set(issue.category, categoryIssues);
+const groupBy = <T, K>(items: readonly T[], key: (item: T) => K): Map<K, T[]> => {
+  const buckets = new Map<K, T[]>();
+  for (const item of items) {
+    const bucket = buckets.get(key(item));
+    if (bucket) bucket.push(item);
+    else buckets.set(key(item), [item]);
   }
-  return [...categoryMap.entries()]
-    .map(([category, categoryIssues]) => {
-      const ruleGroups = groupIssuesByRule(categoryIssues).toSorted((groupA, groupB) => {
-        const severityDelta =
-          (SEVERITY_ORDER[groupA.issues[0].severity] ?? 2) -
-          (SEVERITY_ORDER[groupB.issues[0].severity] ?? 2);
-        if (severityDelta !== 0) return severityDelta;
-        return groupB.issues.length - groupA.issues.length;
-      });
-      return { category, issues: categoryIssues, ruleGroups };
-    })
-    .toSorted((groupA, groupB) => {
-      const worstA = Math.min(...groupA.issues.map((issue) => SEVERITY_ORDER[issue.severity] ?? 2));
-      const worstB = Math.min(...groupB.issues.map((issue) => SEVERITY_ORDER[issue.severity] ?? 2));
-      if (worstA !== worstB) return worstA - worstB;
-      if (groupA.issues.length !== groupB.issues.length) {
-        return groupB.issues.length - groupA.issues.length;
-      }
-      return groupA.category.localeCompare(groupB.category);
-    });
+  return buckets;
 };
+
+const severityRank = (severity: ReactDoctorIssue["severity"]): number =>
+  SEVERITY_ORDER[severity] ?? 2;
+
+const worstSeverity = (issues: readonly ReactDoctorIssue[]): number =>
+  Math.min(...issues.map((issue) => severityRank(issue.severity)));
+
+const buildCategoryGroups = (issues: readonly ReactDoctorIssue[]): CategoryGroup[] =>
+  [...groupBy(issues, (issue) => issue.category)]
+    .map(([category, categoryIssues]) => ({
+      category,
+      issues: categoryIssues,
+      groups: [...groupBy(categoryIssues, (issue) => issue.title)]
+        .map(([title, titleIssues]) => ({ title, issues: titleIssues }))
+        .toSorted(
+          (a, b) =>
+            severityRank(a.issues[0].severity) - severityRank(b.issues[0].severity) ||
+            b.issues.length - a.issues.length,
+        ),
+    }))
+    .toSorted(
+      (a, b) =>
+        worstSeverity(a.issues) - worstSeverity(b.issues) ||
+        b.issues.length - a.issues.length ||
+        a.category.localeCompare(b.category),
+    );
 
 const buildCheckNameLookup = (
   result: ReactDoctorResult | ReactDoctorResult[],
@@ -527,114 +484,39 @@ const printProjectDetection = (result: ReactDoctorResult): void => {
   console.log("");
 };
 
-const printDefaultIssueGroup = (
-  ruleGroup: RuleGroup,
-  checkNameByCheckId: ReadonlyMap<string, string>,
-): void => {
-  const firstIssue = ruleGroup.issues[0];
-  const marker = firstIssue.severity === "error" ? highlighter.error("✗") : highlighter.warn("⚠");
-  const siteCountBadge =
-    ruleGroup.issues.length > 1 ? ` ${highlighter.gray(`×${ruleGroup.issues.length}`)}` : "";
-  const displayTitle = getRuleGroupDisplayTitle(ruleGroup, checkNameByCheckId);
-  console.log(`  ${marker} ${displayTitle}${siteCountBadge}`);
+const formatLocation = (issue: ReactDoctorIssue): string | null => {
+  const filePath = issue.location?.filePath;
+  if (!filePath) return null;
+  return issue.location?.line ? `${filePath}:${issue.location.line}` : filePath;
+};
 
-  if (ruleGroup.subRuleCounts.length > 1) {
-    console.log(`    ${highlighter.gray(formatSubRuleBreakdown(ruleGroup.subRuleCounts))}`);
-  } else {
-    console.log(`    ${highlighter.gray(firstIssue.message)}`);
-    if (firstIssue.recommendation) {
-      console.log(`    ${highlighter.gray(firstIssue.recommendation)}`);
-    }
+const printTitleGroup = (group: TitleGroup, isVerbose: boolean): void => {
+  const first = group.issues[0];
+  const marker = first.severity === "error" ? highlighter.error("✗") : highlighter.warn("⚠");
+  const countBadge =
+    group.issues.length > 1 ? ` ${highlighter.gray(`×${group.issues.length}`)}` : "";
+  console.log(`  ${marker} ${group.title}${countBadge}`);
+  console.log(`    ${highlighter.gray(first.message)}`);
+  if (first.recommendation) console.log(`    ${highlighter.gray(first.recommendation)}`);
+
+  const locations = group.issues
+    .map(formatLocation)
+    .filter((location): location is string => location !== null);
+  const limit = isVerbose ? locations.length : NON_VERBOSE_LOCATIONS_PER_GROUP;
+  for (const location of locations.slice(0, limit)) {
+    console.log(`    ${highlighter.gray(location)}`);
   }
-
-  const firstLocation = ruleGroup.issues.find((issue) => issue.location?.line);
-  if (firstLocation?.location) {
-    const locationPath = firstLocation.location.filePath ?? "";
-    const line = firstLocation.location.line ? `:${firstLocation.location.line}` : "";
-    console.log(`    ${highlighter.gray(`${locationPath}${line}`)}`);
+  const overflow = locations.length - limit;
+  if (overflow > 0) {
+    console.log(`    ${highlighter.gray(`+${overflow} more — run with --verbose`)}`);
   }
 };
 
-const printVerboseIssueGroup = (
-  ruleGroup: RuleGroup,
-  checkNameByCheckId: ReadonlyMap<string, string>,
-): void => {
-  const firstIssue = ruleGroup.issues[0];
-  const marker = firstIssue.severity === "error" ? highlighter.error("✗") : highlighter.warn("⚠");
-  const siteCountBadge =
-    ruleGroup.issues.length > 1 ? ` ${highlighter.gray(`×${ruleGroup.issues.length}`)}` : "";
-  const displayTitle = getRuleGroupDisplayTitle(ruleGroup, checkNameByCheckId);
-  console.log(`  ${marker} ${displayTitle}${siteCountBadge}`);
-
-  if (ruleGroup.subRuleCounts.length > 1) {
-    console.log(`      ${highlighter.gray(formatSubRuleBreakdown(ruleGroup.subRuleCounts))}`);
-  } else {
-    console.log(`      ${highlighter.gray(firstIssue.message)}`);
-    if (firstIssue.recommendation) {
-      console.log(`      ${highlighter.gray(`→ ${firstIssue.recommendation}`)}`);
-    }
-  }
-
-  for (const issue of ruleGroup.issues) {
-    if (issue.location?.filePath && issue.location?.line) {
-      console.log(`      ${highlighter.gray(`${issue.location.filePath}:${issue.location.line}`)}`);
-    }
-  }
-};
-
-const printIssueSections = (
-  issues: ReactDoctorIssue[],
-  isVerbose: boolean,
-  checkNameByCheckId: ReadonlyMap<string, string>,
-): void => {
-  const categoryGroups = buildCategoryGroups(issues);
-
-  if (isVerbose) {
-    for (const categoryGroup of categoryGroups) {
-      const issueCount = `${categoryGroup.issues.length} ${categoryGroup.issues.length === 1 ? "issue" : "issues"}`;
-      console.log(`${highlighter.bold(categoryGroup.category)} ${highlighter.dim(issueCount)}`);
-      for (const ruleGroup of categoryGroup.ruleGroups) {
-        printVerboseIssueGroup(ruleGroup, checkNameByCheckId);
-      }
-      console.log("");
-    }
-    return;
-  }
-
-  const visibleCategoryGroups = categoryGroups.slice(0, MAX_CATEGORY_GROUPS_SHOWN_NON_VERBOSE);
-  const hiddenCategoryGroups = categoryGroups.slice(MAX_CATEGORY_GROUPS_SHOWN_NON_VERBOSE);
-  const hiddenRuleGroups: RuleGroup[] = [];
-
-  for (const categoryGroup of visibleCategoryGroups) {
-    const visibleRuleGroups = categoryGroup.ruleGroups.slice(
-      0,
-      MAX_RULE_GROUPS_PER_CATEGORY_NON_VERBOSE,
-    );
-    const remainingRuleGroups = categoryGroup.ruleGroups.slice(
-      MAX_RULE_GROUPS_PER_CATEGORY_NON_VERBOSE,
-    );
-    const issueCount = `${categoryGroup.issues.length} ${categoryGroup.issues.length === 1 ? "issue" : "issues"}`;
-    console.log(`${highlighter.bold(categoryGroup.category)} ${highlighter.dim(issueCount)}`);
-    for (const ruleGroup of visibleRuleGroups) {
-      printDefaultIssueGroup(ruleGroup, checkNameByCheckId);
-    }
-    console.log("");
-    hiddenRuleGroups.push(...remainingRuleGroups);
-  }
-
-  hiddenRuleGroups.push(
-    ...hiddenCategoryGroups.flatMap((categoryGroup) => categoryGroup.ruleGroups),
-  );
-
-  if (hiddenRuleGroups.length > 0) {
-    const hiddenIssueCount = hiddenRuleGroups.reduce(
-      (total, ruleGroup) => total + ruleGroup.issues.length,
-      0,
-    );
-    const hiddenRuleCount = hiddenRuleGroups.length;
-    console.log(
-      `  ${highlighter.dim(`… and ${hiddenRuleCount} more rules (${hiddenIssueCount} issues). Run \`npx react-doctor@latest . --verbose\` for all details.`)}`,
-    );
+const printIssueSections = (issues: ReactDoctorIssue[], isVerbose: boolean): void => {
+  for (const category of buildCategoryGroups(issues)) {
+    const label = `${category.issues.length} ${category.issues.length === 1 ? "issue" : "issues"}`;
+    console.log(`${highlighter.bold(category.category)} ${highlighter.dim(label)}`);
+    for (const group of category.groups) printTitleGroup(group, isVerbose);
     console.log("");
   }
 };
@@ -869,7 +751,7 @@ const printInspectionResult = (
     return;
   }
 
-  printIssueSections(result.issues, flags.verbose, buildCheckNameLookup(result));
+  printIssueSections(result.issues, flags.verbose);
 
   printResultScoreBlock(result);
   printCountsSummaryLine(
@@ -967,7 +849,7 @@ const printInspectionResults = (
       console.log(`${highlighter.success("✔")} No React Doctor issues found.`);
       console.log("");
     } else {
-      printIssueSections(result.issues, flags.verbose, buildCheckNameLookup(result));
+      printIssueSections(result.issues, flags.verbose);
     }
     printResultScoreBlock(result);
     if (result.issues.length > 0) {

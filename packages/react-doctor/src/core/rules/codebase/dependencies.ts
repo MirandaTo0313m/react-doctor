@@ -2,6 +2,7 @@ import {
   DEFINITELY_TYPED_SCOPE,
   DEPENDENCIES_CHECK_ID,
   IGNORED_DEFINITELY_TYPED_PACKAGE_NAMES,
+  PACKAGE_JSON_FILENAME,
 } from "./analyzer/constants.js";
 import { runCodebaseAnalysis } from "./analyzer/index.js";
 import { isOptionalPeerDependency } from "./analyzer/manifest.js";
@@ -355,7 +356,12 @@ const toDependencyIssue = (
           line: finding.importRecord?.position.line,
           column: finding.importRecord?.position.column,
         }
-      : { filePath: finding.workspace.relativeDirectory },
+      : {
+          filePath:
+            finding.workspace.relativeDirectory === "."
+              ? PACKAGE_JSON_FILENAME
+              : `${finding.workspace.relativeDirectory}/${PACKAGE_JSON_FILENAME}`,
+        },
     recommendation: "Update the nearest package.json dependency bucket to match actual usage.",
     source: { checkId: DEPENDENCIES_CHECK_ID, ruleId },
   });
