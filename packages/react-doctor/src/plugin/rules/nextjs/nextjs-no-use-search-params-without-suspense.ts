@@ -1,5 +1,9 @@
-import { defineRule, isHookCall, walkAst } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 // HACK: file-level proxy for "is the developer aware of the Suspense
 // requirement?". Cross-file ancestor analysis would catch every case

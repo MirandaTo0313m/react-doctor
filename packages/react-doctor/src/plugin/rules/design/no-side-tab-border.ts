@@ -1,128 +1,19 @@
 import {
-  COLOR_CHROMA_THRESHOLD,
   SIDE_TAB_BORDER_WIDTH_WITHOUT_RADIUS_PX,
   SIDE_TAB_BORDER_WIDTH_WITH_RADIUS_PX,
   SIDE_TAB_TAILWIND_WIDTH_WITHOUT_RADIUS,
 } from "../../constants.js";
-import { defineRule, findJsxAttribute } from "../../utils/index.js";
-import type { EsTreeNode, ParsedRgb, Rule, RuleContext } from "../../utils/index.js";
-
-const getStringFromClassNameAttr = (node: EsTreeNode): string | null => {
-  const classAttr = findJsxAttribute(node.attributes ?? [], "className");
-  if (!classAttr?.value) return null;
-  if (classAttr.value.type === "Literal" && typeof classAttr.value.value === "string") {
-    return classAttr.value.value;
-  }
-  if (
-    classAttr.value.type === "JSXExpressionContainer" &&
-    classAttr.value.expression?.type === "Literal" &&
-    typeof classAttr.value.expression.value === "string"
-  ) {
-    return classAttr.value.expression.value;
-  }
-  if (
-    classAttr.value.type === "JSXExpressionContainer" &&
-    classAttr.value.expression?.type === "TemplateLiteral" &&
-    classAttr.value.expression.quasis?.length === 1
-  ) {
-    return classAttr.value.expression.quasis[0].value?.raw ?? null;
-  }
-  return null;
-};
-
-const getInlineStyleExpression = (node: EsTreeNode): EsTreeNode | null => {
-  if (node.name?.type !== "JSXIdentifier" || node.name.name !== "style") return null;
-  if (node.value?.type !== "JSXExpressionContainer") return null;
-  const expression = node.value.expression;
-  if (expression?.type !== "ObjectExpression") return null;
-  return expression;
-};
-
-const getStylePropertyStringValue = (property: EsTreeNode): string | null => {
-  if (property.value?.type === "Literal" && typeof property.value.value === "string") {
-    return property.value.value;
-  }
-  return null;
-};
-
-const getStylePropertyNumberValue = (property: EsTreeNode): number | null => {
-  if (property.value?.type === "Literal" && typeof property.value.value === "number") {
-    return property.value.value;
-  }
-  if (
-    property.value?.type === "UnaryExpression" &&
-    property.value.operator === "-" &&
-    property.value.argument?.type === "Literal" &&
-    typeof property.value.argument.value === "number"
-  ) {
-    return -property.value.argument.value;
-  }
-  return null;
-};
-
-const getStylePropertyKey = (property: EsTreeNode): string | null => {
-  if (property.type !== "Property") return null;
-  if (property.key?.type === "Identifier") return property.key.name;
-  if (property.key?.type === "Literal" && typeof property.key.value === "string")
-    return property.key.value;
-  return null;
-};
-
-const parseColorToRgb = (value: string): ParsedRgb | null => {
-  const trimmed = value.trim().toLowerCase();
-
-  const hex8Match = trimmed.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})[0-9a-f]{2}$/);
-  if (hex8Match) {
-    return {
-      red: parseInt(hex8Match[1], 16),
-      green: parseInt(hex8Match[2], 16),
-      blue: parseInt(hex8Match[3], 16),
-    };
-  }
-
-  const hex6Match = trimmed.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/);
-  if (hex6Match) {
-    return {
-      red: parseInt(hex6Match[1], 16),
-      green: parseInt(hex6Match[2], 16),
-      blue: parseInt(hex6Match[3], 16),
-    };
-  }
-
-  const hex4Match = trimmed.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])[0-9a-f]$/);
-  if (hex4Match) {
-    return {
-      red: parseInt(hex4Match[1] + hex4Match[1], 16),
-      green: parseInt(hex4Match[2] + hex4Match[2], 16),
-      blue: parseInt(hex4Match[3] + hex4Match[3], 16),
-    };
-  }
-
-  const hex3Match = trimmed.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/);
-  if (hex3Match) {
-    return {
-      red: parseInt(hex3Match[1] + hex3Match[1], 16),
-      green: parseInt(hex3Match[2] + hex3Match[2], 16),
-      blue: parseInt(hex3Match[3] + hex3Match[3], 16),
-    };
-  }
-
-  const rgbMatch = trimmed.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-  if (rgbMatch) {
-    return {
-      red: parseInt(rgbMatch[1], 10),
-      green: parseInt(rgbMatch[2], 10),
-      blue: parseInt(rgbMatch[3], 10),
-    };
-  }
-
-  return null;
-};
-
-const hasColorChroma = (parsed: ParsedRgb): boolean =>
-  Math.max(parsed.red, parsed.green, parsed.blue) -
-    Math.min(parsed.red, parsed.green, parsed.blue) >=
-  COLOR_CHROMA_THRESHOLD;
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { getInlineStyleExpression } from "./utils/get-inline-style-expression.js";
+import { getStylePropertyStringValue } from "./utils/get-style-property-string-value.js";
+import { getStylePropertyKey } from "./utils/get-style-property-key.js";
+import { parseColorToRgb } from "./utils/parse-color-to-rgb.js";
+import { hasColorChroma } from "./utils/has-color-chroma.js";
+import { getStringFromClassNameAttr } from "./utils/get-string-from-class-name-attr.js";
+import { getStylePropertyNumberValue } from "./utils/get-style-property-number-value.js";
 
 const isNeutralBorderColor = (value: string): boolean => {
   const trimmed = value.trim().toLowerCase();

@@ -1,29 +1,11 @@
 import { LONG_TRANSITION_DURATION_THRESHOLD_MS } from "../../constants.js";
-import { defineRule } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
-
-const getInlineStyleExpression = (node: EsTreeNode): EsTreeNode | null => {
-  if (node.name?.type !== "JSXIdentifier" || node.name.name !== "style") return null;
-  if (node.value?.type !== "JSXExpressionContainer") return null;
-  const expression = node.value.expression;
-  if (expression?.type !== "ObjectExpression") return null;
-  return expression;
-};
-
-const getStylePropertyStringValue = (property: EsTreeNode): string | null => {
-  if (property.value?.type === "Literal" && typeof property.value.value === "string") {
-    return property.value.value;
-  }
-  return null;
-};
-
-const getStylePropertyKey = (property: EsTreeNode): string | null => {
-  if (property.type !== "Property") return null;
-  if (property.key?.type === "Identifier") return property.key.name;
-  if (property.key?.type === "Literal" && typeof property.key.value === "string")
-    return property.key.value;
-  return null;
-};
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { getInlineStyleExpression } from "./utils/get-inline-style-expression.js";
+import { getStylePropertyStringValue } from "./utils/get-style-property-string-value.js";
+import { getStylePropertyKey } from "./utils/get-style-property-key.js";
 
 export const noLongTransitionDuration = defineRule<Rule>({
   create: (context: RuleContext) => ({

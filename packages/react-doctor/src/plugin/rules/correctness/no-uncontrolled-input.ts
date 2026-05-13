@@ -1,12 +1,12 @@
-import {
-  defineRule,
-  findJsxAttribute,
-  isComponentAssignment,
-  isHookCall,
-  isUppercaseName,
-  walkAst,
-} from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { findJsxAttribute } from "../../utils/find-jsx-attribute.js";
+import { isComponentAssignment } from "../../utils/is-component-assignment.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import { isUppercaseName } from "../../utils/is-uppercase-name.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 const UNCONTROLLED_INPUT_TAGS = new Set(["input", "textarea", "select"]);
 

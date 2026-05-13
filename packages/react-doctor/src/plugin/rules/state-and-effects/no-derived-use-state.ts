@@ -1,10 +1,10 @@
-import {
-  createComponentPropStackTracker,
-  defineRule,
-  getRootIdentifierName,
-  isHookCall,
-} from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { createComponentPropStackTracker } from "../../utils/create-component-prop-stack-tracker.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { getRootIdentifierName } from "../../utils/get-root-identifier-name.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 export const noDerivedUseState = defineRule<Rule>({
   create: (context: RuleContext) => {

@@ -1,6 +1,8 @@
 import { LAYOUT_PROPERTIES, MOTION_ANIMATE_PROPS } from "../../constants.js";
-import { defineRule } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 const isMotionElement = (attributeNode: EsTreeNode): boolean => {
   const openingElement = attributeNode.parent;

@@ -1,10 +1,10 @@
-import {
-  defineRule,
-  isComponentAssignment,
-  isHookCall,
-  isUppercaseName,
-} from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { isComponentAssignment } from "../../utils/is-component-assignment.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import { isUppercaseName } from "../../utils/is-uppercase-name.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 const callbackReturnsJsx = (callback: EsTreeNode | undefined): boolean => {
   if (!callback) return false;

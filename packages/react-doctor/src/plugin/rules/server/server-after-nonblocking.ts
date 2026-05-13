@@ -1,5 +1,9 @@
-import { defineRule, hasDirective, hasUseServerDirective } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { hasDirective } from "../../utils/has-directive.js";
+import { hasUseServerDirective } from "../../utils/has-use-server-directive.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 // HACK: a (object, method) pair counts as "deferrable side effect" when
 // it either (a) is a synchronous `console.log/info/warn` (still cheap,

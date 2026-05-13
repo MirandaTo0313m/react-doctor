@@ -1,20 +1,9 @@
-import { defineRule } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
-
-const resolveJsxElementName = (openingElement: EsTreeNode): string | null => {
-  const elementName = openingElement?.name;
-  if (!elementName) return null;
-  if (elementName.type === "JSXIdentifier") return elementName.name;
-  if (elementName.type === "JSXMemberExpression") return elementName.property?.name ?? null;
-  return null;
-};
-
-// HACK: short-name only. `resolveJsxElementName` (defined at top of
-// file) returns the property name for JSXMemberExpression — e.g.
-// `Animated.ScrollView` resolves to `"ScrollView"`, which is what all
-// the existing `REACT_NATIVE_*` sets use. Allowlists below use the same
-// short-name form.
-const SCROLLVIEW_NAMES = new Set(["ScrollView"]);
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { resolveJsxElementName } from "./utils/resolve-jsx-element-name.js";
+import { SCROLLVIEW_NAMES } from "./utils/scrollview_names.js";
 
 // HACK: <SafeAreaView> wrapping <ScrollView> (or
 // `useSafeAreaInsets()` + `paddingTop: insets.top` in

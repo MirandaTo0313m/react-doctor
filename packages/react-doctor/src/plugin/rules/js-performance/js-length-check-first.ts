@@ -1,5 +1,9 @@
-import { defineRule, isMemberProperty, walkAst } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { isMemberProperty } from "../../utils/is-member-property.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 // HACK: when comparing two arrays element-by-element via .every / .some /
 // .reduce against another array, a length mismatch is the cheapest possible

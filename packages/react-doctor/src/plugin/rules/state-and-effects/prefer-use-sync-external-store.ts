@@ -1,61 +1,18 @@
-import {
-  CLEANUP_LIKE_RELEASE_CALLEE_NAMES,
-  EFFECT_HOOK_NAMES,
-  SUBSCRIPTION_METHOD_NAMES,
-  TIMER_CLEANUP_CALLEE_NAMES,
-  UNSUBSCRIPTION_METHOD_NAMES,
-} from "../../constants.js";
-import {
-  areExpressionsStructurallyEqual,
-  defineRule,
-  getCallbackStatements,
-  getEffectCallback,
-  isComponentAssignment,
-  isHookCall,
-  isSetterIdentifier,
-  isUppercaseName,
-  walkAst,
-} from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
-
-// HACK: a useState whose value is never read in the component's JSX
-// return is by definition not visual state — every setState triggers a
-// render that produces the same DOM. Use `useRef` (`ref.current = ...`)
-// so updates don't trigger re-renders. (For values read inside an
-// addEventListener-style callback, a ref also lets the handler always
-// see the latest value without re-subscribing each effect run.)
-const collectUseStateBindings = (
-  componentBody: EsTreeNode,
-): Array<{ valueName: string; setterName: string; declarator: EsTreeNode }> => {
-  const bindings: Array<{ valueName: string; setterName: string; declarator: EsTreeNode }> = [];
-  if (componentBody?.type !== "BlockStatement") return bindings;
-
-  for (const statement of componentBody.body ?? []) {
-    if (statement.type !== "VariableDeclaration") continue;
-    for (const declarator of statement.declarations ?? []) {
-      if (declarator.id?.type !== "ArrayPattern") continue;
-      const elements = declarator.id.elements ?? [];
-      if (elements.length < 2) continue;
-      const valueElement = elements[0];
-      const setterElement = elements[1];
-      if (
-        valueElement?.type !== "Identifier" ||
-        setterElement?.type !== "Identifier" ||
-        !isSetterIdentifier(setterElement.name)
-      ) {
-        continue;
-      }
-      if (declarator.init?.type !== "CallExpression") continue;
-      if (!isHookCall(declarator.init, "useState")) continue;
-      bindings.push({
-        valueName: valueElement.name,
-        setterName: setterElement.name,
-        declarator,
-      });
-    }
-  }
-  return bindings;
-};
+import { EFFECT_HOOK_NAMES, SUBSCRIPTION_METHOD_NAMES } from "../../constants.js";
+import { areExpressionsStructurallyEqual } from "../../utils/are-expressions-structurally-equal.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { getCallbackStatements } from "../../utils/get-callback-statements.js";
+import { getEffectCallback } from "../../utils/get-effect-callback.js";
+import { isComponentAssignment } from "../../utils/is-component-assignment.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import { isSetterIdentifier } from "../../utils/is-setter-identifier.js";
+import { isUppercaseName } from "../../utils/is-uppercase-name.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { isCleanupReturn } from "./utils/is-cleanup-return.js";
+import { collectUseStateBindings } from "./utils/collect-use-state-bindings.js";
 
 // HACK: §11 of "You Might Not Need an Effect" + the linked
 // `useSyncExternalStore` docs warn that pairing a `useState(getSnapshot())`
@@ -165,73 +122,6 @@ const getSingleSetterCallFromHandler = (
     setterName: expression.callee.name,
     setterArgument: expression.arguments[0],
   };
-};
-
-const isSubscribeLikeCallExpression = (node: EsTreeNode): boolean => {
-  if (node?.type !== "CallExpression") return false;
-  if (node.callee?.type !== "MemberExpression") return false;
-  if (node.callee.property?.type !== "Identifier") return false;
-  return SUBSCRIPTION_METHOD_NAMES.has(node.callee.property.name);
-};
-
-// Single source of truth for "does this CallExpression release a
-// previously-acquired effect resource?". Used by both
-// `effectNeedsCleanup` and `prefer-use-sync-external-store` so the
-// two rules can never disagree on what a cleanup looks like.
-const isReleaseLikeCall = (
-  callNode: EsTreeNode,
-  knownBoundReleaseNames: ReadonlySet<string>,
-): boolean => {
-  if (callNode?.type !== "CallExpression") return false;
-  const callee = callNode.callee;
-  if (callee?.type === "Identifier") {
-    if (TIMER_CLEANUP_CALLEE_NAMES.has(callee.name)) return true;
-    if (CLEANUP_LIKE_RELEASE_CALLEE_NAMES.has(callee.name)) return true;
-    if (knownBoundReleaseNames.has(callee.name)) return true;
-    return false;
-  }
-  if (callee?.type === "MemberExpression" && callee.property?.type === "Identifier") {
-    return UNSUBSCRIPTION_METHOD_NAMES.has(callee.property.name);
-  }
-  return false;
-};
-
-const containsReleaseLikeCall = (
-  node: EsTreeNode,
-  knownBoundReleaseNames: ReadonlySet<string>,
-): boolean => {
-  let didFindRelease = false;
-  walkAst(node, (child: EsTreeNode) => {
-    if (didFindRelease) return false;
-    if (isReleaseLikeCall(child, knownBoundReleaseNames)) {
-      didFindRelease = true;
-      return false;
-    }
-  });
-  return didFindRelease;
-};
-
-// Recognizes the four cleanup-return shapes uniformly:
-//   return unsub                              → bound name match
-//   return store.subscribe(handler)           → subscribe call IS the unsub
-//   return () => unsub()                      → closure releases via name
-//   return () => store.removeListener(...)    → closure releases via verb
-const isCleanupReturn = (
-  returnedValue: EsTreeNode | null | undefined,
-  knownBoundReleaseNames: ReadonlySet<string>,
-): boolean => {
-  if (!returnedValue) return false;
-  if (returnedValue.type === "Identifier") {
-    return knownBoundReleaseNames.has(returnedValue.name);
-  }
-  if (isSubscribeLikeCallExpression(returnedValue)) return true;
-  if (
-    returnedValue.type === "ArrowFunctionExpression" ||
-    returnedValue.type === "FunctionExpression"
-  ) {
-    return containsReleaseLikeCall(returnedValue, knownBoundReleaseNames);
-  }
-  return false;
 };
 
 const cleanupReleasesSubscription = (

@@ -1,6 +1,9 @@
 import { TRIVIAL_INITIALIZER_NAMES } from "../../constants.js";
-import { defineRule, isHookCall } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 export const rerenderLazyStateInit = defineRule<Rule>({
   create: (context: RuleContext) => ({

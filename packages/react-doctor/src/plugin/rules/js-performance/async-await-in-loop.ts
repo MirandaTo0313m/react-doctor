@@ -1,5 +1,8 @@
-import { defineRule, walkAst } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 const findFirstAwaitOutsideNestedFunctions = (block: EsTreeNode): EsTreeNode | null => {
   let firstAwait: EsTreeNode | null = null;

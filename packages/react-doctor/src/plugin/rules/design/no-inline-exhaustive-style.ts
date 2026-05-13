@@ -1,14 +1,9 @@
 import { INLINE_STYLE_PROPERTY_THRESHOLD } from "../../constants.js";
-import { defineRule } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
-
-const getInlineStyleExpression = (node: EsTreeNode): EsTreeNode | null => {
-  if (node.name?.type !== "JSXIdentifier" || node.name.name !== "style") return null;
-  if (node.value?.type !== "JSXExpressionContainer") return null;
-  const expression = node.value.expression;
-  if (expression?.type !== "ObjectExpression") return null;
-  return expression;
-};
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { getInlineStyleExpression } from "./utils/get-inline-style-expression.js";
 
 export const noInlineExhaustiveStyle = defineRule<Rule>({
   create: (context: RuleContext) => ({

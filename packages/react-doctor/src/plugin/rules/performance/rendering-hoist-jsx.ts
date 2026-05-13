@@ -1,5 +1,10 @@
-import { defineRule, isComponentAssignment, isUppercaseName, walkAst } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { isComponentAssignment } from "../../utils/is-component-assignment.js";
+import { isUppercaseName } from "../../utils/is-uppercase-name.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 // HACK: detect static JSX declared inside a component body — anything like
 // `const Header = <h1>Hi</h1>` inside a render function gets recreated on

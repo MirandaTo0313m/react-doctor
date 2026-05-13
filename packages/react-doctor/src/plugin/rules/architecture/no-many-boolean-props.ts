@@ -1,11 +1,11 @@
 import { BOOLEAN_PROP_THRESHOLD } from "../../constants.js";
-import {
-  defineRule,
-  isComponentAssignment,
-  isComponentDeclaration,
-  walkAst,
-} from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { isComponentAssignment } from "../../utils/is-component-assignment.js";
+import { isComponentDeclaration } from "../../utils/is-component-declaration.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 const BOOLEAN_PROP_PREFIX_PATTERN = /^(?:is|has|should|can|show|hide|enable|disable|with)[A-Z]/;
 

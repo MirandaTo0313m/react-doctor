@@ -1,5 +1,9 @@
-import { defineRule, isHookCall, isSimpleExpression } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import { isSimpleExpression } from "../../utils/is-simple-expression.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 // Identifiers and member-access chains are technically "simple", but memoizing
 // them is sometimes intentional (stable reference passing). Only flag arithmetic

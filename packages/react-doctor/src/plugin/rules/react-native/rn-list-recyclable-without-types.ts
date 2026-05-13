@@ -1,13 +1,8 @@
-import { defineRule } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
-
-const resolveJsxElementName = (openingElement: EsTreeNode): string | null => {
-  const elementName = openingElement?.name;
-  if (!elementName) return null;
-  if (elementName.type === "JSXIdentifier") return elementName.name;
-  if (elementName.type === "JSXMemberExpression") return elementName.property?.name ?? null;
-  return null;
-};
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { resolveJsxElementName } from "./utils/resolve-jsx-element-name.js";
 
 // HACK: <FlashList recycleItems> (or LegendList) reuses row component
 // instances across rows. For HETEROGENEOUS lists (rows of different

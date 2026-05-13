@@ -1,5 +1,8 @@
-import { createLoopAwareVisitors, defineRule } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { createLoopAwareVisitors } from "../../utils/create-loop-aware-visitors.js";
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 export const jsHoistRegexp = defineRule<Rule>({
   create: (context: RuleContext) =>

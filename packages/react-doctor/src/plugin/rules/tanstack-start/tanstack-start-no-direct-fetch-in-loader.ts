@@ -1,35 +1,10 @@
-import { TANSTACK_ROUTE_CREATION_FUNCTIONS } from "../../constants.js";
-import { defineRule, walkAst } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
-
-const getRouteOptionsObject = (node: EsTreeNode): EsTreeNode | null => {
-  if (node.type !== "CallExpression") return null;
-
-  const callee = node.callee;
-
-  if (callee?.type === "CallExpression" && callee.callee?.type === "Identifier") {
-    if (!TANSTACK_ROUTE_CREATION_FUNCTIONS.has(callee.callee.name)) return null;
-    const optionsArgument = node.arguments?.[0];
-    if (optionsArgument?.type === "ObjectExpression") return optionsArgument;
-    return null;
-  }
-
-  if (callee?.type === "Identifier") {
-    if (!TANSTACK_ROUTE_CREATION_FUNCTIONS.has(callee.name)) return null;
-    const optionsArgument = node.arguments?.[0];
-    if (optionsArgument?.type === "ObjectExpression") return optionsArgument;
-    return null;
-  }
-
-  return null;
-};
-
-const getPropertyKeyName = (property: EsTreeNode): string | null => {
-  if (property.type !== "Property" && property.type !== "MethodDefinition") return null;
-  if (property.key?.type === "Identifier") return property.key.name;
-  if (property.key?.type === "Literal") return String(property.key.value);
-  return null;
-};
+import { defineRule } from "../../utils/define-rule.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { getRouteOptionsObject } from "./utils/get-route-options-object.js";
+import { getPropertyKeyName } from "./utils/get-property-key-name.js";
 
 export const tanstackStartNoDirectFetchInLoader = defineRule<Rule>({
   create: (context: RuleContext) => ({

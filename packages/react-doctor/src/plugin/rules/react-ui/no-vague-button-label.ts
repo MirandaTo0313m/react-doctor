@@ -1,19 +1,9 @@
 import { VAGUE_BUTTON_LABELS } from "../../constants.js";
-import { defineRule } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
-
-const getOpeningElementTagName = (openingElement: EsTreeNode | null | undefined): string | null => {
-  if (!openingElement) return null;
-  if (openingElement.name?.type === "JSXIdentifier") return openingElement.name.name;
-  if (openingElement.name?.type === "JSXMemberExpression") {
-    let cursor = openingElement.name;
-    while (cursor.type === "JSXMemberExpression") {
-      cursor = cursor.property;
-    }
-    if (cursor?.type === "JSXIdentifier") return cursor.name;
-  }
-  return null;
-};
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { getOpeningElementTagName } from "./utils/get-opening-element-tag-name.js";
 
 const isButtonLikeTagName = (tagName: string): boolean => {
   if (tagName === "button") return true;

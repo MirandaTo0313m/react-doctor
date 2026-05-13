@@ -1,6 +1,9 @@
 import { MUTATING_ROUTE_SEGMENTS, ROUTE_HANDLER_FILE_PATTERN } from "../../constants.js";
-import { defineRule, findSideEffect } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { findSideEffect } from "../../utils/find-side-effect.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 const extractMutatingRouteSegment = (filename: string): string | null => {
   const segments = filename.split("/");

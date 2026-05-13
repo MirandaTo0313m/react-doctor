@@ -1,6 +1,9 @@
 import { EXECUTABLE_SCRIPT_TYPES } from "../../constants.js";
-import { defineRule, findJsxAttribute } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { findJsxAttribute } from "../../utils/find-jsx-attribute.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 export const nextjsNoNativeScript = defineRule<Rule>({
   create: (context: RuleContext) => ({

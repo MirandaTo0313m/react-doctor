@@ -1,5 +1,9 @@
-import { defineRule, findJsxAttribute, walkAst } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { findJsxAttribute } from "../../utils/find-jsx-attribute.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 // HACK: <button> is intentionally omitted. <button type="submit"> (the
 // HTML default inside a form) has a real default action, so calling

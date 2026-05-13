@@ -1,19 +1,18 @@
 import {
-  CLEANUP_LIKE_RELEASE_CALLEE_NAMES,
   EFFECT_HOOK_NAMES,
   SUBSCRIPTION_METHOD_NAMES,
   TIMER_CALLEE_NAMES_REQUIRING_CLEANUP,
-  TIMER_CLEANUP_CALLEE_NAMES,
-  UNSUBSCRIPTION_METHOD_NAMES,
 } from "../../constants.js";
-import {
-  defineRule,
-  getEffectCallback,
-  isHookCall,
-  walkAst,
-  walkInsideStatementBlocks,
-} from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { getEffectCallback } from "../../utils/get-effect-callback.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import { walkInsideStatementBlocks } from "../../utils/walk-inside-statement-blocks.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { isSubscribeLikeCallExpression } from "./utils/is-subscribe-like-call-expression.js";
+import { isCleanupReturn } from "./utils/is-cleanup-return.js";
 
 // HACK: From "Lifecycle of Reactive Effects":
 //
@@ -86,13 +85,6 @@ const findSubscribeLikeUsages = (callback: EsTreeNode): SubscribeLikeUsage[] => 
   return usages;
 };
 
-const isSubscribeLikeCallExpression = (node: EsTreeNode): boolean => {
-  if (node?.type !== "CallExpression") return false;
-  if (node.callee?.type !== "MemberExpression") return false;
-  if (node.callee.property?.type !== "Identifier") return false;
-  return SUBSCRIPTION_METHOD_NAMES.has(node.callee.property.name);
-};
-
 // HACK: variables bound to a subscribe-like or timer-like call inside
 // an effect body are CLEANUP TARGETS — `return X` or `() => X()` /
 // `() => clearTimeout(X)` releases the resource. Collecting them here
@@ -121,66 +113,6 @@ const collectReleasableBindingNames = (effectCallback: EsTreeNode): Set<string> 
     }
   }
   return releasableNames;
-};
-
-// Single source of truth for "does this CallExpression release a
-// previously-acquired effect resource?". Used by both
-// `effectNeedsCleanup` and `prefer-use-sync-external-store` so the
-// two rules can never disagree on what a cleanup looks like.
-const isReleaseLikeCall = (
-  callNode: EsTreeNode,
-  knownBoundReleaseNames: ReadonlySet<string>,
-): boolean => {
-  if (callNode?.type !== "CallExpression") return false;
-  const callee = callNode.callee;
-  if (callee?.type === "Identifier") {
-    if (TIMER_CLEANUP_CALLEE_NAMES.has(callee.name)) return true;
-    if (CLEANUP_LIKE_RELEASE_CALLEE_NAMES.has(callee.name)) return true;
-    if (knownBoundReleaseNames.has(callee.name)) return true;
-    return false;
-  }
-  if (callee?.type === "MemberExpression" && callee.property?.type === "Identifier") {
-    return UNSUBSCRIPTION_METHOD_NAMES.has(callee.property.name);
-  }
-  return false;
-};
-
-const containsReleaseLikeCall = (
-  node: EsTreeNode,
-  knownBoundReleaseNames: ReadonlySet<string>,
-): boolean => {
-  let didFindRelease = false;
-  walkAst(node, (child: EsTreeNode) => {
-    if (didFindRelease) return false;
-    if (isReleaseLikeCall(child, knownBoundReleaseNames)) {
-      didFindRelease = true;
-      return false;
-    }
-  });
-  return didFindRelease;
-};
-
-// Recognizes the four cleanup-return shapes uniformly:
-//   return unsub                              → bound name match
-//   return store.subscribe(handler)           → subscribe call IS the unsub
-//   return () => unsub()                      → closure releases via name
-//   return () => store.removeListener(...)    → closure releases via verb
-const isCleanupReturn = (
-  returnedValue: EsTreeNode | null | undefined,
-  knownBoundReleaseNames: ReadonlySet<string>,
-): boolean => {
-  if (!returnedValue) return false;
-  if (returnedValue.type === "Identifier") {
-    return knownBoundReleaseNames.has(returnedValue.name);
-  }
-  if (isSubscribeLikeCallExpression(returnedValue)) return true;
-  if (
-    returnedValue.type === "ArrowFunctionExpression" ||
-    returnedValue.type === "FunctionExpression"
-  ) {
-    return containsReleaseLikeCall(returnedValue, knownBoundReleaseNames);
-  }
-  return false;
 };
 
 const effectHasCleanupRelease = (callback: EsTreeNode): boolean => {

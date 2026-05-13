@@ -4,14 +4,14 @@ import {
   SUBSCRIPTION_METHOD_NAMES,
   TIMER_AND_SCHEDULER_DIRECT_CALLEE_NAMES,
 } from "../../constants.js";
-import {
-  createComponentPropStackTracker,
-  defineRule,
-  getEffectCallback,
-  isHookCall,
-  walkAst,
-} from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { createComponentPropStackTracker } from "../../utils/create-component-prop-stack-tracker.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { getEffectCallback } from "../../utils/get-effect-callback.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 // HACK: From "Separating Events from Effects" — when a function-typed
 // prop (or local callback) is read from an effect ONLY inside a sub-

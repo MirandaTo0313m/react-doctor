@@ -1,15 +1,15 @@
 import { EFFECT_HOOK_NAMES } from "../../constants.js";
-import {
-  areExpressionsStructurallyEqual,
-  createComponentPropStackTracker,
-  defineRule,
-  getCallbackStatements,
-  getEffectCallback,
-  getRootIdentifierName,
-  isHookCall,
-  isSetterIdentifier,
-} from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { areExpressionsStructurallyEqual } from "../../utils/are-expressions-structurally-equal.js";
+import { createComponentPropStackTracker } from "../../utils/create-component-prop-stack-tracker.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { getCallbackStatements } from "../../utils/get-callback-statements.js";
+import { getEffectCallback } from "../../utils/get-effect-callback.js";
+import { getRootIdentifierName } from "../../utils/get-root-identifier-name.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import { isSetterIdentifier } from "../../utils/is-setter-identifier.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 // HACK: §1 of "You Might Not Need an Effect" — mirroring a prop into
 // local state with a useEffect that re-syncs it. The combined shape

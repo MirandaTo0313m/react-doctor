@@ -1,6 +1,11 @@
 import { EFFECT_HOOK_NAMES, SUBSCRIPTION_METHOD_NAMES } from "../../constants.js";
-import { defineRule, getEffectCallback, isHookCall, walkAst } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { getEffectCallback } from "../../utils/get-effect-callback.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 // HACK: `useEffect(() => { window.addEventListener(name, handler);
 // return () => window.removeEventListener(name, handler); }, [handler])`

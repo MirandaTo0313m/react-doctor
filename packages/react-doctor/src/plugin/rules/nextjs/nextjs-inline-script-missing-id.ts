@@ -1,5 +1,8 @@
-import { defineRule, hasJsxAttribute } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { hasJsxAttribute } from "../../utils/has-jsx-attribute.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 export const nextjsInlineScriptMissingId = defineRule<Rule>({
   create: (context: RuleContext) => ({

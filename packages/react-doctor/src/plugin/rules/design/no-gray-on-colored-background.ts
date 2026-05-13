@@ -1,28 +1,8 @@
-import { defineRule, findJsxAttribute } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
-
-const getStringFromClassNameAttr = (node: EsTreeNode): string | null => {
-  const classAttr = findJsxAttribute(node.attributes ?? [], "className");
-  if (!classAttr?.value) return null;
-  if (classAttr.value.type === "Literal" && typeof classAttr.value.value === "string") {
-    return classAttr.value.value;
-  }
-  if (
-    classAttr.value.type === "JSXExpressionContainer" &&
-    classAttr.value.expression?.type === "Literal" &&
-    typeof classAttr.value.expression.value === "string"
-  ) {
-    return classAttr.value.expression.value;
-  }
-  if (
-    classAttr.value.type === "JSXExpressionContainer" &&
-    classAttr.value.expression?.type === "TemplateLiteral" &&
-    classAttr.value.expression.quasis?.length === 1
-  ) {
-    return classAttr.value.expression.quasis[0].value?.raw ?? null;
-  }
-  return null;
-};
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { getStringFromClassNameAttr } from "./utils/get-string-from-class-name-attr.js";
 
 export const noGrayOnColoredBackground = defineRule<Rule>({
   create: (context: RuleContext) => ({

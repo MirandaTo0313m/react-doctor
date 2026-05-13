@@ -3,16 +3,12 @@ import {
   REACT_NATIVE_TEXT_COMPONENTS,
   REACT_NATIVE_TEXT_COMPONENT_KEYWORDS,
 } from "../../constants.js";
-import { defineRule, hasDirective } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
-
-const resolveJsxElementName = (openingElement: EsTreeNode): string | null => {
-  const elementName = openingElement?.name;
-  if (!elementName) return null;
-  if (elementName.type === "JSXIdentifier") return elementName.name;
-  if (elementName.type === "JSXMemberExpression") return elementName.property?.name ?? null;
-  return null;
-};
+import { defineRule } from "../../utils/define-rule.js";
+import { hasDirective } from "../../utils/has-directive.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { resolveJsxElementName } from "./utils/resolve-jsx-element-name.js";
 
 const truncateText = (text: string): string =>
   text.length > RAW_TEXT_PREVIEW_MAX_CHARS

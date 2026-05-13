@@ -3,17 +3,17 @@ import {
   EFFECT_HOOK_NAMES,
   TRIVIAL_DERIVATION_CALLEE_NAMES,
 } from "../../constants.js";
-import {
-  defineRule,
-  getCallbackStatements,
-  getEffectCallback,
-  getRootIdentifierName,
-  isHookCall,
-  isSetterCall,
-  isSetterIdentifier,
-  walkAst,
-} from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { getCallbackStatements } from "../../utils/get-callback-statements.js";
+import { getEffectCallback } from "../../utils/get-effect-callback.js";
+import { getRootIdentifierName } from "../../utils/get-root-identifier-name.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import { isSetterCall } from "../../utils/is-setter-call.js";
+import { isSetterIdentifier } from "../../utils/is-setter-identifier.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 // HACK: AST-aware walker for "what reactive values does this expression
 // actually READ?". The plain `walkAst` adds every Identifier it sees,

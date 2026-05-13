@@ -1,12 +1,12 @@
 import { EFFECT_HOOK_NAMES } from "../../constants.js";
-import {
-  createComponentPropStackTracker,
-  defineRule,
-  getEffectCallback,
-  isHookCall,
-  walkInsideStatementBlocks,
-} from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { createComponentPropStackTracker } from "../../utils/create-component-prop-stack-tracker.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { getEffectCallback } from "../../utils/get-effect-callback.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import { walkInsideStatementBlocks } from "../../utils/walk-inside-statement-blocks.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 // HACK: `useEffect(() => parentCallback(state.x), [state.x])` is the
 // "lift state up via callback" anti-pattern: the child owns state, then

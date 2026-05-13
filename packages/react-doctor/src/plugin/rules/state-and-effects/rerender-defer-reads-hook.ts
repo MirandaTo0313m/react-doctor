@@ -1,5 +1,12 @@
-import { defineRule, isComponentAssignment, isUppercaseName, walkAst } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { isComponentAssignment } from "../../utils/is-component-assignment.js";
+import { isUppercaseName } from "../../utils/is-uppercase-name.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { collectHandlerBindingNames } from "./utils/collect-handler-binding-names.js";
+import { isInsideEventHandler } from "./utils/is-inside-event-handler.js";
 
 const DEFERRABLE_HOOK_NAMES = new Set(["useSearchParams", "useParams", "usePathname"]);
 
@@ -25,52 +32,6 @@ const findHookCallBindings = (
     }
   }
   return bindings;
-};
-
-// HACK: collect names of identifiers passed as values to JSX `on*`
-// attributes — these are component-bound handlers (`onClick={handleClick}`).
-// Lets `isInsideEventHandler` resolve a function bound to a const back
-// to its handler usage in JSX.
-const collectHandlerBindingNames = (componentBody: EsTreeNode): Set<string> => {
-  const handlerNames = new Set<string>();
-  walkAst(componentBody, (child: EsTreeNode) => {
-    if (child.type !== "JSXAttribute") return;
-    if (child.name?.type !== "JSXIdentifier") return;
-    if (!/^on[A-Z]/.test(child.name.name)) return;
-    if (child.value?.type !== "JSXExpressionContainer") return;
-    const expression = child.value.expression;
-    if (expression?.type === "Identifier") handlerNames.add(expression.name);
-  });
-  return handlerNames;
-};
-
-const isInsideEventHandler = (node: EsTreeNode, handlerBindingNames: Set<string>): boolean => {
-  let cursor: EsTreeNode | null = node.parent ?? null;
-  while (cursor) {
-    if (
-      cursor.type === "ArrowFunctionExpression" ||
-      cursor.type === "FunctionExpression" ||
-      cursor.type === "FunctionDeclaration"
-    ) {
-      let outer: EsTreeNode | null = cursor.parent ?? null;
-      while (outer) {
-        if (outer.type === "JSXAttribute") {
-          const attrName = outer.name?.type === "JSXIdentifier" ? outer.name.name : null;
-          if (attrName && /^on[A-Z]/.test(attrName)) return true;
-          return false;
-        }
-        if (outer.type === "VariableDeclarator") {
-          const declaredName = outer.id?.type === "Identifier" ? outer.id.name : null;
-          return Boolean(declaredName && handlerBindingNames.has(declaredName));
-        }
-        if (outer.type === "Program") return false;
-        outer = outer.parent ?? null;
-      }
-      return false;
-    }
-    cursor = cursor.parent ?? null;
-  }
-  return false;
 };
 
 // HACK: subscribing to `useSearchParams()` / `useParams()` /

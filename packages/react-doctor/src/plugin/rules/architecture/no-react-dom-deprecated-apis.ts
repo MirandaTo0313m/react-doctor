@@ -1,73 +1,8 @@
-import { defineRule } from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
-
-interface DeprecatedReactImportRuleOptions {
-  /** The exact `import "..."` source string this rule watches. */
-  source: string;
-  /** Per-imported-name message dictionary. Exact-match lookup. */
-  messages: ReadonlyMap<string, string>;
-  /**
-   * Optional extra ImportDeclaration handler invoked BEFORE the standard
-   * source check — used by the react-dom rule to flag every import from
-   * `react-dom/test-utils` (whole entry point gone in React 19).
-   * Return `true` to mark "handled, skip the standard branch".
-   */
-  handleExtraSource?: (node: EsTreeNode, context: RuleContext) => boolean;
-}
-
-// HACK: shared scaffolding for "report deprecated React-package imports".
-// Both `noReact19DeprecatedApis` (for `react`) and
-// `noReactDomDeprecatedApis` (for `react-dom`) want the same shape:
-//   - bind namespace/default imports of the source to a Set
-//   - on ImportSpecifier, look the imported name up in a message map
-//   - on MemberExpression off a tracked binding, look the property up
-// Hoisting the pattern keeps the two call sites tiny and means future
-// React deprecations (e.g. a `react/jsx-runtime` rule) need just one
-// new factory call.
-const createDeprecatedReactImportRule = ({
-  source,
-  messages,
-  handleExtraSource,
-}: DeprecatedReactImportRuleOptions): Rule => ({
-  create: (context: RuleContext) => {
-    const namespaceBindings = new Set<string>();
-
-    return {
-      ImportDeclaration(node: EsTreeNode) {
-        const sourceValue = node.source?.value;
-        if (typeof sourceValue !== "string") return;
-        if (handleExtraSource?.(node, context)) return;
-        if (sourceValue !== source) return;
-
-        for (const specifier of node.specifiers ?? []) {
-          if (specifier.type === "ImportSpecifier") {
-            const importedName = specifier.imported?.name;
-            if (!importedName) continue;
-            const message = messages.get(importedName);
-            if (message) context.report({ node: specifier, message });
-            continue;
-          }
-          if (
-            specifier.type === "ImportDefaultSpecifier" ||
-            specifier.type === "ImportNamespaceSpecifier"
-          ) {
-            const localName = specifier.local?.name;
-            if (localName) namespaceBindings.add(localName);
-          }
-        }
-      },
-      MemberExpression(node: EsTreeNode) {
-        if (namespaceBindings.size === 0) return;
-        if (node.computed) return;
-        if (node.object?.type !== "Identifier") return;
-        if (!namespaceBindings.has(node.object.name)) return;
-        if (node.property?.type !== "Identifier") return;
-        const message = messages.get(node.property.name);
-        if (message) context.report({ node, message });
-      },
-    };
-  },
-});
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { createDeprecatedReactImportRule } from "./utils/create-deprecated-react-import-rule.js";
 
 // HACK: companion to `noReact19DeprecatedApis` for the react-dom side
 // of the React 19 migration. Catches the legacy root API (render /

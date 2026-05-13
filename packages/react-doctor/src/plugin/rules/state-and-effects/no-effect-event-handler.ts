@@ -1,12 +1,12 @@
 import { EFFECT_HOOK_NAMES } from "../../constants.js";
-import {
-  defineRule,
-  getCallbackStatements,
-  getEffectCallback,
-  getRootIdentifierName,
-  isHookCall,
-} from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { getCallbackStatements } from "../../utils/get-callback-statements.js";
+import { getEffectCallback } from "../../utils/get-effect-callback.js";
+import { getRootIdentifierName } from "../../utils/get-root-identifier-name.js";
+import { isHookCall } from "../../utils/is-hook-call.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
 
 export const noEffectEventHandler = defineRule<Rule>({
   create: (context: RuleContext) => ({

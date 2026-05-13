@@ -1,53 +1,13 @@
 import { MUTATING_ARRAY_METHODS } from "../../constants.js";
-import {
-  collectPatternNames,
-  defineRule,
-  getRootIdentifierName,
-  isComponentAssignment,
-  isHookCall,
-  isSetterIdentifier,
-  isUppercaseName,
-} from "../../utils/index.js";
-import type { EsTreeNode, Rule, RuleContext } from "../../utils/index.js";
-
-// HACK: a useState whose value is never read in the component's JSX
-// return is by definition not visual state — every setState triggers a
-// render that produces the same DOM. Use `useRef` (`ref.current = ...`)
-// so updates don't trigger re-renders. (For values read inside an
-// addEventListener-style callback, a ref also lets the handler always
-// see the latest value without re-subscribing each effect run.)
-const collectUseStateBindings = (
-  componentBody: EsTreeNode,
-): Array<{ valueName: string; setterName: string; declarator: EsTreeNode }> => {
-  const bindings: Array<{ valueName: string; setterName: string; declarator: EsTreeNode }> = [];
-  if (componentBody?.type !== "BlockStatement") return bindings;
-
-  for (const statement of componentBody.body ?? []) {
-    if (statement.type !== "VariableDeclaration") continue;
-    for (const declarator of statement.declarations ?? []) {
-      if (declarator.id?.type !== "ArrayPattern") continue;
-      const elements = declarator.id.elements ?? [];
-      if (elements.length < 2) continue;
-      const valueElement = elements[0];
-      const setterElement = elements[1];
-      if (
-        valueElement?.type !== "Identifier" ||
-        setterElement?.type !== "Identifier" ||
-        !isSetterIdentifier(setterElement.name)
-      ) {
-        continue;
-      }
-      if (declarator.init?.type !== "CallExpression") continue;
-      if (!isHookCall(declarator.init, "useState")) continue;
-      bindings.push({
-        valueName: valueElement.name,
-        setterName: setterElement.name,
-        declarator,
-      });
-    }
-  }
-  return bindings;
-};
+import { collectPatternNames } from "../../utils/collect-pattern-names.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { getRootIdentifierName } from "../../utils/get-root-identifier-name.js";
+import { isComponentAssignment } from "../../utils/is-component-assignment.js";
+import { isUppercaseName } from "../../utils/is-uppercase-name.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import { collectUseStateBindings } from "./utils/collect-use-state-bindings.js";
 
 // HACK: walks the component AST while tracking which state names are
 // SHADOWED in the current scope by a nested function's params or
