@@ -47,15 +47,10 @@ jobs:
             if [ "$NAME" = "react-doctor" ]; then
               TAG="v${VERSION}"
             fi
-            PRERELEASE_FLAG=""
-            if [[ "$VERSION" == *-* ]]; then
-              PRERELEASE_FLAG="--prerelease"
-            fi
             gh release create "$TAG" \
               --title "$TAG" \
               --generate-notes \
-              --target main \
-              $PRERELEASE_FLAG || true
+              --target main || true
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
