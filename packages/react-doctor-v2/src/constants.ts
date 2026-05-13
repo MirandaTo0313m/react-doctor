@@ -21,3 +21,56 @@ export const MAX_RULE_GROUPS_PER_CATEGORY_NON_VERBOSE = 3;
 export const DEFAULT_BRANCH_CANDIDATES = ["main", "master"];
 export const GIT_SHOW_MAX_BUFFER_BYTES = 50 * 1024 * 1024;
 export const SOURCE_FILE_PATTERN = /\.(cjs|cts|js|jsx|mjs|mts|ts|tsx)$/;
+
+export const FRAMEWORK_DISPLAY_NAMES: Record<string, string> = {
+  nextjs: "Next.js",
+  "react-native": "React Native",
+  "tanstack-start": "TanStack Start",
+  cra: "Create React App",
+  expo: "Expo",
+  gatsby: "Gatsby",
+  remix: "Remix",
+  vite: "Vite",
+  react: "React",
+};
+
+export const REACT_PROJECT_DEPENDENCIES = new Set([
+  "@remix-run/react",
+  "@tanstack/react-start",
+  "expo",
+  "gatsby",
+  "next",
+  "react",
+  "react-native",
+  "react-scripts",
+]);
+
+export const FILESYSTEM_WALK_IGNORED_DIRECTORIES = new Set([
+  ".git",
+  ".next",
+  ".nuxt",
+  ".output",
+  ".svelte-kit",
+  ".turbo",
+  "build",
+  "coverage",
+  "dist",
+  "node_modules",
+  "out",
+  "storybook-static",
+]);
+
+export const SEVERITY_ORDER: Record<string, number> = { error: 0, warning: 1, info: 2 };
+
+export const STAGED_PROJECT_CONFIG_FILENAMES = [
+  "tsconfig.json",
+  "tsconfig.base.json",
+  "package.json",
+  "react-doctor.config.json",
+  "knip.json",
+  "knip.jsonc",
+  ".knip.json",
+  ".knip.jsonc",
+  "oxlint.json",
+  ".oxlintrc.json",
+];

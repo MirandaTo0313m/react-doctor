@@ -1,5 +1,5 @@
 import { defineRule } from "../../registry.js";
-import { BARREL_INDEX_SUFFIXES } from "./utils/index.js";
+import { BARREL_INDEX_SUFFIXES, TEST_OR_INFRA_FILE_PATTERN } from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
 export const noBarrelImport = defineRule<Rule>({
@@ -12,10 +12,13 @@ export const noBarrelImport = defineRule<Rule>({
     },
   ],
   create: (context: RuleContext) => {
+    const filename = context.getFilename?.() ?? "";
+    const isTestOrInfraFile = TEST_OR_INFRA_FILE_PATTERN.test(filename);
     let didReportForFile = false;
 
     return {
       ImportDeclaration(node: EsTreeNode) {
+        if (isTestOrInfraFile) return;
         if (didReportForFile) return;
 
         const source = node.source?.value;

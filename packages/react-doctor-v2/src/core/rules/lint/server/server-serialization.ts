@@ -1,4 +1,5 @@
 import { defineRule } from "../../registry.js";
+import { APP_DIRECTORY_PATTERN } from "../constants.js";
 import { DERIVING_ARRAY_METHODS, hasDirective, isNodeOfType } from "./utils/index.js";
 import type { EsTreeNode, Rule, RuleContext } from "./utils/index.js";
 
@@ -17,6 +18,8 @@ export const serverSerialization = defineRule<Rule>({
     },
   ],
   create: (context: RuleContext) => {
+    const filename = context.getFilename?.() ?? "";
+    const isAppRouterFile = APP_DIRECTORY_PATTERN.test(filename);
     let isClientComponent = false;
 
     return {
@@ -24,6 +27,7 @@ export const serverSerialization = defineRule<Rule>({
         isClientComponent = hasDirective(programNode, "use client");
       },
       JSXOpeningElement(node: EsTreeNode) {
+        if (!isAppRouterFile) return;
         if (isClientComponent) return;
         if (!isUppercaseJsxElement(node)) return;
         for (const attribute of node.attributes ?? []) {
