@@ -48,6 +48,13 @@
     "overrides": {
       "oxlint": "^1.63.0",
       "oxlint-tsgolint": "^0.22.1"
+    },
+    "packageExtensions": {
+      "@voidzero-dev/vite-plus-core": {
+        "dependencies": {
+          "picomatch": "^4.0.4"
+        }
+      }
     }
   }
 }

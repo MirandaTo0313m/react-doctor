@@ -8,6 +8,8 @@ overrides:
   oxlint: ^1.63.0
   oxlint-tsgolint: ^0.22.1
 
+packageExtensionsChecksum: sha256-zdXo+VP6Rs9VbcU31S4AoDDvt43GMhDoUqTLoEza5CY=
+
 importers:
 
   .:
@@ -110,9 +112,6 @@ importers:
       '@types/prompts':
         specifier: ^2.4.9
         version: 2.4.9
-      picomatch:
-        specifier: ^4.0.4
-        version: 4.0.4
       vite-plus:
         specifier: ^0.1.15
         version: 0.1.20(@types/node@25.6.0)(esbuild@0.27.3)(jiti@2.6.1)(terser@5.46.0)(typescript@6.0.3)(vite@7.3.1(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.0)(yaml@2.8.3))(yaml@2.8.3)
@@ -4210,6 +4209,7 @@ snapshots:
       '@oxc-project/runtime': 0.127.0
       '@oxc-project/types': 0.127.0
       lightningcss: 1.30.2
+      picomatch: 4.0.4
       postcss: 8.5.6
     optionalDependencies:
       '@types/node': 25.6.0
