@@ -13,10 +13,6 @@ packageExtensionsChecksum: sha256-zdXo+VP6Rs9VbcU31S4AoDDvt43GMhDoUqTLoEza5CY=
 importers:
 
   .:
-    dependencies:
-      ora:
-        specifier: ^9.4.0
-        version: 9.4.0
     devDependencies:
       '@changesets/changelog-github':
         specifier: ^0.7.0
