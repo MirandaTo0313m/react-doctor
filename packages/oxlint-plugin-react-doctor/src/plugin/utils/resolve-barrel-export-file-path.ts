@@ -1,5 +1,33 @@
+import { doesModuleExportName } from "./does-module-export-name.js";
 import { getBarrelIndexModuleInfo } from "./is-barrel-index-module.js";
 import { resolveRelativeImportPath } from "./resolve-relative-import-path.js";
+
+const getUniqueFilePath = (filePaths: string[]): string | null => {
+  const uniqueFilePaths = new Set(filePaths);
+  if (uniqueFilePaths.size !== 1) return null;
+
+  const [filePath] = uniqueFilePaths;
+  return filePath ?? null;
+};
+
+const resolveStarExportFilePath = (
+  barrelFilePath: string,
+  exportedName: string,
+  source: string,
+  visitedFilePaths: Set<string>,
+): string | null => {
+  const resolvedTargetPath = resolveRelativeImportPath(barrelFilePath, source);
+  if (!resolvedTargetPath) return null;
+
+  const nestedTargetPath = resolveBarrelExportFilePath(
+    resolvedTargetPath,
+    exportedName,
+    new Set(visitedFilePaths),
+  );
+  if (nestedTargetPath) return nestedTargetPath;
+
+  return doesModuleExportName(resolvedTargetPath, exportedName) ? resolvedTargetPath : null;
+};
 
 export const resolveBarrelExportFilePath = (
   barrelFilePath: string,
@@ -25,20 +53,12 @@ export const resolveBarrelExportFilePath = (
     return nestedTargetPath ?? resolvedTargetPath;
   }
 
-  if (moduleInfo.starExportSources.length === 1) {
-    const resolvedTargetPath = resolveRelativeImportPath(
-      barrelFilePath,
-      moduleInfo.starExportSources[0] ?? "",
-    );
-    if (!resolvedTargetPath) return null;
+  if (exportedName === "default") return null;
 
-    const nestedTargetPath = resolveBarrelExportFilePath(
-      resolvedTargetPath,
-      exportedName,
-      visitedFilePaths,
-    );
-    return nestedTargetPath ?? resolvedTargetPath;
-  }
-
-  return null;
+  const starExportFilePaths = moduleInfo.starExportSources
+    .map((source) =>
+      resolveStarExportFilePath(barrelFilePath, exportedName, source, visitedFilePaths),
+    )
+    .filter((filePath): filePath is string => Boolean(filePath));
+  return getUniqueFilePath(starExportFilePaths);
 };

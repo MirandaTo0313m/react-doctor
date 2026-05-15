@@ -134,6 +134,43 @@ describe("runOxlint", () => {
       expect(hits[0]?.message).toContain('"./components/button/Button"');
     });
 
+    it("resolves direct guidance through multi-source star barrels when names are unambiguous", async () => {
+      const projectDir = setupReactProject(tempRoot, "multi-star-barrel-index-module", {
+        files: {
+          "src/components/Button.tsx": "export const Button = () => null;\n",
+          "src/components/Input.tsx": "export const Input = () => null;\n",
+          "src/components/index.ts": "export * from './Button';\nexport * from './Input';\n",
+          "src/import-directory.tsx":
+            "import { Button, Input } from './components';\nvoid Button;\nvoid Input;\n",
+        },
+      });
+
+      const hits = await collectRuleHits(projectDir, "no-barrel-import");
+
+      expect(hits).toHaveLength(1);
+      expect(hits[0]?.message).toContain('"./components/Button"');
+      expect(hits[0]?.message).toContain('"./components/Input"');
+    });
+
+    it("does not guess direct guidance for ambiguous multi-source star barrels", async () => {
+      const projectDir = setupReactProject(tempRoot, "ambiguous-star-barrel-index-module", {
+        files: {
+          "src/components/PrimaryButton.tsx": "export const Button = () => null;\n",
+          "src/components/SecondaryButton.tsx": "export const Button = () => null;\n",
+          "src/components/index.ts":
+            "export * from './PrimaryButton';\nexport * from './SecondaryButton';\n",
+          "src/import-directory.tsx": "import { Button } from './components';\nvoid Button;\n",
+        },
+      });
+
+      const hits = await collectRuleHits(projectDir, "no-barrel-import");
+
+      expect(hits).toHaveLength(1);
+      expect(hits[0]?.message).toBe(
+        "Import from barrel/index file — import directly from the source module for better tree-shaking",
+      );
+    });
+
     it("flags barrel re-exports with trailing inline comments", async () => {
       const projectDir = setupReactProject(tempRoot, "commented-barrel-index-module", {
         files: {
@@ -215,6 +252,28 @@ describe("runOxlint", () => {
           "src/components/Button.tsx": "export const Button = () => null;\n",
           "src/components/index.ts": "export { Button } from './Button';\n",
           "src/components/package.json": JSON.stringify({ exports: "./index.ts" }),
+          "src/import-directory.tsx": "import { Button } from './components';\nvoid Button;\n",
+        },
+      });
+
+      const hits = await collectRuleHits(projectDir, "no-barrel-import");
+
+      expect(hits).toHaveLength(1);
+      expect(hits[0]?.message).toContain('"./components/Button"');
+    });
+
+    it("resolves package export condition objects and directory entries", async () => {
+      const projectDir = setupReactProject(tempRoot, "package-conditional-entry-barrel", {
+        files: {
+          "src/components/Button.tsx": "export const Button = () => null;\n",
+          "src/components/entry/index.ts": "export { Button } from '../Button';\n",
+          "src/components/package.json": JSON.stringify({
+            exports: {
+              import: {
+                default: "./entry",
+              },
+            },
+          }),
           "src/import-directory.tsx": "import { Button } from './components';\nvoid Button;\n",
         },
       });

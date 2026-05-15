@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const MODULE_FILE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts"];
+const PACKAGE_EXPORT_CONDITIONS = ["import", "default", "module", "browser", "require"];
 const PACKAGE_ENTRY_FIELDS = ["module", "main", "browser"];
 
 const getExistingFilePath = (filePath: string): string | null => {
@@ -45,17 +46,34 @@ const getModuleFilePathCandidates = (modulePath: string): string[] => {
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
+const getConditionalExportEntry = (exportEntry: unknown): string | null => {
+  if (typeof exportEntry === "string") return exportEntry;
+  if (!isObjectRecord(exportEntry)) return null;
+
+  for (const condition of PACKAGE_EXPORT_CONDITIONS) {
+    const nestedEntry = getConditionalExportEntry(exportEntry[condition]);
+    if (nestedEntry) return nestedEntry;
+  }
+
+  return null;
+};
+
 const getPackageExportEntry = (packageJson: Record<string, unknown>): string | null => {
   const exportsField = packageJson.exports;
-  if (typeof exportsField === "string") return exportsField;
+  if (!exportsField) return null;
+
+  const directExportEntry = getConditionalExportEntry(exportsField);
+  if (directExportEntry) return directExportEntry;
+
   if (!isObjectRecord(exportsField)) return null;
+  return getConditionalExportEntry(exportsField["."]);
+};
 
-  const rootExport = exportsField["."];
-  if (typeof rootExport === "string") return rootExport;
-  if (!isObjectRecord(rootExport)) return null;
+const resolveModulePathWithIndexFallback = (modulePath: string): string | null => {
+  const filePath = resolveModuleFilePath(modulePath);
+  if (filePath) return filePath;
 
-  const importEntry = rootExport.import ?? rootExport.default;
-  return typeof importEntry === "string" ? importEntry : null;
+  return resolveModuleFilePath(path.join(modulePath, "index"));
 };
 
 const resolvePackageDirectoryEntry = (directoryPath: string): string | null => {
@@ -74,7 +92,7 @@ const resolvePackageDirectoryEntry = (directoryPath: string): string | null => {
       );
     if (!packageEntry) return null;
 
-    return resolveModuleFilePath(path.resolve(existingDirectoryPath, packageEntry));
+    return resolveModulePathWithIndexFallback(path.resolve(existingDirectoryPath, packageEntry));
   } catch {
     return null;
   }
