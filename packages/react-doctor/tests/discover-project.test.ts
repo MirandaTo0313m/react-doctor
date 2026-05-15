@@ -166,6 +166,28 @@ describe("discoverProject", () => {
     expect(projectInfo.tailwindVersion).toBe("^4.0.0");
   });
 
+  it("prefers dependency catalog references over devDependency catalog references", () => {
+    const monorepoRoot = path.join(tempDirectory, "dependency-catalog-over-dev-catalog");
+    fs.mkdirSync(path.join(monorepoRoot, "apps", "web"), { recursive: true });
+    fs.writeFileSync(
+      path.join(monorepoRoot, "pnpm-workspace.yaml"),
+      "packages:\n  - apps/*\n\ncatalogs:\n  react18:\n    react: ^18.3.1\n  react19:\n    react: ^19.0.0\n",
+    );
+    fs.writeFileSync(path.join(monorepoRoot, "package.json"), JSON.stringify({ name: "root" }));
+    fs.writeFileSync(
+      path.join(monorepoRoot, "apps", "web", "package.json"),
+      JSON.stringify({
+        name: "web",
+        dependencies: { react: "catalog:react18" },
+        devDependencies: { react: "catalog:react19" },
+      }),
+    );
+
+    const projectInfo = discoverProject(monorepoRoot);
+    expect(projectInfo.reactVersion).toBe("^18.3.1");
+    expect(projectInfo.reactMajorVersion).toBe(18);
+  });
+
   it("does not apply root React catalogs to workspaces without React declarations", () => {
     const monorepoRoot = path.join(tempDirectory, "root-catalog-skips-non-react-workspaces");
     fs.mkdirSync(path.join(monorepoRoot, "apps", "web"), { recursive: true });

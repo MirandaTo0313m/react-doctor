@@ -12,28 +12,40 @@ interface DependencyDeclaration {
   hasDeclaration: boolean;
 }
 
+interface DependencyDeclarationOptions {
+  packageJson: PackageJson;
+  packageName: string;
+  sections: ReadonlyArray<"dependencies" | "peerDependencies" | "devDependencies">;
+}
+
 interface ResolveWorkspaceDependencyVersionOptions {
   concreteVersion: string | null;
   packageName: string;
   rootDirectory: string;
   rootPackageJson: PackageJson;
+  sections: ReadonlyArray<"dependencies" | "peerDependencies" | "devDependencies">;
   workspaceDirectory: string;
   workspacePackageJson: PackageJson;
 }
 
-const getDependencyDeclaration = (
-  packageJson: PackageJson,
-  packageName: string,
-): DependencyDeclaration => {
-  const allDependencies = {
-    ...packageJson.peerDependencies,
-    ...packageJson.dependencies,
-    ...packageJson.devDependencies,
-  };
-  const dependencyVersion = allDependencies[packageName];
+const getDependencyDeclaration = ({
+  packageJson,
+  packageName,
+  sections,
+}: DependencyDeclarationOptions): DependencyDeclaration => {
+  for (const section of sections) {
+    const dependencyVersion = packageJson[section]?.[packageName];
+    if (dependencyVersion === undefined) continue;
+
+    return {
+      catalogReference: extractCatalogName(dependencyVersion) ?? null,
+      hasDeclaration: true,
+    };
+  }
+
   return {
-    catalogReference: extractCatalogName(dependencyVersion ?? "") ?? null,
-    hasDeclaration: dependencyVersion !== undefined,
+    catalogReference: null,
+    hasDeclaration: false,
   };
 };
 
@@ -42,10 +54,15 @@ const resolveWorkspaceDependencyVersion = ({
   packageName,
   rootDirectory,
   rootPackageJson,
+  sections,
   workspaceDirectory,
   workspacePackageJson,
 }: ResolveWorkspaceDependencyVersionOptions): string | null => {
-  const dependencyDeclaration = getDependencyDeclaration(workspacePackageJson, packageName);
+  const dependencyDeclaration = getDependencyDeclaration({
+    packageJson: workspacePackageJson,
+    packageName,
+    sections,
+  });
   if (!dependencyDeclaration.hasDeclaration) return null;
 
   return (
@@ -94,6 +111,7 @@ export const findReactInWorkspaces = (
         packageName: "react",
         rootDirectory,
         rootPackageJson: packageJson,
+        sections: ["dependencies", "peerDependencies", "devDependencies"],
         workspaceDirectory,
         workspacePackageJson,
       });
@@ -102,6 +120,7 @@ export const findReactInWorkspaces = (
         packageName: "tailwindcss",
         rootDirectory,
         rootPackageJson: packageJson,
+        sections: ["dependencies", "devDependencies", "peerDependencies"],
         workspaceDirectory,
         workspacePackageJson,
       });
