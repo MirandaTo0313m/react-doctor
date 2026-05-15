@@ -6,6 +6,7 @@ import {
   SECRET_SERVER_DIRECTORY_NAMES,
   SECRET_SERVER_ENTRY_FILE_PATTERN,
   SECRET_SERVER_FILE_SUFFIX_PATTERN,
+  SECRET_SERVER_SOURCE_ROOT_OWNER_NAMES,
   SECRET_TEST_FILE_PATTERN,
   SECRET_TEST_DIRECTORY_NAMES,
   SECRET_TOOLING_DIRECTORY_NAMES,
@@ -21,7 +22,7 @@ export interface SecretFileExposureOptions {
 
 const SOURCE_FILE_EXTENSION_PATTERN = /\.[cm]?[jt]sx?$/;
 const CLIENT_SOURCE_FILE_EXTENSION_PATTERN = /\.[cm]?[jt]sx$/;
-const CLIENT_APP_DIRECTORY_FRAMEWORKS = new Set(["cra", "gatsby", "vite"]);
+const CLIENT_APP_DIRECTORY_FRAMEWORKS = new Set(["cra", "expo", "gatsby", "vite"]);
 
 const isInsideDirectory = (pathSegments: string[], directoryNames: ReadonlySet<string>): boolean =>
   pathSegments.some((pathSegment) => directoryNames.has(pathSegment));
@@ -59,6 +60,16 @@ const getSourceRootOwner = (pathSegments: string[]): string | null => {
   return pathSegments[srcIndex - 1];
 };
 
+const isAppDirectoryClientSourceFile = (
+  normalizedFilename: string,
+  classifiablePathSegments: string[],
+  options: SecretFileExposureOptions,
+): boolean => {
+  if (!SOURCE_FILE_EXTENSION_PATTERN.test(normalizedFilename)) return false;
+  if (!CLIENT_APP_DIRECTORY_FRAMEWORKS.has(options.framework ?? "")) return false;
+  return classifiablePathSegments.includes("app");
+};
+
 export const classifySecretFileExposure = (
   filename: string,
   options: SecretFileExposureOptions = {},
@@ -80,13 +91,18 @@ export const classifySecretFileExposure = (
   if (SECRET_SERVER_FILE_SUFFIX_PATTERN.test(normalizedFilename)) return "server";
   if (SECRET_SERVER_ENTRY_FILE_PATTERN.test(normalizedFilename)) return "server";
   if (SECRET_NEXT_PAGES_API_FILE_PATTERN.test(normalizedFilename)) return "server";
-  if (sourceRootOwner && SECRET_SERVER_DIRECTORY_NAMES.has(sourceRootOwner)) return "server";
+  if (sourceRootOwner && SECRET_SERVER_SOURCE_ROOT_OWNER_NAMES.has(sourceRootOwner)) {
+    return "server";
+  }
   if (isInsideDirectory(classifiablePathSegments, SECRET_SERVER_DIRECTORY_NAMES)) return "server";
   if (options.hasUseServerDirective === true) return "server";
 
   if (options.hasUseClientDirective === true) return "client";
   if (SECRET_CLIENT_FILE_SUFFIX_PATTERN.test(normalizedFilename)) return "client";
   if (SECRET_CLIENT_ENTRY_FILE_PATTERN.test(normalizedFilename)) return "client";
+  if (isAppDirectoryClientSourceFile(normalizedFilename, classifiablePathSegments, options)) {
+    return "client";
+  }
   if (isClientSourceFile(normalizedFilename, pathSegments, classifiablePathSegments, options)) {
     return "client";
   }

@@ -91,6 +91,14 @@ export const token = PUBLIC_BEARER_TOKEN_FALLBACK;
 
 export const TokenDisplay = () => <div>{PUBLIC_BEARER_TOKEN_FALLBACK}</div>;
 `,
+        "apps/api/src/index.ts": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const token = PUBLIC_BEARER_TOKEN_FALLBACK;
+`,
+        "packages/worker/src/components/token-display.tsx": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const TokenDisplay = () => <div>{PUBLIC_BEARER_TOKEN_FALLBACK}</div>;
+`,
       },
     });
 
@@ -136,6 +144,21 @@ export const token = PUBLIC_BEARER_TOKEN_FALLBACK;
     const secretIssues = await getSecretIssues(projectDir);
     expect(secretIssues).toHaveLength(1);
     expect(secretIssues[0].filePath).toContain("src/main.ts");
+  });
+
+  it("runs the weak variable-name heuristic in root App entry files", async () => {
+    const projectDir = setupReactProject(tempRoot, "root-app-entry-secret", {
+      files: {
+        "App.tsx": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const App = () => <div>{PUBLIC_BEARER_TOKEN_FALLBACK}</div>;
+`,
+      },
+    });
+
+    const secretIssues = await getSecretIssues(projectDir);
+    expect(secretIssues).toHaveLength(1);
+    expect(secretIssues[0].filePath).toContain("App.tsx");
   });
 
   it("still runs the weak variable-name heuristic in client-bundled api helpers", async () => {
@@ -184,6 +207,24 @@ export const TokenDisplay = () => <div>{PUBLIC_BEARER_TOKEN_FALLBACK}</div>;
     const secretIssues = await getSecretIssues(projectDir, { framework: "vite" });
     expect(secretIssues).toHaveLength(1);
     expect(secretIssues[0].filePath).toContain("src/app/token-display.tsx");
+  });
+
+  it("runs the weak variable-name heuristic in Expo app-directory screens", async () => {
+    const projectDir = setupReactProject(tempRoot, "expo-app-directory-secret", {
+      packageJsonExtras: {
+        dependencies: { expo: "^54.0.0", react: "^19.0.0", "react-native": "^0.81.0" },
+      },
+      files: {
+        "app/profile.tsx": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const Profile = () => <Text>{PUBLIC_BEARER_TOKEN_FALLBACK}</Text>;
+`,
+      },
+    });
+
+    const secretIssues = await getSecretIssues(projectDir, { framework: "expo" });
+    expect(secretIssues).toHaveLength(1);
+    expect(secretIssues[0].filePath).toContain("app/profile.tsx");
   });
 
   it("does not run the weak variable-name heuristic in ambiguous TypeScript source files", async () => {
@@ -263,6 +304,30 @@ export const TokenDisplay = () => <div>{PUBLIC_BEARER_TOKEN_FALLBACK}</div>;
     await expect(getSecretIssues(projectDir, { framework: "nextjs" })).resolves.toEqual([]);
   });
 
+  it("does not run the weak variable-name heuristic inside inline use-server functions", async () => {
+    const projectDir = setupReactProject(tempRoot, "inline-use-server-secret-false-positive", {
+      packageJsonExtras: {
+        dependencies: { next: "^15.0.0", react: "^19.0.0", "react-dom": "^19.0.0" },
+      },
+      files: {
+        "src/components/token-display.tsx": `const PUBLIC_CLIENT_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export async function saveToken() {
+  "use server";
+  const PUBLIC_SERVER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+  return PUBLIC_SERVER_TOKEN_FALLBACK;
+}
+
+export const TokenDisplay = () => <div>{PUBLIC_CLIENT_TOKEN_FALLBACK}</div>;
+`,
+      },
+    });
+
+    const secretIssues = await getSecretIssues(projectDir, { framework: "nextjs" });
+    expect(secretIssues).toHaveLength(1);
+    expect(secretIssues[0].message).toContain("PUBLIC_CLIENT_TOKEN_FALLBACK");
+  });
+
   it("does not run the weak variable-name heuristic in use-server files", async () => {
     const projectDir = setupReactProject(tempRoot, "use-server-secret-false-positive", {
       packageJsonExtras: {
@@ -279,6 +344,35 @@ export const getToken = async () => PUBLIC_BEARER_TOKEN_FALLBACK;
     });
 
     await expect(getSecretIssues(projectDir, { framework: "nextjs" })).resolves.toEqual([]);
+  });
+
+  it("does not run the weak variable-name heuristic inside TanStack server function handlers", async () => {
+    const projectDir = setupReactProject(tempRoot, "tanstack-server-fn-secret-false-positive", {
+      packageJsonExtras: {
+        dependencies: {
+          "@tanstack/react-start": "^1.0.0",
+          react: "^19.0.0",
+          "react-dom": "^19.0.0",
+        },
+      },
+      files: {
+        "src/routes/account.tsx": `import { createServerFn } from "@tanstack/react-start";
+
+const PUBLIC_CLIENT_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+const getToken = createServerFn().handler(async () => {
+  const PUBLIC_SERVER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+  return PUBLIC_SERVER_TOKEN_FALLBACK;
+});
+
+export const Route = () => <div>{PUBLIC_CLIENT_TOKEN_FALLBACK}</div>;
+`,
+      },
+    });
+
+    const secretIssues = await getSecretIssues(projectDir, { framework: "tanstack-start" });
+    expect(secretIssues).toHaveLength(1);
+    expect(secretIssues[0].message).toContain("PUBLIC_CLIENT_TOKEN_FALLBACK");
   });
 
   it("does not run the weak variable-name heuristic in Next.js Pages API routes", async () => {

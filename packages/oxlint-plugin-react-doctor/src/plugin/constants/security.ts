@@ -48,7 +48,7 @@ export const SECRET_CLIENT_FILE_SUFFIX_PATTERN =
   /(?:^|\/)[^/]+\.(?:client|browser|web)\.[cm]?[jt]sx?$/;
 
 export const SECRET_CLIENT_ENTRY_FILE_PATTERN =
-  /(?:^|\/)(?:src\/)?(?:main|index|app|client)\.[cm]?[jt]sx?$/;
+  /(?:^|\/)(?:src\/)?(?:main|index|[Aa]pp|client)\.[cm]?[jt]sx?$/;
 
 export const SECRET_SERVER_DIRECTORY_NAMES = new Set([
   "backend",
@@ -58,6 +58,20 @@ export const SECRET_SERVER_DIRECTORY_NAMES = new Set([
   "middleware",
   "server",
   "servers",
+]);
+
+export const SECRET_SERVER_SOURCE_ROOT_OWNER_NAMES = new Set([
+  "api",
+  "backend",
+  "edge",
+  "function",
+  "functions",
+  "lambda",
+  "lambdas",
+  "server",
+  "servers",
+  "worker",
+  "workers",
 ]);
 
 export const SECRET_TEST_DIRECTORY_NAMES = new Set([

@@ -9,6 +9,7 @@ import { classifySecretFileExposure } from "../../utils/classify-secret-file-exp
 import type { Rule } from "../../utils/rule.js";
 import type { RuleContext } from "../../utils/rule-context.js";
 import { hasDirective } from "../../utils/has-directive.js";
+import { isInsideServerOnlyScope } from "../../utils/is-inside-server-only-scope.js";
 import { isNodeOfType } from "../../utils/is-node-of-type.js";
 import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
@@ -52,12 +53,14 @@ export const noSecretsInClientCode = defineRule<Rule>({
 
         const variableName = node.id.name;
         const literalValue = node.init.value;
+        const isServerOnlyScope = isInsideServerOnlyScope(node);
 
         const trailingSuffix = variableName.split("_").pop()?.toLowerCase() ?? "";
         const isUiConstant = SECRET_FALSE_POSITIVE_SUFFIXES.has(trailingSuffix);
 
         if (
           shouldUseVariableNameHeuristic &&
+          !isServerOnlyScope &&
           SECRET_VARIABLE_PATTERN.test(variableName) &&
           !isUiConstant &&
           literalValue.length > SECRET_MIN_LENGTH_CHARS
