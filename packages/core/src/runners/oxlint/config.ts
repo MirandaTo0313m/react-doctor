@@ -79,6 +79,11 @@ export const createOxlintConfig = ({
     },
     plugins: customRulesOnly ? [] : ["react", "jsx-a11y"],
     jsPlugins: [...jsPlugins, pluginPath],
+    settings: {
+      "react-doctor": {
+        framework: project.framework,
+      },
+    },
     rules: {
       ...(customRulesOnly ? {} : BUILTIN_REACT_RULES),
       ...(customRulesOnly ? {} : BUILTIN_A11Y_RULES),

@@ -80,6 +80,23 @@ export const token = PUBLIC_BEARER_TOKEN_FALLBACK;
     await expect(getSecretIssues(projectDir)).resolves.toEqual([]);
   });
 
+  it("does not run the weak variable-name heuristic in server-owned package source roots", async () => {
+    const projectDir = setupReactProject(tempRoot, "server-package-secret-false-positive", {
+      files: {
+        "packages/server/src/index.ts": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const token = PUBLIC_BEARER_TOKEN_FALLBACK;
+`,
+        "apps/backend/src/components/token-display.tsx": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const TokenDisplay = () => <div>{PUBLIC_BEARER_TOKEN_FALLBACK}</div>;
+`,
+      },
+    });
+
+    await expect(getSecretIssues(projectDir)).resolves.toEqual([]);
+  });
+
   it("does not run the weak variable-name heuristic in server-suffixed files", async () => {
     const projectDir = setupReactProject(tempRoot, "server-suffix-secret-false-positive", {
       files: {
@@ -149,6 +166,24 @@ export const token = PUBLIC_BEARER_TOKEN_FALLBACK;
     const secretIssues = await getSecretIssues(projectDir);
     expect(secretIssues).toHaveLength(1);
     expect(secretIssues[0].filePath).toContain("src/app/token.client.ts");
+  });
+
+  it("runs the weak variable-name heuristic in Vite app-directory client code", async () => {
+    const projectDir = setupReactProject(tempRoot, "vite-app-directory-secret", {
+      packageJsonExtras: {
+        dependencies: { react: "^19.0.0", "react-dom": "^19.0.0", vite: "^7.0.0" },
+      },
+      files: {
+        "src/app/token-display.tsx": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const TokenDisplay = () => <div>{PUBLIC_BEARER_TOKEN_FALLBACK}</div>;
+`,
+      },
+    });
+
+    const secretIssues = await getSecretIssues(projectDir, { framework: "vite" });
+    expect(secretIssues).toHaveLength(1);
+    expect(secretIssues[0].filePath).toContain("src/app/token-display.tsx");
   });
 
   it("does not run the weak variable-name heuristic in ambiguous TypeScript source files", async () => {

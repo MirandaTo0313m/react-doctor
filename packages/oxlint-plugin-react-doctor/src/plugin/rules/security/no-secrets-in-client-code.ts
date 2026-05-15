@@ -12,6 +12,20 @@ import { hasDirective } from "../../utils/has-directive.js";
 import { isNodeOfType } from "../../utils/is-node-of-type.js";
 import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
+const getReactDoctorFrameworkSetting = (settings: RuleContext["settings"]): string | undefined => {
+  const reactDoctorSettings = settings?.["react-doctor"];
+  if (
+    typeof reactDoctorSettings !== "object" ||
+    reactDoctorSettings === null ||
+    Array.isArray(reactDoctorSettings)
+  ) {
+    return undefined;
+  }
+
+  const framework = Object.getOwnPropertyDescriptor(reactDoctorSettings, "framework")?.value;
+  return typeof framework === "string" ? framework : undefined;
+};
+
 export const noSecretsInClientCode = defineRule<Rule>({
   id: "no-secrets-in-client-code",
   severity: "warn",
@@ -19,12 +33,15 @@ export const noSecretsInClientCode = defineRule<Rule>({
     "Move secrets to server-only code. Public client environment variables are bundled into browser code and must not contain secrets",
   create: (context: RuleContext) => {
     const filename = context.getFilename?.() ?? "";
-    let shouldUseVariableNameHeuristic = classifySecretFileExposure(filename) === "client";
+    const framework = getReactDoctorFrameworkSetting(context.settings);
+    let shouldUseVariableNameHeuristic =
+      classifySecretFileExposure(filename, { framework }) === "client";
 
     return {
       Program(programNode: EsTreeNodeOfType<"Program">) {
         shouldUseVariableNameHeuristic =
           classifySecretFileExposure(filename, {
+            framework,
             hasUseClientDirective: hasDirective(programNode, "use client"),
           }) === "client";
       },
