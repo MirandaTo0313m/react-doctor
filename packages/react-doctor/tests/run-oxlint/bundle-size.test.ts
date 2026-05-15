@@ -85,6 +85,7 @@ describe("runOxlint", () => {
       const hitFilePaths = hits.map((hit) => hit.filePath.replaceAll("\\", "/"));
 
       expect(hits).toHaveLength(3);
+      expect(hits[0]?.message).toContain('"./components/Button"');
       expect(hitFilePaths.some((filePath) => filePath.endsWith("src/import-directory.tsx"))).toBe(
         true,
       );
@@ -94,6 +95,43 @@ describe("runOxlint", () => {
       expect(
         hitFilePaths.some((filePath) => filePath.endsWith("src/import-js-extension.tsx")),
       ).toBe(true);
+    });
+
+    it("flags aliased default and namespace re-exports with direct source guidance", async () => {
+      const projectDir = setupReactProject(tempRoot, "aliased-barrel-index-module", {
+        files: {
+          "src/components/Button.tsx": "export default function Button() { return null; }\n",
+          "src/components/Input.tsx": "export const Input = () => null;\n",
+          "src/components/parts.ts": "export const Root = () => null;\n",
+          "src/components/index.ts":
+            "export { default as Button } from './Button';\nexport { Input as TextInput } from './Input';\nexport * as ButtonParts from './parts';\n",
+          "src/import-directory.tsx":
+            "import { Button, TextInput, ButtonParts } from './components';\nvoid Button;\nvoid TextInput;\nvoid ButtonParts;\n",
+        },
+      });
+
+      const hits = await collectRuleHits(projectDir, "no-barrel-import");
+
+      expect(hits).toHaveLength(1);
+      expect(hits[0]?.message).toContain('"./components/Button"');
+      expect(hits[0]?.message).toContain('"./components/Input"');
+      expect(hits[0]?.message).toContain('"./components/parts"');
+    });
+
+    it("flags single-source star barrels and nested barrels", async () => {
+      const projectDir = setupReactProject(tempRoot, "star-and-nested-barrel-index-module", {
+        files: {
+          "src/components/button/Button.tsx": "export const Button = () => null;\n",
+          "src/components/button/index.ts": "export * from './Button';\n",
+          "src/components/index.ts": "export * from './button';\n",
+          "src/import-directory.tsx": "import { Button } from './components';\nvoid Button;\n",
+        },
+      });
+
+      const hits = await collectRuleHits(projectDir, "no-barrel-import");
+
+      expect(hits).toHaveLength(1);
+      expect(hits[0]?.message).toContain('"./components/button/Button"');
     });
 
     it("flags barrel re-exports with trailing inline comments", async () => {
@@ -117,8 +155,11 @@ describe("runOxlint", () => {
       const projectDir = setupReactProject(tempRoot, "import-export-barrel-index-module", {
         files: {
           "src/components/Button.tsx": "export const Button = () => null;\n",
-          "src/components/index.ts": "import { Button } from './Button';\n\nexport { Button };\n",
-          "src/import-directory.tsx": "import { Button } from './components';\nvoid Button;\n",
+          "src/components/icons.ts": "export const Icon = () => null;\n",
+          "src/components/index.ts":
+            "import { Button } from './Button';\nimport DefaultButton, * as Icons from './icons';\n\nexport { Button, DefaultButton, Icons };\n",
+          "src/import-directory.tsx":
+            "import { Button, DefaultButton, Icons } from './components';\nvoid Button;\nvoid DefaultButton;\nvoid Icons;\n",
         },
       });
 
@@ -128,6 +169,60 @@ describe("runOxlint", () => {
       expect(hits[0]?.filePath.replaceAll("\\", "/").endsWith("src/import-directory.tsx")).toBe(
         true,
       );
+      expect(hits[0]?.message).toContain('"./components/Button"');
+      expect(hits[0]?.message).toContain('"./components/icons"');
+    });
+
+    it("does not flag type-only imports from type-only barrels", async () => {
+      const projectDir = setupReactProject(tempRoot, "type-only-barrel-index-module", {
+        files: {
+          "src/components/Button.tsx": "export interface ButtonProps { label: string }\n",
+          "src/components/index.ts": "export type { ButtonProps } from './Button';\n",
+          "src/import-directory.tsx":
+            "import type { ButtonProps } from './components';\nconst props: ButtonProps = { label: 'Save' };\nvoid props;\n",
+        },
+      });
+
+      const hits = await collectRuleHits(projectDir, "no-barrel-import");
+
+      expect(hits).toEqual([]);
+    });
+
+    it("does not flag mixed index modules with side effects or runtime work", async () => {
+      const projectDir = setupReactProject(tempRoot, "mixed-barrel-index-module", {
+        files: {
+          "src/components/Button.tsx": "export const Button = () => null;\n",
+          "src/components/styles.css": ".button {}\n",
+          "src/components/with-side-effect/index.ts":
+            "import '../styles.css';\nexport { Button } from '../Button';\n",
+          "src/components/with-runtime-work/index.ts":
+            "console.log('init');\nexport { Button } from '../Button';\n",
+          "src/import-side-effect.tsx":
+            "import { Button } from './components/with-side-effect';\nvoid Button;\n",
+          "src/import-runtime-work.tsx":
+            "import { Button } from './components/with-runtime-work';\nvoid Button;\n",
+        },
+      });
+
+      const hits = await collectRuleHits(projectDir, "no-barrel-import");
+
+      expect(hits).toEqual([]);
+    });
+
+    it("resolves package directory entries before index fallback", async () => {
+      const projectDir = setupReactProject(tempRoot, "package-entry-barrel-index-module", {
+        files: {
+          "src/components/Button.tsx": "export const Button = () => null;\n",
+          "src/components/index.ts": "export { Button } from './Button';\n",
+          "src/components/package.json": JSON.stringify({ exports: "./index.ts" }),
+          "src/import-directory.tsx": "import { Button } from './components';\nvoid Button;\n",
+        },
+      });
+
+      const hits = await collectRuleHits(projectDir, "no-barrel-import");
+
+      expect(hits).toHaveLength(1);
+      expect(hits[0]?.message).toContain('"./components/Button"');
     });
   });
 });

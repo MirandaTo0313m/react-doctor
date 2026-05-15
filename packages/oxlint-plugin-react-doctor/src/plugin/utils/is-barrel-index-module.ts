@@ -5,13 +5,40 @@ const INDEX_MODULE_FILE_PATTERN = /^index\.(?:[cm]?[jt]sx?|mjs)$/;
 const BLOCK_COMMENT_PATTERN = /\/\*[\s\S]*?\*\//g;
 const LINE_COMMENT_PATTERN = /^\s*\/\/.*$/gm;
 const BINDING_IMPORT_DECLARATION_PATTERN =
-  /^\s*import\s+(?!["'])(?:type\s+)?[^;]*?\s+from\s+["'][^"']+["']\s*;?\s*(?:(?:\/\/[^\n]*)?\s*)/gm;
+  /^\s*import\s+(type\s+)?(?!["'])([^;]*?)\s+from\s+["']([^"']+)["']\s*;?\s*(?:(?:\/\/[^\n]*)?\s*)/gm;
 const BARREL_REEXPORT_DECLARATION_PATTERN =
-  /^\s*export\s+(?:type\s+)?(?:\*(?:\s+as\s+[\w$]+)?|\{[\s\S]*?\})\s+from\s+["'][^"']+["']\s*;?\s*(?:(?:\/\/[^\n]*)?\s*)/gm;
+  /^\s*export\s+(type\s+)?(?:\*(?:\s+as\s+([\w$]+))?|\{([\s\S]*?)\})\s+from\s+["']([^"']+)["']\s*;?\s*(?:(?:\/\/[^\n]*)?\s*)/gm;
 const LOCAL_EXPORT_SPECIFIER_DECLARATION_PATTERN =
-  /^\s*export\s+(?:type\s+)?\{[\s\S]*?\}\s*;?\s*(?:(?:\/\/[^\n]*)?\s*)/gm;
+  /^\s*export\s+(type\s+)?\{([\s\S]*?)\}\s*;?\s*(?:(?:\/\/[^\n]*)?\s*)/gm;
 
-const barrelIndexModuleCache = new Map<string, boolean>();
+export interface BarrelExportTarget {
+  exportedName: string;
+  importedName: string;
+  source: string;
+  isTypeOnly: boolean;
+}
+
+export interface BarrelIndexModuleInfo {
+  isBarrel: boolean;
+  exportsByName: Map<string, BarrelExportTarget>;
+  starExportSources: string[];
+}
+
+interface ImportedBinding {
+  localName: string;
+  importedName: string;
+  source: string;
+  isTypeOnly: boolean;
+  didExport: boolean;
+}
+
+interface ExportSpecifier {
+  localName: string;
+  exportedName: string;
+  isTypeOnly: boolean;
+}
+
+const barrelIndexModuleInfoCache = new Map<string, BarrelIndexModuleInfo>();
 
 const stripComments = (sourceText: string): string =>
   sourceText.replace(BLOCK_COMMENT_PATTERN, "").replace(LINE_COMMENT_PATTERN, "");
@@ -19,32 +46,226 @@ const stripComments = (sourceText: string): string =>
 const isIndexModuleFilePath = (filePath: string): boolean =>
   INDEX_MODULE_FILE_PATTERN.test(path.basename(filePath));
 
-const isPureBarrelModule = (sourceText: string): boolean => {
-  const strippedSource = stripComments(sourceText).trim();
-  if (!strippedSource) return false;
+const createNonBarrelInfo = (): BarrelIndexModuleInfo => ({
+  isBarrel: false,
+  exportsByName: new Map<string, BarrelExportTarget>(),
+  starExportSources: [],
+});
 
-  const withoutBarrelDeclarations = strippedSource
-    .replace(BINDING_IMPORT_DECLARATION_PATTERN, "")
-    .replace(BARREL_REEXPORT_DECLARATION_PATTERN, "")
-    .replace(LOCAL_EXPORT_SPECIFIER_DECLARATION_PATTERN, "")
-    .trim();
+const getSpecifierName = (rawName: string): string => rawName.replace(/^type\s+/, "").trim();
 
-  return withoutBarrelDeclarations.length === 0;
+const parseExportSpecifiers = (
+  specifiersText: string,
+  declarationIsTypeOnly: boolean,
+): ExportSpecifier[] =>
+  specifiersText
+    .split(",")
+    .map((specifierText) => specifierText.trim())
+    .filter(Boolean)
+    .map((specifierText) => {
+      const isTypeOnly = declarationIsTypeOnly || specifierText.startsWith("type ");
+      const [rawLocalName, rawExportedName] = specifierText.split(/\s+as\s+/);
+      const localName = getSpecifierName(rawLocalName ?? "");
+      return {
+        localName,
+        exportedName: getSpecifierName(rawExportedName ?? localName),
+        isTypeOnly,
+      };
+    });
+
+const addImportedBinding = (
+  importedBindings: Map<string, ImportedBinding>,
+  binding: Omit<ImportedBinding, "didExport">,
+): void => {
+  importedBindings.set(binding.localName, { ...binding, didExport: false });
 };
 
-export const isBarrelIndexModule = (filePath: string): boolean => {
-  if (!isIndexModuleFilePath(filePath)) return false;
+const collectNamedImportBindings = (
+  namedSpecifiersText: string,
+  source: string,
+  declarationIsTypeOnly: boolean,
+  importedBindings: Map<string, ImportedBinding>,
+): void => {
+  for (const specifierText of namedSpecifiersText.split(",")) {
+    const trimmedSpecifier = specifierText.trim();
+    if (!trimmedSpecifier) continue;
 
-  const cachedResult = barrelIndexModuleCache.get(filePath);
-  if (cachedResult !== undefined) return cachedResult;
+    const isTypeOnly = declarationIsTypeOnly || trimmedSpecifier.startsWith("type ");
+    const [rawImportedName, rawLocalName] = trimmedSpecifier.split(/\s+as\s+/);
+    const importedName = getSpecifierName(rawImportedName ?? "");
+    addImportedBinding(importedBindings, {
+      localName: getSpecifierName(rawLocalName ?? importedName),
+      importedName,
+      source,
+      isTypeOnly,
+    });
+  }
+};
 
-  let isBarrel = false;
-  try {
-    isBarrel = isPureBarrelModule(fs.readFileSync(filePath, "utf8"));
-  } catch {
-    isBarrel = false;
+const collectImportBindings = (
+  importClause: string,
+  source: string,
+  declarationIsTypeOnly: boolean,
+  importedBindings: Map<string, ImportedBinding>,
+): void => {
+  const trimmedImportClause = importClause.trim();
+  const namespaceMatch = trimmedImportClause.match(/(?:^|,\s*)\*\s+as\s+([\w$]+)/);
+  if (namespaceMatch?.[1]) {
+    addImportedBinding(importedBindings, {
+      localName: namespaceMatch[1],
+      importedName: "*",
+      source,
+      isTypeOnly: declarationIsTypeOnly,
+    });
   }
 
-  barrelIndexModuleCache.set(filePath, isBarrel);
-  return isBarrel;
+  const namedImportMatch = trimmedImportClause.match(/\{([\s\S]*?)\}/);
+  if (namedImportMatch?.[1]) {
+    collectNamedImportBindings(
+      namedImportMatch[1],
+      source,
+      declarationIsTypeOnly,
+      importedBindings,
+    );
+  }
+
+  const defaultImportName = trimmedImportClause.split(",")[0]?.trim();
+  if (
+    defaultImportName &&
+    !defaultImportName.startsWith("{") &&
+    !defaultImportName.startsWith("*")
+  ) {
+    addImportedBinding(importedBindings, {
+      localName: defaultImportName,
+      importedName: "default",
+      source,
+      isTypeOnly: declarationIsTypeOnly,
+    });
+  }
 };
+
+const replaceKnownDeclarations = (
+  sourceText: string,
+  importedBindings: Map<string, ImportedBinding>,
+  exportsByName: Map<string, BarrelExportTarget>,
+  starExportSources: string[],
+): string => {
+  let withoutKnownDeclarations = sourceText.replace(
+    BINDING_IMPORT_DECLARATION_PATTERN,
+    (_match, typeKeyword: string | undefined, importClause: string, source: string) => {
+      collectImportBindings(importClause, source, Boolean(typeKeyword), importedBindings);
+      return "";
+    },
+  );
+
+  withoutKnownDeclarations = withoutKnownDeclarations.replace(
+    BARREL_REEXPORT_DECLARATION_PATTERN,
+    (
+      _match,
+      typeKeyword: string | undefined,
+      namespaceExportName: string | undefined,
+      specifiersText: string | undefined,
+      source: string,
+    ) => {
+      const isTypeOnly = Boolean(typeKeyword);
+      if (namespaceExportName) {
+        exportsByName.set(namespaceExportName, {
+          exportedName: namespaceExportName,
+          importedName: "*",
+          source,
+          isTypeOnly,
+        });
+        return "";
+      }
+
+      if (specifiersText) {
+        for (const specifier of parseExportSpecifiers(specifiersText, isTypeOnly)) {
+          exportsByName.set(specifier.exportedName, {
+            exportedName: specifier.exportedName,
+            importedName: specifier.localName,
+            source,
+            isTypeOnly: specifier.isTypeOnly,
+          });
+        }
+        return "";
+      }
+
+      starExportSources.push(source);
+      return "";
+    },
+  );
+
+  withoutKnownDeclarations = withoutKnownDeclarations.replace(
+    LOCAL_EXPORT_SPECIFIER_DECLARATION_PATTERN,
+    (_match, typeKeyword: string | undefined, specifiersText: string) => {
+      for (const specifier of parseExportSpecifiers(specifiersText, Boolean(typeKeyword))) {
+        const importedBinding = importedBindings.get(specifier.localName);
+        if (!importedBinding) return _match;
+
+        importedBinding.didExport = true;
+        exportsByName.set(specifier.exportedName, {
+          exportedName: specifier.exportedName,
+          importedName: importedBinding.importedName,
+          source: importedBinding.source,
+          isTypeOnly: specifier.isTypeOnly || importedBinding.isTypeOnly,
+        });
+      }
+      return "";
+    },
+  );
+
+  return withoutKnownDeclarations;
+};
+
+const hasUnexportedRuntimeImport = (importedBindings: Map<string, ImportedBinding>): boolean => {
+  for (const binding of importedBindings.values()) {
+    if (!binding.isTypeOnly && !binding.didExport) return true;
+  }
+  return false;
+};
+
+const classifyBarrelModule = (sourceText: string): BarrelIndexModuleInfo => {
+  const strippedSource = stripComments(sourceText).trim();
+  if (!strippedSource) return createNonBarrelInfo();
+
+  const importedBindings = new Map<string, ImportedBinding>();
+  const exportsByName = new Map<string, BarrelExportTarget>();
+  const starExportSources: string[] = [];
+  const remainingSource = replaceKnownDeclarations(
+    strippedSource,
+    importedBindings,
+    exportsByName,
+    starExportSources,
+  ).trim();
+
+  if (remainingSource || hasUnexportedRuntimeImport(importedBindings)) {
+    return createNonBarrelInfo();
+  }
+
+  const hasBarrelExport = exportsByName.size > 0 || starExportSources.length > 0;
+  return {
+    isBarrel: hasBarrelExport,
+    exportsByName,
+    starExportSources,
+  };
+};
+
+export const getBarrelIndexModuleInfo = (filePath: string): BarrelIndexModuleInfo => {
+  if (!isIndexModuleFilePath(filePath)) return createNonBarrelInfo();
+
+  const cachedResult = barrelIndexModuleInfoCache.get(filePath);
+  if (cachedResult !== undefined) return cachedResult;
+
+  let moduleInfo = createNonBarrelInfo();
+  try {
+    moduleInfo = classifyBarrelModule(fs.readFileSync(filePath, "utf8"));
+  } catch {
+    moduleInfo = createNonBarrelInfo();
+  }
+
+  barrelIndexModuleInfoCache.set(filePath, moduleInfo);
+  return moduleInfo;
+};
+
+export const isBarrelIndexModule = (filePath: string): boolean =>
+  getBarrelIndexModuleInfo(filePath).isBarrel;
