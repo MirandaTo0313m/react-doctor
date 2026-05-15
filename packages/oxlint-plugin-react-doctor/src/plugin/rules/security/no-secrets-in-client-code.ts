@@ -5,9 +5,10 @@ import {
   SECRET_VARIABLE_PATTERN,
 } from "../../constants/security.js";
 import { defineRule } from "../../utils/define-rule.js";
-import { canUseSecretVariableNameHeuristic } from "../../utils/can-use-secret-variable-name-heuristic.js";
+import { classifySecretFileExposure } from "../../utils/classify-secret-file-exposure.js";
 import type { Rule } from "../../utils/rule.js";
 import type { RuleContext } from "../../utils/rule-context.js";
+import { hasDirective } from "../../utils/has-directive.js";
 import { isNodeOfType } from "../../utils/is-node-of-type.js";
 import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
@@ -18,9 +19,15 @@ export const noSecretsInClientCode = defineRule<Rule>({
     "Move secrets to server-only code. Public client environment variables are bundled into browser code and must not contain secrets",
   create: (context: RuleContext) => {
     const filename = context.getFilename?.() ?? "";
-    const shouldUseVariableNameHeuristic = canUseSecretVariableNameHeuristic(filename);
+    let shouldUseVariableNameHeuristic = classifySecretFileExposure(filename) === "client";
 
     return {
+      Program(programNode: EsTreeNodeOfType<"Program">) {
+        shouldUseVariableNameHeuristic =
+          classifySecretFileExposure(filename, {
+            hasUseClientDirective: hasDirective(programNode, "use client"),
+          }) === "client";
+      },
       VariableDeclarator(node: EsTreeNodeOfType<"VariableDeclarator">) {
         if (!isNodeOfType(node.id, "Identifier")) return;
         if (!isNodeOfType(node.init, "Literal") || typeof node.init.value !== "string") return;

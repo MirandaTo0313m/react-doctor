@@ -80,6 +80,19 @@ export const token = PUBLIC_BEARER_TOKEN_FALLBACK;
     await expect(getSecretIssues(projectDir)).resolves.toEqual([]);
   });
 
+  it("does not run the weak variable-name heuristic in test-only directories", async () => {
+    const projectDir = setupReactProject(tempRoot, "test-secret-false-positive", {
+      files: {
+        "src/__tests__/token-display.tsx": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const TokenDisplay = () => <div>{PUBLIC_BEARER_TOKEN_FALLBACK}</div>;
+`,
+      },
+    });
+
+    await expect(getSecretIssues(projectDir)).resolves.toEqual([]);
+  });
+
   it("still runs the weak variable-name heuristic in client-bundled api helpers", async () => {
     const projectDir = setupReactProject(tempRoot, "client-api-helper-secret", {
       files: {
@@ -93,6 +106,39 @@ export const token = PUBLIC_BEARER_TOKEN_FALLBACK;
     const secretIssues = await getSecretIssues(projectDir);
     expect(secretIssues).toHaveLength(1);
     expect(secretIssues[0].filePath).toContain("src/api/client.ts");
+  });
+
+  it("does not run the weak variable-name heuristic in ambiguous TypeScript source files", async () => {
+    const projectDir = setupReactProject(tempRoot, "ambiguous-source-secret-false-positive", {
+      files: {
+        "src/token.ts": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const token = PUBLIC_BEARER_TOKEN_FALLBACK;
+`,
+      },
+    });
+
+    await expect(getSecretIssues(projectDir)).resolves.toEqual([]);
+  });
+
+  it("runs the weak variable-name heuristic in use-client App Router files", async () => {
+    const projectDir = setupReactProject(tempRoot, "next-use-client-secret", {
+      packageJsonExtras: {
+        dependencies: { next: "^15.0.0", react: "^19.0.0", "react-dom": "^19.0.0" },
+      },
+      files: {
+        "src/app/token-display.tsx": `"use client";
+
+const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const TokenDisplay = () => <div>{PUBLIC_BEARER_TOKEN_FALLBACK}</div>;
+`,
+      },
+    });
+
+    const secretIssues = await getSecretIssues(projectDir, { framework: "nextjs" });
+    expect(secretIssues).toHaveLength(1);
+    expect(secretIssues[0].filePath).toContain("src/app/token-display.tsx");
   });
 
   it("does not run the weak variable-name heuristic in Next.js Pages API routes", async () => {
@@ -116,16 +162,16 @@ export default function handler() {
   it("still runs the weak variable-name heuristic in regular files whose basename ends in rc", async () => {
     const projectDir = setupReactProject(tempRoot, "src-basename-secret", {
       files: {
-        "src.ts": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+        "src/src.tsx": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
 
-export const token = PUBLIC_BEARER_TOKEN_FALLBACK;
+export const TokenDisplay = () => <div>{PUBLIC_BEARER_TOKEN_FALLBACK}</div>;
 `,
       },
     });
 
     const secretIssues = await getSecretIssues(projectDir);
     expect(secretIssues).toHaveLength(1);
-    expect(secretIssues[0].filePath).toContain("src.ts");
+    expect(secretIssues[0].filePath).toContain("src/src.tsx");
   });
 
   it("does not run the weak variable-name heuristic in explicit rc config files", async () => {

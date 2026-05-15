@@ -31,34 +31,63 @@ export const SECRET_PATTERNS = [
 
 export const SECRET_VARIABLE_PATTERN = /(?:api_?key|secret|token|password|credential|auth)/i;
 
-export const SECRET_HEURISTIC_CONFIG_FILE_PATTERN = /(?:^|\/)[^/]+\.config\.[cm]?[jt]s$/;
+export const SECRET_TOOLING_FILE_PATTERN = /(?:^|\/)[^/]+\.config\.[cm]?[jt]s$/;
 
-export const SECRET_HEURISTIC_RC_CONFIG_FILE_PATTERN =
-  /(?:^|\/)(?:\.[a-z-]+rc|[a-z-]+\.rc)\.[cm]?[jt]s$/;
+export const SECRET_TOOLING_RC_FILE_PATTERN = /(?:^|\/)(?:\.[a-z-]+rc|[a-z-]+\.rc)\.[cm]?[jt]s$/;
 
-export const SECRET_HEURISTIC_NON_CLIENT_FILE_SUFFIX_PATTERN =
-  /(?:^|\/)[^/]+\.(?:server|test|spec|stories|story|fixture|fixtures)\.[cm]?[jt]sx?$/;
+export const SECRET_TEST_FILE_PATTERN =
+  /(?:^|\/)[^/]+\.(?:test|spec|stories|story|fixture|fixtures)\.[cm]?[jt]sx?$/;
 
-export const SECRET_HEURISTIC_SERVER_ENTRY_FILE_PATTERN =
-  /(?:^|\/)(?:middleware|route)\.[cm]?[jt]sx?$/;
+export const SECRET_SERVER_FILE_SUFFIX_PATTERN = /(?:^|\/)[^/]+\.server\.[cm]?[jt]sx?$/;
 
-export const SECRET_HEURISTIC_NEXT_PAGES_API_FILE_PATTERN = /(?:^|\/)pages\/api\/.+\.[cm]?[jt]sx?$/;
+export const SECRET_SERVER_ENTRY_FILE_PATTERN = /(?:^|\/)(?:middleware|route)\.[cm]?[jt]sx?$/;
 
-export const NON_CLIENT_SECRET_HEURISTIC_DIRECTORY_NAMES = new Set([
+export const SECRET_NEXT_PAGES_API_FILE_PATTERN = /(?:^|\/)pages\/api\/.+\.[cm]?[jt]sx?$/;
+
+export const SECRET_CLIENT_FILE_SUFFIX_PATTERN =
+  /(?:^|\/)[^/]+\.(?:client|browser|web)\.[cm]?[jt]sx?$/;
+
+export const SECRET_CLIENT_ENTRY_FILE_PATTERN =
+  /(?:^|\/)(?:src\/)?(?:main|index|app|client)\.[cm]?[jt]sx?$/;
+
+export const SECRET_SERVER_DIRECTORY_NAMES = new Set([
   "backend",
-  "bin",
-  "config",
-  "configs",
   "functions",
   "lambdas",
   "lambda",
   "middleware",
-  "script",
-  "scripts",
   "server",
   "servers",
+]);
+
+export const SECRET_TEST_DIRECTORY_NAMES = new Set([
+  "__fixtures__",
+  "__mocks__",
+  "__tests__",
+  "fixtures",
+  "mocks",
+  "test",
+  "tests",
+]);
+
+export const SECRET_TOOLING_DIRECTORY_NAMES = new Set([
+  "bin",
+  "config",
+  "configs",
+  "script",
+  "scripts",
   "tooling",
   "tools",
+]);
+
+export const SECRET_CLIENT_SOURCE_DIRECTORY_NAMES = new Set([
+  "components",
+  "features",
+  "hooks",
+  "pages",
+  "ui",
+  "views",
+  "widgets",
 ]);
 
 export const SECRET_FALSE_POSITIVE_SUFFIXES = new Set([
