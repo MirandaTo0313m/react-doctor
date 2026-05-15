@@ -334,17 +334,7 @@ export const Custom = () => {
     expect(triggerHits.length).toBe(0);
   });
 
-  it("intentionally double-warns on the bare-truthy state shape (handler + trigger-state both fire)", async () => {
-    // Regression: \`if (destination) navigate(destination)\` triggers
-    // BOTH no-effect-event-handler and no-event-trigger-state. An
-    // earlier implementation tried to defer the former to the latter,
-    // but that deference silently dropped diagnostics whenever the
-    // narrower rule's preconditions (handler-only writes,
-    // not render-reachable, etc.) didn't hold. Both rules now fire
-    // independently — the messages frame the same code differently
-    // ("this useEffect simulates a handler" vs "this state exists
-    // only to schedule navigate from an effect") so a duplicate is
-    // strictly better than a silent drop.
+  it("reports local trigger state without a no-effect-event-handler duplicate", async () => {
     const projectDir = setupReactProject(tempRoot, "no-event-trigger-state-double-warn", {
       files: {
         "src/Wizard.tsx": `import { useEffect, useState } from "react";
@@ -367,7 +357,7 @@ export const Wizard = () => {
     const triggerHits = await collectRuleHits(projectDir, "no-event-trigger-state");
     const handlerHits = await collectRuleHits(projectDir, "no-effect-event-handler");
     expect(triggerHits.length).toBe(1);
-    expect(handlerHits.length).toBe(1);
+    expect(handlerHits.length).toBe(0);
   });
 
   it("does NOT flag dual-purpose state that's also read in render (Bugbot #155)", async () => {

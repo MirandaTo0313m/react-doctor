@@ -4,6 +4,7 @@ import { getCallbackStatements } from "../../utils/get-callback-statements.js";
 import { getEffectCallback } from "../../utils/get-effect-callback.js";
 import { getRootIdentifierName } from "../../utils/get-root-identifier-name.js";
 import { isHookCall } from "../../utils/is-hook-call.js";
+import { createComponentPropStackTracker } from "../../utils/create-component-prop-stack-tracker.js";
 import { findTriggeredSideEffectCalleeName } from "./utils/find-triggered-side-effect-callee-name.js";
 import { hasDocumentClassListMutation } from "./utils/has-document-class-list-mutation.js";
 import type { Rule } from "../../utils/rule.js";
@@ -22,44 +23,50 @@ export const noEffectEventHandler = defineRule<Rule>({
   severity: "warn",
   recommendation:
     "Move the conditional logic into onClick, onChange, or onSubmit handlers directly",
-  create: (context: RuleContext) => ({
-    CallExpression(node: EsTreeNodeOfType<"CallExpression">) {
-      if (!isHookCall(node, EFFECT_HOOK_NAMES) || (node.arguments?.length ?? 0) < 2) return;
+  create: (context: RuleContext) => {
+    const propStackTracker = createComponentPropStackTracker();
 
-      const callback = getEffectCallback(node);
-      if (!callback) return;
+    return {
+      ...propStackTracker.visitors,
+      CallExpression(node: EsTreeNodeOfType<"CallExpression">) {
+        if (!isHookCall(node, EFFECT_HOOK_NAMES) || (node.arguments?.length ?? 0) < 2) return;
 
-      const depsNode = node.arguments[1];
-      if (!isNodeOfType(depsNode, "ArrayExpression") || !depsNode.elements?.length) return;
+        const callback = getEffectCallback(node);
+        if (!callback) return;
 
-      const dependencyNames = new Set<string>();
-      for (const element of depsNode.elements ?? []) {
-        if (isNodeOfType(element, "Identifier")) dependencyNames.add(element.name);
-      }
+        const depsNode = node.arguments[1];
+        if (!isNodeOfType(depsNode, "ArrayExpression") || !depsNode.elements?.length) return;
 
-      const statements = getCallbackStatements(callback);
-      if (statements.length !== 1) return;
+        const dependencyNames = new Set<string>();
+        for (const element of depsNode.elements ?? []) {
+          if (isNodeOfType(element, "Identifier")) dependencyNames.add(element.name);
+        }
 
-      const soleStatement = statements[0];
-      if (!isNodeOfType(soleStatement, "IfStatement")) return;
+        const statements = getCallbackStatements(callback);
+        if (statements.length !== 1) return;
 
-      // HACK: §5 of "You Might Not Need an Effect" uses
-      // `if (product.isInCart)` — a MemberExpression, not a bare
-      // Identifier. The earlier detector hard-required `Identifier`
-      // and missed the article's literal example. Walk the test
-      // down to its root identifier so both shapes match:
-      //   if (isOpen)            → root = "isOpen"
-      //   if (product.isInCart)  → root = "product"
-      const rootIdentifierName = getRootIdentifierName(soleStatement.test);
-      if (!rootIdentifierName || !dependencyNames.has(rootIdentifierName)) return;
+        const soleStatement = statements[0];
+        if (!isNodeOfType(soleStatement, "IfStatement")) return;
 
-      if (!hasEventLikeConsequent(soleStatement.consequent)) return;
+        // HACK: §5 of "You Might Not Need an Effect" uses
+        // `if (product.isInCart)` — a MemberExpression, not a bare
+        // Identifier. The earlier detector hard-required `Identifier`
+        // and missed the article's literal example. Walk the test
+        // down to its root identifier so both shapes match:
+        //   if (isOpen)            → root = "isOpen"
+        //   if (product.isInCart)  → root = "product"
+        const rootIdentifierName = getRootIdentifierName(soleStatement.test);
+        if (!rootIdentifierName || !dependencyNames.has(rootIdentifierName)) return;
+        if (!propStackTracker.isPropName(rootIdentifierName)) return;
 
-      context.report({
-        node,
-        message:
-          "useEffect simulating an event handler — move logic to an actual event handler instead",
-      });
-    },
-  }),
+        if (!hasEventLikeConsequent(soleStatement.consequent)) return;
+
+        context.report({
+          node,
+          message:
+            "useEffect simulating an event handler — move logic to an actual event handler instead",
+        });
+      },
+    };
+  },
 });

@@ -102,6 +102,61 @@ export const Page = ({ unrelated }: { unrelated: boolean }) => {
     expect(hits).toHaveLength(0);
   });
 
+  it("does NOT flag event-shaped effects for custom-hook-derived data", async () => {
+    const projectDir = setupReactProject(
+      tempRoot,
+      "no-effect-event-handler-hook-derived-event-shaped",
+      {
+        files: {
+          "src/CartNotification.tsx": `import { useEffect } from "react";
+
+declare const showNotification: (message: string) => void;
+declare const useCartProduct: () => { product: { isInCart: boolean; name: string } };
+
+export const CartNotification = () => {
+  const { product } = useCartProduct();
+
+  useEffect(() => {
+    if (product.isInCart) {
+      showNotification(\`Added \${product.name} to the shopping cart!\`);
+    }
+  }, [product]);
+
+  return <div>{product.name}</div>;
+};
+`,
+        },
+      },
+    );
+
+    const hits = await collectRuleHits(projectDir, "no-effect-event-handler");
+    expect(hits).toHaveLength(0);
+  });
+
+  it("does NOT flag local trigger state handled by no-event-trigger-state", async () => {
+    const projectDir = setupReactProject(tempRoot, "no-effect-event-handler-local-trigger-state", {
+      files: {
+        "src/Wizard.tsx": `import { useEffect, useState } from "react";
+
+declare const navigate: (path: string) => void;
+
+export const Wizard = () => {
+  const [destination, setDestination] = useState<string | null>(null);
+  useEffect(() => {
+    if (destination) {
+      navigate(destination);
+    }
+  }, [destination]);
+  return <button onClick={() => setDestination("/next")}>Next</button>;
+};
+`,
+      },
+    });
+
+    const hits = await collectRuleHits(projectDir, "no-effect-event-handler");
+    expect(hits).toHaveLength(0);
+  });
+
   it("does NOT flag imported setUser external synchronization", async () => {
     const projectDir = setupReactProject(tempRoot, "no-effect-event-handler-imported-set-user", {
       files: {
