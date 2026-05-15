@@ -72,7 +72,7 @@ describe("runOxlint", () => {
       const projectDir = setupReactProject(tempRoot, "barrel-index-module", {
         files: {
           "src/components/Button.tsx": "export const Button = () => null;\n",
-          "src/components/index.ts": "export { Button } from './Button';\n",
+          "src/components/index.ts": "export { Button } from './Button'; // UI component\n",
           "src/import-directory.tsx": "import { Button } from './components';\nvoid Button;\n",
           "src/import-explicit-index.tsx":
             "import { Button } from './components/index';\nvoid Button;\n",

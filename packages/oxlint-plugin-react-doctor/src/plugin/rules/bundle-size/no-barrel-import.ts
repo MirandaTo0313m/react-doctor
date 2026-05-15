@@ -10,7 +10,7 @@ const INDEX_MODULE_FILE_PATTERN = /^index\.(?:[cm]?[jt]sx?|mjs)$/;
 const BLOCK_COMMENT_PATTERN = /\/\*[\s\S]*?\*\//g;
 const LINE_COMMENT_PATTERN = /^\s*\/\/.*$/gm;
 const BARREL_REEXPORT_DECLARATION_PATTERN =
-  /^\s*export\s+(?:type\s+)?(?:\*(?:\s+as\s+[\w$]+)?|\{[\s\S]*?\})\s+from\s+["'][^"']+["']\s*;?\s*/gm;
+  /^\s*export\s+(?:type\s+)?(?:\*(?:\s+as\s+[\w$]+)?|\{[\s\S]*?\})\s+from\s+["'][^"']+["']\s*;?\s*(?:(?:\/\/[^\n]*)?\s*)/gm;
 
 const barrelIndexModuleCache = new Map<string, boolean>();
 
