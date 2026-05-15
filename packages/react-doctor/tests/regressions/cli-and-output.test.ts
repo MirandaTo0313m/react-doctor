@@ -239,6 +239,12 @@ interface NoScoreScenario {
   forbiddenMessage: string;
 }
 
+// HACK: calculate-score logs a warning to stderr on every API failure;
+// the API-failure scenarios silence it so the test output stays readable.
+const silenceCalculateScoreApiWarning = (): void => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+};
+
 const NO_SCORE_SCENARIOS: NoScoreScenario[] = [
   {
     label: "--offline set",
@@ -258,6 +264,7 @@ const NO_SCORE_SCENARIOS: NoScoreScenario[] = [
           throw new Error("network unavailable");
         }),
       );
+      silenceCalculateScoreApiWarning();
     },
     expectedMessage: SCORE_UNAVAILABLE_API_FAILURE_MESSAGE,
     forbiddenMessage: SCORE_UNAVAILABLE_OFFLINE_MESSAGE,
@@ -273,6 +280,7 @@ const NO_SCORE_SCENARIOS: NoScoreScenario[] = [
           async () => new Response("internal error", { status: 500, statusText: "Server Error" }),
         ),
       );
+      silenceCalculateScoreApiWarning();
     },
     expectedMessage: SCORE_UNAVAILABLE_API_FAILURE_MESSAGE,
     forbiddenMessage: SCORE_UNAVAILABLE_OFFLINE_MESSAGE,
@@ -286,6 +294,7 @@ const NO_SCORE_SCENARIOS: NoScoreScenario[] = [
         "fetch",
         vi.fn(async () => new Response("not-json{{{", { status: 200 })),
       );
+      silenceCalculateScoreApiWarning();
     },
     expectedMessage: SCORE_UNAVAILABLE_API_FAILURE_MESSAGE,
     forbiddenMessage: SCORE_UNAVAILABLE_OFFLINE_MESSAGE,
@@ -301,12 +310,7 @@ describe("'score unavailable' message branches on offline vs API failure (#249)"
   it.each(NO_SCORE_SCENARIOS)(
     "renders the right message when $label",
     async ({ caseId, options, setupFetchStub, expectedMessage, forbiddenMessage }) => {
-      if (setupFetchStub) {
-        setupFetchStub();
-        // HACK: calculate-score logs a warning to stderr on every API
-        // failure; silence it so the test output stays readable.
-        vi.spyOn(console, "warn").mockImplementation(() => {});
-      }
+      setupFetchStub?.();
 
       const projectDir = setupMinimalReactProject(caseId);
       const { result, stdout } = await captureScanOutput(projectDir, options);
