@@ -252,6 +252,33 @@ export const token = PUBLIC_BEARER_TOKEN_FALLBACK;
     expect(secretIssues[0].filePath).toContain("src.ts");
   });
 
+  it("does not run the weak variable-name heuristic in explicit rc config files", async () => {
+    const projectDir = setupReactProject(tempRoot, "rc-config-secret-false-positive", {
+      files: {
+        ".eslintrc.ts": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export default {};
+`,
+        "lint.rc.ts": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export default {};
+`,
+      },
+    });
+
+    const diagnostics = await runOxlint({
+      rootDirectory: projectDir,
+      project: buildTestProject({
+        rootDirectory: projectDir,
+      }),
+    });
+
+    const secretIssues = diagnostics.filter(
+      (diagnostic) => diagnostic.rule === "no-secrets-in-client-code",
+    );
+    expect(secretIssues).toEqual([]);
+  });
+
   it("still reports literal values that match known secret shapes in config files", async () => {
     const projectDir = setupReactProject(tempRoot, "config-real-secret-shape", {
       packageJsonExtras: {
