@@ -1,14 +1,7 @@
-import {
-  EFFECT_HOOK_NAMES,
-  EVENT_TRIGGERED_NAVIGATION_METHOD_NAMES,
-  EVENT_TRIGGERED_SIDE_EFFECT_CALLEES,
-  EVENT_TRIGGERED_SIDE_EFFECT_MEMBER_METHODS,
-  NAVIGATION_RECEIVER_NAMES,
-} from "../../constants/react.js";
+import { EFFECT_HOOK_NAMES } from "../../constants/react.js";
 import { defineRule } from "../../utils/define-rule.js";
 import { getCallbackStatements } from "../../utils/get-callback-statements.js";
 import { getEffectCallback } from "../../utils/get-effect-callback.js";
-import { getRootIdentifierName } from "../../utils/get-root-identifier-name.js";
 import { isComponentAssignment } from "../../utils/is-component-assignment.js";
 import { isHookCall } from "../../utils/is-hook-call.js";
 import { isUppercaseName } from "../../utils/is-uppercase-name.js";
@@ -17,12 +10,13 @@ import type { EsTreeNode } from "../../utils/es-tree-node.js";
 import type { Rule } from "../../utils/rule.js";
 import type { RuleContext } from "../../utils/rule-context.js";
 import { collectUseStateBindings } from "./utils/collect-use-state-bindings.js";
-import { collectReturnExpressions } from "./utils/collect-return-expressions.js";
 import { buildLocalDependencyGraph } from "./utils/build-local-dependency-graph.js";
 import { collectRenderReachableNames } from "./utils/collect-render-reachable-names.js";
 import { expandTransitiveDependencies } from "./utils/expand-transitive-dependencies.js";
+import { collectFunctionLikeLocalNames } from "./utils/collect-function-like-local-names.js";
 import { collectHandlerBindingNames } from "./utils/collect-handler-binding-names.js";
 import { isInsideEventHandler } from "./utils/is-inside-event-handler.js";
+import { findTriggeredSideEffectCalleeName } from "./utils/find-triggered-side-effect-callee-name.js";
 import { isNodeOfType } from "../../utils/is-node-of-type.js";
 import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
@@ -94,34 +88,6 @@ const getTriggerGuardRootName = (testNode: EsTreeNode): string | null => {
   return null;
 };
 
-const findTriggeredSideEffectCalleeName = (consequentNode: EsTreeNode): string | null => {
-  let foundCalleeName: string | null = null;
-  walkAst(consequentNode, (child: EsTreeNode) => {
-    if (foundCalleeName) return false;
-    if (!isNodeOfType(child, "CallExpression")) return;
-    const callee = child.callee;
-    if (
-      isNodeOfType(callee, "Identifier") &&
-      EVENT_TRIGGERED_SIDE_EFFECT_CALLEES.has(callee.name)
-    ) {
-      foundCalleeName = callee.name;
-      return;
-    }
-    if (isNodeOfType(callee, "MemberExpression") && isNodeOfType(callee.property, "Identifier")) {
-      const propertyName = callee.property.name;
-      const isUnambiguousMethod = EVENT_TRIGGERED_SIDE_EFFECT_MEMBER_METHODS.has(propertyName);
-      const isNavigationMethod = EVENT_TRIGGERED_NAVIGATION_METHOD_NAMES.has(propertyName);
-      if (!isUnambiguousMethod && !isNavigationMethod) return;
-      const rootName = getRootIdentifierName(callee);
-      if (isNavigationMethod && (rootName === null || !NAVIGATION_RECEIVER_NAMES.has(rootName))) {
-        return;
-      }
-      foundCalleeName = rootName ? `${rootName}.${propertyName}` : propertyName;
-    }
-  });
-  return foundCalleeName;
-};
-
 const collectHandlerOnlyWriteStateNames = (
   componentBody: EsTreeNode,
   useStateBindings: Array<{ valueName: string; setterName: string; declarator: EsTreeNode }>,
@@ -174,10 +140,13 @@ export const noEventTriggerState = defineRule<Rule>({
       // user can't just delete the state. Reuse the same render-
       // reachability machinery that `rerenderStateOnlyInHandlers`
       // uses to filter these out (transitive dep graph + walk from
-      // return expressions).
-      const returnExpressions = collectReturnExpressions(componentBody);
-      const dependencyGraph = buildLocalDependencyGraph(componentBody);
-      const directRenderNames = collectRenderReachableNames(returnExpressions);
+      // render-reachable expressions).
+      const eventHandlerReferenceNames = collectFunctionLikeLocalNames(componentBody);
+      const dependencyGraph = buildLocalDependencyGraph(componentBody, eventHandlerReferenceNames);
+      const directRenderNames = collectRenderReachableNames(
+        componentBody,
+        eventHandlerReferenceNames,
+      );
       const renderReachableNames = expandTransitiveDependencies(directRenderNames, dependencyGraph);
 
       walkAst(componentBody, (effectCall: EsTreeNode) => {
