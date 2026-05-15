@@ -31,12 +31,20 @@ export const SECRET_PATTERNS = [
 
 export const SECRET_VARIABLE_PATTERN = /(?:api_?key|secret|token|password|credential|auth)/i;
 
-export const NON_CLIENT_SECRET_HEURISTIC_FILE_PATTERN =
-  /(?:^|\/)(?:[^/]+\.config\.[cm]?[jt]s|(?:\.[a-z-]+rc|[a-z-]+\.rc)\.[cm]?[jt]s|[^/]+\.(?:server|test|spec|stories|story|fixture|fixtures)\.[cm]?[jt]sx?|(?:route|middleware)\.[cm]?[jt]sx?)$/;
+export const SECRET_HEURISTIC_CONFIG_FILE_PATTERN = /(?:^|\/)[^/]+\.config\.[cm]?[jt]s$/;
+
+export const SECRET_HEURISTIC_RC_CONFIG_FILE_PATTERN =
+  /(?:^|\/)(?:\.[a-z-]+rc|[a-z-]+\.rc)\.[cm]?[jt]s$/;
+
+export const SECRET_HEURISTIC_NON_CLIENT_FILE_SUFFIX_PATTERN =
+  /(?:^|\/)[^/]+\.(?:server|test|spec|stories|story|fixture|fixtures)\.[cm]?[jt]sx?$/;
+
+export const SECRET_HEURISTIC_SERVER_ENTRY_FILE_PATTERN =
+  /(?:^|\/)(?:middleware|route)\.[cm]?[jt]sx?$/;
+
+export const SECRET_HEURISTIC_NEXT_PAGES_API_FILE_PATTERN = /(?:^|\/)pages\/api\/.+\.[cm]?[jt]sx?$/;
 
 export const NON_CLIENT_SECRET_HEURISTIC_DIRECTORY_NAMES = new Set([
-  "api",
-  "apis",
   "backend",
   "bin",
   "config",
