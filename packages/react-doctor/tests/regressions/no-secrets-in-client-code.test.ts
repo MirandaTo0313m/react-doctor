@@ -80,6 +80,40 @@ export const token = PUBLIC_BEARER_TOKEN_FALLBACK;
     await expect(getSecretIssues(projectDir)).resolves.toEqual([]);
   });
 
+  it("classifies files relative to the project root, not parent folder names", async () => {
+    const serverParentProjectDir = setupReactProject(
+      path.join(tempRoot, "server"),
+      "client-entry",
+      {
+        packageJsonExtras: {
+          dependencies: { react: "^19.0.0", "react-dom": "^19.0.0", vite: "^7.0.0" },
+        },
+        files: {
+          "App.tsx": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const App = () => <div>{PUBLIC_BEARER_TOKEN_FALLBACK}</div>;
+`,
+        },
+      },
+    );
+    const appParentProjectDir = setupReactProject(path.join(tempRoot, "app"), "ambiguous-source", {
+      packageJsonExtras: {
+        dependencies: { react: "^19.0.0", "react-dom": "^19.0.0", vite: "^7.0.0" },
+      },
+      files: {
+        "token.ts": `const PUBLIC_BEARER_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const token = PUBLIC_BEARER_TOKEN_FALLBACK;
+`,
+      },
+    });
+
+    const secretIssues = await getSecretIssues(serverParentProjectDir, { framework: "vite" });
+    expect(secretIssues).toHaveLength(1);
+    expect(secretIssues[0].filePath).toContain("App.tsx");
+    await expect(getSecretIssues(appParentProjectDir, { framework: "vite" })).resolves.toEqual([]);
+  });
+
   it("does not run the weak variable-name heuristic in server-owned package source roots", async () => {
     const projectDir = setupReactProject(tempRoot, "server-package-secret-false-positive", {
       files: {
@@ -103,6 +137,32 @@ export const TokenDisplay = () => <div>{PUBLIC_BEARER_TOKEN_FALLBACK}</div>;
     });
 
     await expect(getSecretIssues(projectDir)).resolves.toEqual([]);
+  });
+
+  it("runs the weak variable-name heuristic for explicit client files in server-named directories", async () => {
+    const projectDir = setupReactProject(tempRoot, "explicit-client-in-server-directory", {
+      files: {
+        "src/server/token.client.tsx": `const PUBLIC_CLIENT_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const token = PUBLIC_CLIENT_TOKEN_FALLBACK;
+`,
+        "src/server/token-display.tsx": `"use client";
+
+const PUBLIC_DISPLAY_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const TokenDisplay = () => <div>{PUBLIC_DISPLAY_TOKEN_FALLBACK}</div>;
+`,
+      },
+    });
+
+    const secretIssues = await getSecretIssues(projectDir);
+    expect(secretIssues).toHaveLength(2);
+    expect(secretIssues.map((secretIssue) => secretIssue.filePath)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("src/server/token.client.tsx"),
+        expect.stringContaining("src/server/token-display.tsx"),
+      ]),
+    );
   });
 
   it("does not run the weak variable-name heuristic in server-suffixed files", async () => {
@@ -207,6 +267,33 @@ export const TokenDisplay = () => <div>{PUBLIC_BEARER_TOKEN_FALLBACK}</div>;
     const secretIssues = await getSecretIssues(projectDir, { framework: "vite" });
     expect(secretIssues).toHaveLength(1);
     expect(secretIssues[0].filePath).toContain("src/app/token-display.tsx");
+  });
+
+  it("runs the weak variable-name heuristic in Vite files that look like Next server routes", async () => {
+    const projectDir = setupReactProject(tempRoot, "vite-route-name-secret", {
+      packageJsonExtras: {
+        dependencies: { react: "^19.0.0", "react-dom": "^19.0.0", vite: "^7.0.0" },
+      },
+      files: {
+        "src/routes/route.tsx": `const PUBLIC_ROUTE_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const Route = () => <div>{PUBLIC_ROUTE_TOKEN_FALLBACK}</div>;
+`,
+        "src/pages/api/token.ts": `const PUBLIC_API_TOKEN_FALLBACK = "fixture_token_1234567890abcdef";
+
+export const token = PUBLIC_API_TOKEN_FALLBACK;
+`,
+      },
+    });
+
+    const secretIssues = await getSecretIssues(projectDir, { framework: "vite" });
+    expect(secretIssues).toHaveLength(2);
+    expect(secretIssues.map((secretIssue) => secretIssue.filePath)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("src/routes/route.tsx"),
+        expect.stringContaining("src/pages/api/token.ts"),
+      ]),
+    );
   });
 
   it("runs the weak variable-name heuristic in Expo app-directory screens", async () => {

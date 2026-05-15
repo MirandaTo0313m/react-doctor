@@ -18,6 +18,7 @@ export interface SecretFileExposureOptions {
   framework?: string;
   hasUseClientDirective?: boolean;
   hasUseServerDirective?: boolean;
+  rootDirectory?: string;
 }
 
 const SOURCE_FILE_EXTENSION_PATTERN = /\.[cm]?[jt]sx?$/;
@@ -26,6 +27,22 @@ const CLIENT_APP_DIRECTORY_FRAMEWORKS = new Set(["cra", "expo", "gatsby", "vite"
 
 const isInsideDirectory = (pathSegments: string[], directoryNames: ReadonlySet<string>): boolean =>
   pathSegments.some((pathSegment) => directoryNames.has(pathSegment));
+
+const normalizeFilename = (filename: string): string => filename.replaceAll("\\", "/");
+
+const normalizeDirectory = (directory: string): string =>
+  normalizeFilename(directory).replace(/\/+$/, "");
+
+const getProjectRelativeFilename = (filename: string, rootDirectory?: string): string => {
+  const normalizedFilename = normalizeFilename(filename);
+  if (!rootDirectory) return normalizedFilename;
+
+  const normalizedRootDirectory = normalizeDirectory(rootDirectory);
+  const rootDirectoryPrefix = `${normalizedRootDirectory}/`;
+  if (!normalizedFilename.startsWith(rootDirectoryPrefix)) return normalizedFilename;
+
+  return normalizedFilename.slice(rootDirectoryPrefix.length);
+};
 
 const getClassifiablePathSegments = (pathSegments: string[]): string[] => {
   const srcIndex = pathSegments.lastIndexOf("src");
@@ -70,13 +87,16 @@ const isAppDirectoryClientSourceFile = (
   return classifiablePathSegments.includes("app");
 };
 
+const isNextJsFramework = (options: SecretFileExposureOptions): boolean =>
+  options.framework === "nextjs";
+
 export const classifySecretFileExposure = (
   filename: string,
   options: SecretFileExposureOptions = {},
 ) => {
   if (filename.length === 0) return "unknown";
 
-  const normalizedFilename = filename.replaceAll("\\", "/");
+  const normalizedFilename = getProjectRelativeFilename(filename, options.rootDirectory);
   const pathSegments = normalizedFilename.split("/");
   const classifiablePathSegments = getClassifiablePathSegments(pathSegments);
   const sourceRootOwner = getSourceRootOwner(pathSegments);
@@ -89,16 +109,20 @@ export const classifySecretFileExposure = (
   if (isInsideDirectory(classifiablePathSegments, SECRET_TOOLING_DIRECTORY_NAMES)) return "tooling";
 
   if (SECRET_SERVER_FILE_SUFFIX_PATTERN.test(normalizedFilename)) return "server";
-  if (SECRET_SERVER_ENTRY_FILE_PATTERN.test(normalizedFilename)) return "server";
-  if (SECRET_NEXT_PAGES_API_FILE_PATTERN.test(normalizedFilename)) return "server";
+  if (options.hasUseServerDirective === true) return "server";
+  if (options.hasUseClientDirective === true) return "client";
+  if (SECRET_CLIENT_FILE_SUFFIX_PATTERN.test(normalizedFilename)) return "client";
+  if (isNextJsFramework(options) && SECRET_SERVER_ENTRY_FILE_PATTERN.test(normalizedFilename)) {
+    return "server";
+  }
+  if (isNextJsFramework(options) && SECRET_NEXT_PAGES_API_FILE_PATTERN.test(normalizedFilename)) {
+    return "server";
+  }
   if (sourceRootOwner && SECRET_SERVER_SOURCE_ROOT_OWNER_NAMES.has(sourceRootOwner)) {
     return "server";
   }
   if (isInsideDirectory(classifiablePathSegments, SECRET_SERVER_DIRECTORY_NAMES)) return "server";
-  if (options.hasUseServerDirective === true) return "server";
 
-  if (options.hasUseClientDirective === true) return "client";
-  if (SECRET_CLIENT_FILE_SUFFIX_PATTERN.test(normalizedFilename)) return "client";
   if (SECRET_CLIENT_ENTRY_FILE_PATTERN.test(normalizedFilename)) return "client";
   if (isAppDirectoryClientSourceFile(normalizedFilename, classifiablePathSegments, options)) {
     return "client";

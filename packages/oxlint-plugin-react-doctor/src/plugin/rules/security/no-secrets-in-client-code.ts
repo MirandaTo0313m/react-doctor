@@ -13,7 +13,10 @@ import { isInsideServerOnlyScope } from "../../utils/is-inside-server-only-scope
 import { isNodeOfType } from "../../utils/is-node-of-type.js";
 import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
-const getReactDoctorFrameworkSetting = (settings: RuleContext["settings"]): string | undefined => {
+const getReactDoctorStringSetting = (
+  settings: RuleContext["settings"],
+  settingName: string,
+): string | undefined => {
   const reactDoctorSettings = settings?.["react-doctor"];
   if (
     typeof reactDoctorSettings !== "object" ||
@@ -23,8 +26,8 @@ const getReactDoctorFrameworkSetting = (settings: RuleContext["settings"]): stri
     return undefined;
   }
 
-  const framework = Object.getOwnPropertyDescriptor(reactDoctorSettings, "framework")?.value;
-  return typeof framework === "string" ? framework : undefined;
+  const settingValue = Object.getOwnPropertyDescriptor(reactDoctorSettings, settingName)?.value;
+  return typeof settingValue === "string" ? settingValue : undefined;
 };
 
 export const noSecretsInClientCode = defineRule<Rule>({
@@ -34,9 +37,10 @@ export const noSecretsInClientCode = defineRule<Rule>({
     "Move secrets to server-only code. Public client environment variables are bundled into browser code and must not contain secrets",
   create: (context: RuleContext) => {
     const filename = context.getFilename?.() ?? "";
-    const framework = getReactDoctorFrameworkSetting(context.settings);
+    const framework = getReactDoctorStringSetting(context.settings, "framework");
+    const rootDirectory = getReactDoctorStringSetting(context.settings, "rootDirectory");
     let shouldUseVariableNameHeuristic =
-      classifySecretFileExposure(filename, { framework }) === "client";
+      classifySecretFileExposure(filename, { framework, rootDirectory }) === "client";
 
     return {
       Program(programNode: EsTreeNodeOfType<"Program">) {
@@ -45,6 +49,7 @@ export const noSecretsInClientCode = defineRule<Rule>({
             framework,
             hasUseClientDirective: hasDirective(programNode, "use client"),
             hasUseServerDirective: hasDirective(programNode, "use server"),
+            rootDirectory,
           }) === "client";
       },
       VariableDeclarator(node: EsTreeNodeOfType<"VariableDeclarator">) {
