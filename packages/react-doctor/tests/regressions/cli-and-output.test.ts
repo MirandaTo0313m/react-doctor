@@ -11,12 +11,14 @@
  *   #92 — `share: false` config option exists in the schema and is read
  *         by the scan banner
  *   #135 — lint failures surface in `skippedChecks`, never silently
+ *   #249 — "score unavailable" message branches on cause (offline vs
+ *          API failure) instead of always claiming the user is offline
  */
 
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, describe, expect, it } from "vite-plus/test";
+import { afterAll, afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { inspect } from "../../src/inspect.js";
 import type { InspectResult, ReactDoctorConfig } from "@react-doctor/types";
@@ -213,6 +215,54 @@ describe("issue #135: lint failures surface in skippedChecks", () => {
     });
     // Type contract: skippedChecks always exists as an array.
     expect(Array.isArray(result.skippedChecks)).toBe(true);
+  });
+});
+
+// HACK: PR #249 (Bugbot review): `noScoreMessage` was unconditionally
+// "Score unavailable in offline mode." so every null-score scan claimed
+// the user was offline — including the case where the user is online
+// but the score API simply timed out or returned non-2xx. Branch the
+// message on `options.offline` so the two reasons read differently.
+describe("'score unavailable' message branches on offline vs API failure (#249)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("renders the offline-mode message when --offline is set", async () => {
+    const projectDir = setupMinimalReactProject("pr-249-offline");
+    const { result, stdout } = await captureScanOutput(projectDir, {
+      offline: true,
+      lint: false,
+    });
+
+    expect(result.score).toBeNull();
+    const plainStdout = stripAnsi(stdout);
+    expect(plainStdout).toContain("Score unavailable in offline mode");
+    expect(plainStdout).not.toContain("could not reach the score API");
+  });
+
+  it("renders the API-failure message when calculateScore returns null and --offline is NOT set", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("network unavailable");
+      }),
+    );
+    // HACK: calculate-score logs a warning to stderr on every API failure;
+    // silence it so the test output stays readable.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const projectDir = setupMinimalReactProject("pr-249-api-failure");
+    const { result, stdout } = await captureScanOutput(projectDir, {
+      offline: false,
+      lint: false,
+    });
+
+    expect(result.score).toBeNull();
+    const plainStdout = stripAnsi(stdout);
+    expect(plainStdout).toContain("could not reach the score API");
+    expect(plainStdout).not.toContain("in offline mode");
   });
 });
 
