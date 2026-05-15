@@ -76,4 +76,58 @@ export const Page = ({ unrelated }: { unrelated: boolean }) => {
     const hits = await collectRuleHits(projectDir, "no-effect-event-handler");
     expect(hits).toHaveLength(0);
   });
+
+  it("does NOT flag imported setUser external synchronization", async () => {
+    const projectDir = setupReactProject(tempRoot, "no-effect-event-handler-imported-set-user", {
+      files: {
+        "src/SentryUserScope.tsx": `import { setUser } from "@sentry/react";
+import { useEffect } from "react";
+
+declare const useViewer: () => { viewer: { userId: string; screenName: string } | null };
+
+export const SentryUserScope = () => {
+  const { viewer } = useViewer();
+
+  useEffect(() => {
+    if (viewer) {
+      setUser({ id: viewer.userId, username: viewer.screenName });
+    }
+  }, [viewer]);
+
+  return null;
+};
+`,
+      },
+    });
+
+    const hits = await collectRuleHits(projectDir, "no-effect-event-handler");
+    expect(hits).toHaveLength(0);
+  });
+
+  it("does NOT flag namespace setUser external synchronization", async () => {
+    const projectDir = setupReactProject(tempRoot, "no-effect-event-handler-namespace-set-user", {
+      files: {
+        "src/SentryUserScope.tsx": `import * as Sentry from "@sentry/react";
+import { useEffect } from "react";
+
+declare const useViewer: () => { viewer: { userId: string; screenName: string } | null };
+
+export const SentryUserScope = () => {
+  const { viewer } = useViewer();
+
+  useEffect(() => {
+    if (viewer) {
+      Sentry.setUser({ id: viewer.userId, username: viewer.screenName });
+    }
+  }, [viewer]);
+
+  return null;
+};
+`,
+      },
+    });
+
+    const hits = await collectRuleHits(projectDir, "no-effect-event-handler");
+    expect(hits).toHaveLength(0);
+  });
 });
