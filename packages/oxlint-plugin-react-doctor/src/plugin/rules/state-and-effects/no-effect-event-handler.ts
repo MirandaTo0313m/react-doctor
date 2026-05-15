@@ -57,7 +57,7 @@ export const noEffectEventHandler = defineRule<Rule>({
         //   if (product.isInCart)  → root = "product"
         const rootIdentifierName = getRootIdentifierName(soleStatement.test);
         if (!rootIdentifierName || !dependencyNames.has(rootIdentifierName)) return;
-        if (!propStackTracker.isPropName(rootIdentifierName)) return;
+        if (!propStackTracker.isPropName(rootIdentifierName, node)) return;
 
         if (!hasEventLikeConsequent(soleStatement.consequent)) return;
 

@@ -335,9 +335,12 @@ export const Custom = () => {
   });
 
   it("reports local trigger state without a no-effect-event-handler duplicate", async () => {
-    const projectDir = setupReactProject(tempRoot, "no-event-trigger-state-double-warn", {
-      files: {
-        "src/Wizard.tsx": `import { useEffect, useState } from "react";
+    const projectDir = setupReactProject(
+      tempRoot,
+      "no-event-trigger-state-without-handler-duplicate",
+      {
+        files: {
+          "src/Wizard.tsx": `import { useEffect, useState } from "react";
 
 declare const navigate: (path: string) => void;
 
@@ -351,8 +354,9 @@ export const Wizard = () => {
   return <button onClick={() => setDestination("/next")}>Next</button>;
 };
 `,
+        },
       },
-    });
+    );
 
     const triggerHits = await collectRuleHits(projectDir, "no-event-trigger-state");
     const handlerHits = await collectRuleHits(projectDir, "no-effect-event-handler");

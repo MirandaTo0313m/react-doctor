@@ -79,6 +79,92 @@ export const Theme = ({ isDark }: { isDark: boolean }) => {
     expect(hits).toHaveLength(1);
   });
 
+  it("flags wrapped component assignments", async () => {
+    const projectDir = setupReactProject(tempRoot, "no-effect-event-handler-memo-component", {
+      files: {
+        "src/ProductPage.tsx": `import { memo, useEffect } from "react";
+
+declare const showNotification: (message: string) => void;
+
+interface Product { isInCart: boolean; name: string }
+
+export const ProductPage = memo(({ product }: { product: Product }) => {
+  useEffect(() => {
+    if (product.isInCart) {
+      showNotification(\`Added \${product.name} to the shopping cart!\`);
+    }
+  }, [product]);
+
+  return <div>{product.name}</div>;
+});
+`,
+      },
+    });
+
+    const hits = await collectRuleHits(projectDir, "no-effect-event-handler");
+    expect(hits).toHaveLength(1);
+  });
+
+  it("flags anonymous default-exported arrow components", async () => {
+    const projectDir = setupReactProject(
+      tempRoot,
+      "no-effect-event-handler-default-export-component",
+      {
+        files: {
+          "src/ProductPage.tsx": `import { useEffect } from "react";
+
+declare const showNotification: (message: string) => void;
+
+interface Product { isInCart: boolean; name: string }
+
+export default ({ product }: { product: Product }) => {
+  useEffect(() => {
+    if (product.isInCart) {
+      showNotification(\`Added \${product.name} to the shopping cart!\`);
+    }
+  }, [product]);
+
+  return <div>{product.name}</div>;
+};
+`,
+        },
+      },
+    );
+
+    const hits = await collectRuleHits(projectDir, "no-effect-event-handler");
+    expect(hits).toHaveLength(1);
+  });
+
+  it("flags wrapped default-exported components", async () => {
+    const projectDir = setupReactProject(
+      tempRoot,
+      "no-effect-event-handler-wrapped-default-export-component",
+      {
+        files: {
+          "src/ProductPage.tsx": `import { memo, useEffect } from "react";
+
+declare const showNotification: (message: string) => void;
+
+interface Product { isInCart: boolean; name: string }
+
+export default memo(({ product }: { product: Product }) => {
+  useEffect(() => {
+    if (product.isInCart) {
+      showNotification(\`Added \${product.name} to the shopping cart!\`);
+    }
+  }, [product]);
+
+  return <div>{product.name}</div>;
+});
+`,
+        },
+      },
+    );
+
+    const hits = await collectRuleHits(projectDir, "no-effect-event-handler");
+    expect(hits).toHaveLength(1);
+  });
+
   it("does NOT flag when the test's root identifier is not in the deps", async () => {
     const projectDir = setupReactProject(tempRoot, "no-effect-event-handler-unrelated-test", {
       files: {
