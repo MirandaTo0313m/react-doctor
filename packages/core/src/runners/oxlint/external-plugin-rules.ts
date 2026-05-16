@@ -54,19 +54,18 @@ export const YOU_MIGHT_NOT_NEED_EFFECT_RULES: Record<string, OxlintRuleSeverity>
   "effect/no-initialize-state": "warn",
 };
 
+// HACK: oxc's bundled `react` plugin used to be enabled here as
+// `BUILTIN_REACT_RULES`, a 12-entry list that this scan re-exported
+// verbatim. Eleven of those rules have been rewritten as JS rules
+// under `oxlint-plugin-react-doctor/src/plugin/rules/<bucket>/react-*.ts`
+// and now activate via `react-doctor/react-*` exactly like our other
+// rules. The one exception is `rules-of-hooks` — internally it lives
+// in oxc's `react-hooks` plugin (which oxc folds into the `react`
+// LintPlugins flag) and depends on full CFG analysis we don't
+// reproduce here. We keep using the upstream rule for that one,
+// listed below so the `react` plugin still gets enabled.
 export const BUILTIN_REACT_RULES: Record<string, OxlintRuleSeverity> = {
   "react/rules-of-hooks": "error",
-  "react/no-direct-mutation-state": "error",
-  "react/jsx-no-duplicate-props": "error",
-  "react/jsx-key": "error",
-  "react/no-children-prop": "warn",
-  "react/no-danger": "warn",
-  "react/jsx-no-script-url": "error",
-  "react/no-render-return-value": "warn",
-  "react/no-string-refs": "warn",
-  "react/no-is-mounted": "warn",
-  "react/require-render-return": "error",
-  "react/no-unknown-property": "warn",
 };
 
 export const BUILTIN_A11Y_RULES: Record<string, OxlintRuleSeverity> = {

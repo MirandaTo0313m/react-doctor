@@ -123,6 +123,18 @@ import { queryNoUseQueryForMutation } from "./rules/tanstack-query/query-no-use-
 import { queryNoVoidQueryFn } from "./rules/tanstack-query/query-no-void-query-fn.js";
 import { queryStableQueryClient } from "./rules/tanstack-query/query-stable-query-client.js";
 import { reactCompilerDestructureMethod } from "./rules/architecture/react-compiler-destructure-method.js";
+import { reactJsxKey } from "./rules/correctness/react-jsx-key.js";
+import { reactJsxNoDuplicateProps } from "./rules/correctness/react-jsx-no-duplicate-props.js";
+import { reactJsxNoScriptUrl } from "./rules/security/react-jsx-no-script-url.js";
+import { reactNoChildrenProp } from "./rules/correctness/react-no-children-prop.js";
+import { reactNoDanger } from "./rules/security/react-no-danger.js";
+import { reactNoDirectMutationState } from "./rules/correctness/react-no-direct-mutation-state.js";
+import { reactNoIsMounted } from "./rules/correctness/react-no-is-mounted.js";
+import { reactNoRenderReturnValue } from "./rules/correctness/react-no-render-return-value.js";
+import { reactNoStringRefs } from "./rules/correctness/react-no-string-refs.js";
+import { reactNoUnknownProperty } from "./rules/correctness/react-no-unknown-property.js";
+import { reactRequireRenderReturn } from "./rules/correctness/react-require-render-return.js";
+import { reactRulesOfHooks } from "./rules/correctness/react-rules-of-hooks.js";
 import { renderingAnimateSvgWrapper } from "./rules/performance/rendering-animate-svg-wrapper.js";
 import { renderingConditionalRender } from "./rules/correctness/rendering-conditional-render.js";
 import { renderingHoistJsx } from "./rules/performance/rendering-hoist-jsx.js";
@@ -763,6 +775,66 @@ export const ruleRegistry: Record<string, Rule> = {
     ...reactCompilerDestructureMethod,
     framework: "global",
     category: "Architecture",
+  },
+  "react-jsx-key": {
+    ...reactJsxKey,
+    framework: "global",
+    category: "Correctness",
+  },
+  "react-jsx-no-duplicate-props": {
+    ...reactJsxNoDuplicateProps,
+    framework: "global",
+    category: "Correctness",
+  },
+  "react-jsx-no-script-url": {
+    ...reactJsxNoScriptUrl,
+    framework: "global",
+    category: "Security",
+  },
+  "react-no-children-prop": {
+    ...reactNoChildrenProp,
+    framework: "global",
+    category: "Correctness",
+  },
+  "react-no-danger": {
+    ...reactNoDanger,
+    framework: "global",
+    category: "Security",
+  },
+  "react-no-direct-mutation-state": {
+    ...reactNoDirectMutationState,
+    framework: "global",
+    category: "Correctness",
+  },
+  "react-no-is-mounted": {
+    ...reactNoIsMounted,
+    framework: "global",
+    category: "Correctness",
+  },
+  "react-no-render-return-value": {
+    ...reactNoRenderReturnValue,
+    framework: "global",
+    category: "Correctness",
+  },
+  "react-no-string-refs": {
+    ...reactNoStringRefs,
+    framework: "global",
+    category: "Correctness",
+  },
+  "react-no-unknown-property": {
+    ...reactNoUnknownProperty,
+    framework: "global",
+    category: "Correctness",
+  },
+  "react-require-render-return": {
+    ...reactRequireRenderReturn,
+    framework: "global",
+    category: "Correctness",
+  },
+  "react-rules-of-hooks": {
+    ...reactRulesOfHooks,
+    framework: "global",
+    category: "Correctness",
   },
   "rendering-animate-svg-wrapper": {
     ...renderingAnimateSvgWrapper,
