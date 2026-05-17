@@ -52,6 +52,7 @@ export const buildJsonReportError = (input: BuildJsonReportErrorInput): JsonRepo
       totalDiagnosticCount: 0,
       score: null,
       scoreLabel: null,
+      baselineDiagnosticCount: 0,
     },
     elapsedMilliseconds: input.elapsedMilliseconds,
     error: errorPayload,

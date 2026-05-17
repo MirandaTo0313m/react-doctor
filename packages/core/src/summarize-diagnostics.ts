@@ -4,6 +4,7 @@ export const summarizeDiagnostics = (
   diagnostics: Diagnostic[],
   worstScore: number | null = null,
   worstScoreLabel: string | null = null,
+  baselineDiagnosticCount = 0,
 ): JsonReportSummary => {
   let errorCount = 0;
   let warningCount = 0;
@@ -21,5 +22,6 @@ export const summarizeDiagnostics = (
     totalDiagnosticCount: diagnostics.length,
     score: worstScore,
     scoreLabel: worstScoreLabel,
+    baselineDiagnosticCount,
   };
 };

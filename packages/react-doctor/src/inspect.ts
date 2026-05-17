@@ -4,12 +4,16 @@ import {
   calculateScore,
   combineDiagnostics,
   computeJsxIncludePaths,
+  filterDiagnosticsByTouchedLines,
   filterDiagnosticsForSurface,
   formatErrorChain,
   highlighter,
   isLoggerSilent,
   loadConfigWithSource,
   logger,
+  partitionDiagnosticsByBaseline,
+  readBaselineFile,
+  resolveBaselineSettings,
   resolveConfigRootDir,
   resolveLintIncludePaths,
   runOxlint,
@@ -47,6 +51,11 @@ interface ResolvedInspectOptions {
   adoptExistingLintConfig: boolean;
   ignoredTags: ReadonlySet<string>;
   outputSurface: DiagnosticSurface;
+  baseline: boolean | string | undefined;
+  touchedLinesOnly: boolean;
+  touchedLinesByFile:
+    | ReadonlyMap<string, ReadonlyArray<{ startLine: number; endLine: number }>>
+    | undefined;
 }
 
 const buildIgnoredTags = (userConfig: ReactDoctorConfig | null): ReadonlySet<string> => {
@@ -74,6 +83,9 @@ const mergeInspectOptions = (
   adoptExistingLintConfig: userConfig?.adoptExistingLintConfig ?? true,
   ignoredTags: buildIgnoredTags(userConfig),
   outputSurface: inputOptions.outputSurface ?? "cli",
+  baseline: inputOptions.baseline,
+  touchedLinesOnly: inputOptions.touchedLinesOnly ?? userConfig?.touchedLinesOnly ?? false,
+  touchedLinesByFile: inputOptions.touchedLinesByFile,
 });
 
 export const inspect = async (
@@ -193,13 +205,42 @@ const runInspect = async (
     : Promise.resolve<Diagnostic[]>([]);
 
   const lintDiagnostics = await lintPromise;
-  const diagnostics = combineDiagnostics({
+  const combinedDiagnostics = combineDiagnostics({
     lintDiagnostics,
     directory,
     isDiffMode,
     userConfig,
     respectInlineDisables: options.respectInlineDisables,
   });
+
+  let diagnostics = combinedDiagnostics;
+  let diagnosticsHiddenByTouchedLines = 0;
+  if (
+    options.touchedLinesOnly &&
+    options.touchedLinesByFile &&
+    options.touchedLinesByFile.size > 0
+  ) {
+    const filtered = filterDiagnosticsByTouchedLines(
+      diagnostics,
+      options.touchedLinesByFile,
+      directory,
+    );
+    diagnosticsHiddenByTouchedLines = diagnostics.length - filtered.length;
+    diagnostics = filtered;
+  }
+
+  const baselineSettings = resolveBaselineSettings(userConfig, options.baseline, directory);
+  let baselineDiagnostics: Diagnostic[] | undefined;
+  if (baselineSettings.enabled) {
+    const baselineFile = readBaselineFile(baselineSettings.filePath);
+    if (baselineFile) {
+      const partition = partitionDiagnosticsByBaseline(diagnostics, baselineFile, directory);
+      baselineDiagnostics = partition.baselineDiagnostics;
+      diagnostics = partition.newDiagnostics;
+    } else {
+      baselineDiagnostics = [];
+    }
+  }
 
   const elapsedMilliseconds = performance.now() - startTime;
 
@@ -243,6 +284,8 @@ const runInspect = async (
     ...(Object.keys(skippedCheckReasons).length > 0 ? { skippedCheckReasons } : {}),
     project: projectInfo,
     elapsedMilliseconds,
+    ...(baselineDiagnostics !== undefined ? { baselineDiagnostics } : {}),
+    ...(diagnosticsHiddenByTouchedLines > 0 ? { diagnosticsHiddenByTouchedLines } : {}),
   });
 
   if (options.scoreOnly) {

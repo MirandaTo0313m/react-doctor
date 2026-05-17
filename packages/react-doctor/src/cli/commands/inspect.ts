@@ -3,18 +3,23 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
 import {
+  buildBaselineFile,
   buildJsonReport,
   filterDiagnosticsForSurface,
   filterSourceFiles,
   getDiffInfo,
+  getTouchedLines,
   highlighter,
   loadConfigWithSource,
   logger,
+  resolveBaselineSettings,
   resolveConfigRootDir,
   toRelativePath,
+  writeBaselineFile,
 } from "@react-doctor/core";
+import type { TouchedLinesByFile } from "@react-doctor/core";
 import { inspect } from "../../inspect.js";
-import type { Diagnostic, InspectResult } from "@react-doctor/types";
+import type { Diagnostic, DiffInfo, InspectResult } from "@react-doctor/types";
 import { STAGED_FILES_TEMP_DIR_PREFIX } from "../utils/constants.js";
 import { getStagedSourceFiles, materializeStagedFiles } from "../utils/get-staged-files.js";
 import type { InspectFlags } from "../utils/inspect-flags.js";
@@ -41,6 +46,20 @@ import { shouldFailForDiagnostics } from "../utils/should-fail-for-diagnostics.j
 import { shouldSkipPrompts } from "../utils/should-skip-prompts.js";
 import { validateModeFlags } from "../utils/validate-mode-flags.js";
 import { VERSION } from "../utils/version.js";
+
+const resolveTouchedLinesByFile = (
+  projectDirectory: string,
+  diffInfo: DiffInfo | null,
+  changedSourceFiles: ReadonlyArray<string>,
+): TouchedLinesByFile => {
+  if (!diffInfo || changedSourceFiles.length === 0) return new Map();
+  const baseRef = diffInfo.diffBaseRef ?? null;
+  return getTouchedLines({
+    directory: projectDirectory,
+    baseRef,
+    filePaths: changedSourceFiles,
+  });
+};
 
 export const inspectAction = async (directory: string, flags: InspectFlags): Promise<void> => {
   const isScoreOnly = Boolean(flags.score);
@@ -122,25 +141,54 @@ export const inspectAction = async (directory: string, flags: InspectFlags): Pro
 
       const tempDirectory = mkdtempSync(path.join(tmpdir(), STAGED_FILES_TEMP_DIR_PREFIX));
       const snapshot = materializeStagedFiles(resolvedDirectory, stagedFiles, tempDirectory);
+      const touchedLinesOnly = flags.touchedLines ?? userConfig?.touchedLinesOnly ?? false;
+      // HACK: for `--staged`, touched-lines comes from the index diff vs
+      // HEAD rather than vs a base branch - that's the surface devs are
+      // about to commit. We resolve at the original repo root (not the
+      // tempdir snapshot) and map paths into the materialized layout.
+      let touchedLinesByFile: TouchedLinesByFile | undefined;
+      if (touchedLinesOnly) {
+        const originalTouched = getTouchedLines({
+          directory: resolvedDirectory,
+          baseRef: "--cached",
+          filePaths: snapshot.stagedFiles,
+        });
+        const tempMapped = new Map<string, ReturnType<typeof originalTouched.get>>();
+        for (const [filePath, ranges] of originalTouched) {
+          tempMapped.set(filePath, ranges);
+        }
+        touchedLinesByFile = tempMapped as TouchedLinesByFile;
+      }
       try {
         const scanResult = await inspect(snapshot.tempDirectory, {
           ...scanOptions,
           includePaths: snapshot.stagedFiles,
+          touchedLinesByFile,
           configOverride: userConfig,
         });
 
-        const remappedDiagnostics = scanResult.diagnostics.map((diagnostic) => ({
+        // Maps diagnostic paths from the staged-files tempdir back to
+        // the real project root. Used for both `scanResult.diagnostics`
+        // and `scanResult.baselineDiagnostics`; if the latter weren't
+        // remapped the JSON report and the --update-baseline write
+        // would surface tempdir paths.
+        const remapDiagnostic = <T extends Diagnostic>(diagnostic: T): T => ({
           ...diagnostic,
           filePath: path.isAbsolute(diagnostic.filePath)
             ? diagnostic.filePath.replaceAll(snapshot.tempDirectory, resolvedDirectory)
             : diagnostic.filePath,
-        }));
+        });
+        const remappedDiagnostics = scanResult.diagnostics.map(remapDiagnostic);
+        const remappedBaselineDiagnostics = scanResult.baselineDiagnostics?.map(remapDiagnostic);
 
         if (isJsonMode) {
           const remappedInspectResult: InspectResult = {
             ...scanResult,
             diagnostics: remappedDiagnostics,
             project: { ...scanResult.project, rootDirectory: resolvedDirectory },
+            ...(remappedBaselineDiagnostics !== undefined
+              ? { baselineDiagnostics: remappedBaselineDiagnostics }
+              : {}),
           };
           writeJsonReport(
             buildJsonReport({
@@ -152,6 +200,29 @@ export const inspectAction = async (directory: string, flags: InspectFlags): Pro
               totalElapsedMilliseconds: performance.now() - startTime,
             }),
           );
+        }
+
+        if (flags.updateBaseline) {
+          const aggregatedDiagnostics = [
+            ...remappedDiagnostics,
+            ...(remappedBaselineDiagnostics ?? []),
+          ];
+          const baselineSettings = resolveBaselineSettings(
+            userConfig,
+            flags.baseline,
+            resolvedDirectory,
+          );
+          const baselineFile = buildBaselineFile(aggregatedDiagnostics, resolvedDirectory);
+          writeBaselineFile(baselineSettings.filePath, baselineFile);
+          if (!isQuiet) {
+            const baselineRelativePath = toRelativePath(
+              baselineSettings.filePath,
+              resolvedDirectory,
+            );
+            logger.success(
+              `Wrote ${aggregatedDiagnostics.length} diagnostic${aggregatedDiagnostics.length === 1 ? "" : "s"} from staged files to ${highlighter.info(baselineRelativePath)}`,
+            );
+          }
         }
 
         if (flags.annotations) {
@@ -210,35 +281,52 @@ export const inspectAction = async (directory: string, flags: InspectFlags): Pro
       logger.dim(`Scanning up to ${concurrency} projects in parallel`);
       logger.break();
     }
+    const touchedLinesOnly = flags.touchedLines ?? userConfig?.touchedLinesOnly ?? false;
 
     interface PlannedProjectScan {
       directory: string;
       includePaths: string[] | undefined;
+      touchedLinesByFile: TouchedLinesByFile | undefined;
       skipReason: string | null;
     }
 
     const plannedScans: PlannedProjectScan[] = projectDirectories.map((projectDirectory) => {
       if (!isDiffMode) {
-        return { directory: projectDirectory, includePaths: undefined, skipReason: null };
+        return {
+          directory: projectDirectory,
+          includePaths: undefined,
+          touchedLinesByFile: undefined,
+          skipReason: null,
+        };
       }
       const projectDiffInfo =
         projectDirectory === resolvedDirectory
           ? diffInfo
           : getDiffInfo(projectDirectory, explicitBaseBranch);
       if (!projectDiffInfo) {
-        return { directory: projectDirectory, includePaths: undefined, skipReason: "no-diff-info" };
+        return {
+          directory: projectDirectory,
+          includePaths: undefined,
+          touchedLinesByFile: undefined,
+          skipReason: "no-diff-info",
+        };
       }
       const changedSourceFiles = filterSourceFiles(projectDiffInfo.changedFiles);
       if (changedSourceFiles.length === 0) {
         return {
           directory: projectDirectory,
           includePaths: changedSourceFiles,
+          touchedLinesByFile: undefined,
           skipReason: "no-changed-files",
         };
       }
+      const touchedLinesByFile = touchedLinesOnly
+        ? resolveTouchedLinesByFile(projectDirectory, projectDiffInfo, changedSourceFiles)
+        : undefined;
       return {
         directory: projectDirectory,
         includePaths: changedSourceFiles,
+        touchedLinesByFile,
         skipReason: null,
       };
     });
@@ -270,6 +358,7 @@ export const inspectAction = async (directory: string, flags: InspectFlags): Pro
         const scanResult = await inspect(plannedScan.directory, {
           ...scanOptions,
           includePaths: plannedScan.includePaths,
+          touchedLinesByFile: plannedScan.touchedLinesByFile,
           configOverride: userConfig,
         });
         if (!isQuiet && concurrency <= 1) {
@@ -284,6 +373,26 @@ export const inspectAction = async (directory: string, flags: InspectFlags): Pro
     for (const scanOutput of scanOutputs) {
       allDiagnostics.push(...scanOutput.result.diagnostics);
       completedScans.push(scanOutput);
+    }
+
+    if (flags.updateBaseline) {
+      const aggregatedDiagnostics = scanOutputs.flatMap((scanOutput) => [
+        ...scanOutput.result.diagnostics,
+        ...(scanOutput.result.baselineDiagnostics ?? []),
+      ]);
+      const baselineSettings = resolveBaselineSettings(
+        userConfig,
+        flags.baseline,
+        resolvedDirectory,
+      );
+      const baselineFile = buildBaselineFile(aggregatedDiagnostics, resolvedDirectory);
+      writeBaselineFile(baselineSettings.filePath, baselineFile);
+      if (!isQuiet) {
+        const baselineRelativePath = toRelativePath(baselineSettings.filePath, resolvedDirectory);
+        logger.success(
+          `Wrote ${aggregatedDiagnostics.length} diagnostic${aggregatedDiagnostics.length === 1 ? "" : "s"} to ${highlighter.info(baselineRelativePath)}`,
+        );
+      }
     }
 
     if (isJsonMode) {

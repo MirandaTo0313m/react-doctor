@@ -52,11 +52,19 @@ const runGitNullSeparated = (cwd: string, args: string[]): string[] | null => {
     .filter((filePath) => filePath.length > 0);
 };
 
-const getChangedFilesSinceBranch = (directory: string, baseBranch: string): string[] | null => {
+interface ChangedFilesResult {
+  files: string[];
+  mergeBase: string;
+}
+
+const getChangedFilesSinceBranch = (
+  directory: string,
+  baseBranch: string,
+): ChangedFilesResult | null => {
   const mergeBase = runGit(directory, ["merge-base", baseBranch, "HEAD"]);
   if (mergeBase === null) return null;
 
-  return runGitNullSeparated(directory, [
+  const files = runGitNullSeparated(directory, [
     "diff",
     "-z",
     "--name-only",
@@ -64,6 +72,8 @@ const getChangedFilesSinceBranch = (directory: string, baseBranch: string): stri
     "--relative",
     mergeBase,
   ]);
+  if (files === null) return null;
+  return { files, mergeBase };
 };
 
 const getUncommittedChangedFiles = (directory: string): string[] => {
@@ -98,12 +108,29 @@ export const getDiffInfo = (directory: string, explicitBaseBranch?: string): Dif
   if (currentBranch === baseBranch) {
     const uncommittedFiles = getUncommittedChangedFiles(directory);
     if (uncommittedFiles.length === 0) return null;
-    return { currentBranch, baseBranch, changedFiles: uncommittedFiles, isCurrentChanges: true };
+    // HACK: `getUncommittedChangedFiles` invokes `git diff HEAD ...`
+    // so it captures both staged and unstaged changes. Pin the
+    // touched-lines diff to the same ref so a staged-only change
+    // doesn't end up with an empty touched-line range (which would
+    // silently drop every diagnostic in that file under
+    // `--touched-lines`).
+    return {
+      currentBranch,
+      baseBranch,
+      changedFiles: uncommittedFiles,
+      isCurrentChanges: true,
+      diffBaseRef: "HEAD",
+    };
   }
 
-  const changedFiles = getChangedFilesSinceBranch(directory, baseBranch);
-  if (changedFiles === null) return null;
-  return { currentBranch, baseBranch, changedFiles };
+  const changedFilesResult = getChangedFilesSinceBranch(directory, baseBranch);
+  if (changedFilesResult === null) return null;
+  return {
+    currentBranch,
+    baseBranch,
+    changedFiles: changedFilesResult.files,
+    diffBaseRef: changedFilesResult.mergeBase,
+  };
 };
 
 export const filterSourceFiles = (filePaths: string[]): string[] =>

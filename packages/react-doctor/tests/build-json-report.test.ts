@@ -72,6 +72,7 @@ describe("buildJsonReport", () => {
       totalDiagnosticCount: 3,
       score: 82,
       scoreLabel: "Good",
+      baselineDiagnosticCount: 0,
     });
 
     expect(() => JSON.parse(JSON.stringify(report))).not.toThrow();

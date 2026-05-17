@@ -1,5 +1,6 @@
 export * from "./apply-ignore-overrides.js";
 export * from "./apply-severity-controls.js";
+export * from "./baseline.js";
 export * from "./build-rule-severity-controls.js";
 export * from "./batch-include-paths.js";
 export * from "./build-json-report-error.js";
@@ -21,6 +22,7 @@ export * from "./find-stacked-disable-comments.js";
 export * from "./format-error-chain.js";
 export * from "./get-diagnostic-rule-identity.js";
 export * from "./get-diff-files.js";
+export * from "./get-touched-lines.js";
 export * from "./highlighter.js";
 export * from "./is-ignored-file.js";
 export * from "./is-rule-listed-in-comment.js";

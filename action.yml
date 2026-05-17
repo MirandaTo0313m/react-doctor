@@ -29,6 +29,15 @@ inputs:
   annotations:
     description: "Emit diagnostics as GitHub Actions annotations so findings show inline in the PR's Files changed view. Combine with `github-token` for both annotations and a sticky comment."
     default: "false"
+  baseline:
+    description: "Enable baseline mode - diagnostics matching the baseline file are excluded from CI / PR comments. Pass a path to override the default (react-doctor-baseline.json)."
+    required: false
+  touched-lines:
+    description: "Only count diagnostics on lines actually touched by the diff (requires `diff` to also be set). Defaults to false."
+    default: "false"
+  concurrency:
+    description: "Max workspace projects to scan in parallel (monorepos). Defaults to 1."
+    default: "1"
   node-version:
     description: "Node.js version to use"
     default: "22"
@@ -68,6 +77,9 @@ runs:
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
         INPUT_OFFLINE: ${{ inputs.offline }}
         INPUT_ANNOTATIONS: ${{ inputs.annotations }}
+        INPUT_BASELINE: ${{ inputs.baseline }}
+        INPUT_TOUCHED_LINES: ${{ inputs.touched-lines }}
+        INPUT_CONCURRENCY: ${{ inputs.concurrency }}
         RUNNER_TEMP: ${{ runner.temp }}
         GITHUB_RUN_ID: ${{ github.run_id }}
       run: |
@@ -77,6 +89,16 @@ runs:
         if [ -n "$INPUT_DIFF" ]; then FLAGS+=("--diff" "$INPUT_DIFF"); fi
         if [ "$INPUT_OFFLINE" = "true" ]; then FLAGS+=("--offline"); fi
         if [ "$INPUT_ANNOTATIONS" = "true" ]; then FLAGS+=("--annotations"); fi
+        if [ "$INPUT_TOUCHED_LINES" = "true" ]; then FLAGS+=("--touched-lines"); fi
+        if [ -n "$INPUT_CONCURRENCY" ] && [ "$INPUT_CONCURRENCY" != "1" ]; then
+          FLAGS+=("--concurrency" "$INPUT_CONCURRENCY")
+        fi
+        # Baseline accepts an optional path or a `true`/`false` toggle.
+        case "$INPUT_BASELINE" in
+          ""|"false") : ;;
+          "true") FLAGS+=("--baseline") ;;
+          *) FLAGS+=("--baseline" "$INPUT_BASELINE") ;;
+        esac
 
         OUTPUT_FILE="${RUNNER_TEMP:-/tmp}/react-doctor-output-${GITHUB_RUN_ID:-$$}.txt"
         echo "REACT_DOCTOR_OUTPUT_FILE=$OUTPUT_FILE" >> "$GITHUB_ENV"

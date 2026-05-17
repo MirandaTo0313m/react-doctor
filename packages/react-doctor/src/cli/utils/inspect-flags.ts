@@ -20,6 +20,16 @@ export interface InspectFlags {
   explain?: string;
   why?: string;
   failOn?: string;
+  /**
+   * `--baseline` enables baseline mode (default path
+   * `react-doctor-baseline.json`). `--baseline=<path>` overrides the
+   * file location. The flag arrives from Commander as `true | string`.
+   */
+  baseline?: boolean | string;
+  /** Record / refresh the baseline instead of filtering against it. */
+  updateBaseline?: boolean;
+  /** Apply touched-line filtering on top of diff mode. */
+  touchedLines?: boolean;
   /** Maximum number of workspace projects to scan in parallel. */
   concurrency?: string;
 }

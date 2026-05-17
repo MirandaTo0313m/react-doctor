@@ -168,6 +168,14 @@ const extendsSchema = z.union([
 
 const concurrencySchema = z.number().int().min(1);
 
+const baselineSchema = z.union([
+  z.boolean(),
+  z.strictObject({
+    path: z.string().optional(),
+    showBaselineMatches: stringyBooleanSchema("baseline.showBaselineMatches").optional(),
+  }),
+]);
+
 const BOOLEAN_CONFIG_FIELDS = [
   "lint",
   "verbose",
@@ -176,6 +184,7 @@ const BOOLEAN_CONFIG_FIELDS = [
   "respectInlineDisables",
   "adoptExistingLintConfig",
   "offline",
+  "touchedLinesOnly",
 ] as const satisfies ReadonlyArray<keyof ReactDoctorConfig>;
 
 interface FieldDescriptor {
@@ -211,6 +220,7 @@ const fieldDescriptors = {
     schema: extendsSchema,
   },
   concurrency: { expectedDescription: "a positive integer", schema: concurrencySchema },
+  baseline: { expectedDescription: "a boolean or object", schema: baselineSchema },
 } satisfies Record<string, FieldDescriptor>;
 
 /**

@@ -13,4 +13,6 @@ export const resolveCliInspectOptions = (
   silent: Boolean(flags.json),
   respectInlineDisables: flags.respectInlineDisables ?? userConfig?.respectInlineDisables ?? true,
   outputSurface: flags.prComment ? "prComment" : "cli",
+  baseline: flags.updateBaseline ? false : flags.baseline,
+  touchedLinesOnly: flags.touchedLines ?? userConfig?.touchedLinesOnly ?? false,
 });

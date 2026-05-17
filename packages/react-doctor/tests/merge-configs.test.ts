@@ -55,6 +55,17 @@ describe("mergeReactDoctorConfigs", () => {
     expect(merged.surfaces?.ciFailure?.excludeRules).toEqual(["react-doctor/no-prevent-default"]);
   });
 
+  it("merges baseline objects and lets the child override fields", () => {
+    const parent: ReactDoctorConfig = {
+      baseline: { path: "parent.json", showBaselineMatches: false },
+    };
+    const child: ReactDoctorConfig = {
+      baseline: { path: "child.json" },
+    };
+    const merged = mergeReactDoctorConfigs(parent, child);
+    expect(merged.baseline).toEqual({ path: "child.json", showBaselineMatches: false });
+  });
+
   it("strips the `extends` field from the merged output", () => {
     const parent: ReactDoctorConfig = { extends: "./grandparent.json", lint: true };
     const child: ReactDoctorConfig = { extends: "./parent.json", verbose: true };

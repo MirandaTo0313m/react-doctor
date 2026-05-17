@@ -1,4 +1,4 @@
-import type { ReactDoctorConfig, SurfaceControls } from "@react-doctor/types";
+import type { BaselineConfig, ReactDoctorConfig, SurfaceControls } from "@react-doctor/types";
 
 const dedupeStringArray = (input: string[]): string[] => {
   const seen = new Set<string>();
@@ -50,6 +50,20 @@ const mergeSurfaceControls = (
     childControls?.excludeRules,
   );
   if (excludeRules) merged.excludeRules = excludeRules;
+  return merged;
+};
+
+const mergeBaseline = (
+  parentValue: ReactDoctorConfig["baseline"],
+  childValue: ReactDoctorConfig["baseline"],
+): ReactDoctorConfig["baseline"] => {
+  if (childValue === undefined) return parentValue;
+  if (parentValue === undefined) return childValue;
+  // Booleans always replace - merging `true` with `{ path }` would
+  // require inventing semantics. Objects merge field-by-field.
+  if (typeof childValue !== "object") return childValue;
+  if (typeof parentValue !== "object") return childValue;
+  const merged: BaselineConfig = { ...parentValue, ...childValue };
   return merged;
 };
 
@@ -108,6 +122,10 @@ export const mergeReactDoctorConfigs = (
         mergedSurfaces[surfaceName as keyof typeof mergedSurfaces] = mergedControls;
     }
     merged.surfaces = mergedSurfaces;
+  }
+
+  if (parent.baseline !== undefined || child.baseline !== undefined) {
+    merged.baseline = mergeBaseline(parent.baseline, child.baseline);
   }
 
   // Severity maps (`rules` / `categories`) merge field-by-field with

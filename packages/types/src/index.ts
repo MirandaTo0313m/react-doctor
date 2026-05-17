@@ -1,4 +1,5 @@
 export type {
+  BaselineConfig,
   DiagnosticSurface,
   FailOnLevel,
   ReactDoctorConfig,

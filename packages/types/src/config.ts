@@ -84,6 +84,28 @@ export interface SurfaceControls {
   excludeRules?: string[];
 }
 
+export interface BaselineConfig {
+  /**
+   * Path to the baseline file (relative to the config file that
+   * declared it, or absolute). Defaults to `react-doctor-baseline.json`
+   * at the config root when `baseline: true` is set without a path.
+   *
+   * The baseline records a fingerprint per existing diagnostic so a
+   * mature codebase can opt into react-doctor without immediately
+   * failing on historical issues. Subsequent scans subtract the
+   * baseline from their diagnostic list - only NEW violations count
+   * toward the `ciFailure` surface and the PR comment.
+   */
+  path?: string;
+  /**
+   * When `true`, baseline-matched diagnostics are still printed to the
+   * CLI surface tagged as `[baseline]` so developers stay aware of
+   * historical debt. Defaults to `false` (baseline diagnostics are
+   * hidden from every surface, including the CLI list).
+   */
+  showBaselineMatches?: boolean;
+}
+
 export interface ReactDoctorConfig {
   /**
    * One or more parent config files to inherit from. Paths are
@@ -111,6 +133,20 @@ export interface ReactDoctorConfig {
   lint?: boolean;
   verbose?: boolean;
   diff?: boolean | string;
+  /**
+   * When `true`, diagnostics on lines NOT touched by the active diff
+   * are dropped before any surface evaluation. Only effective in diff
+   * mode (`--diff`, `--staged`, or `diff` set in config). Defaults to
+   * `false` (file-level diff filtering only - every diagnostic in
+   * every changed file still counts).
+   *
+   * The line ranges are taken from `git diff --unified=0`, so a
+   * one-character whitespace edit on a line does NOT pull in unrelated
+   * diagnostics from elsewhere in the file. Use this to keep PR-time
+   * gating tight on big mature codebases where touching one helper
+   * shouldn't make you responsible for the rest of the file's debt.
+   */
+  touchedLinesOnly?: boolean;
   failOn?: FailOnLevel;
   customRulesOnly?: boolean;
   share?: boolean;
@@ -124,6 +160,13 @@ export interface ReactDoctorConfig {
    * CLI flag.
    */
   concurrency?: number;
+  /**
+   * Baseline mode - record current diagnostics so historical debt
+   * doesn't fail the build, and only newly-introduced violations
+   * count. Set `baseline: true` (default path) or
+   * `baseline: { path: "..." }` to enable.
+   */
+  baseline?: boolean | BaselineConfig;
   /**
    * Per-glob allowlist for the `no-barrel-import` rule.
    *

@@ -18,6 +18,18 @@ export interface InspectResult {
   skippedCheckReasons?: Record<string, string>;
   project: ProjectInfo;
   elapsedMilliseconds: number;
+  /**
+   * Diagnostics that matched a baseline fingerprint and were therefore
+   * excluded from `diagnostics`. Empty when baseline mode is off.
+   */
+  baselineDiagnostics?: Diagnostic[];
+  /**
+   * Count of diagnostics dropped because the active diff did not
+   * touch their source line. Populated only when `touchedLinesOnly`
+   * is active. Useful for explaining the gap between the "Found N
+   * issues" and "N reported here" numbers in PR comments.
+   */
+  diagnosticsHiddenByTouchedLines?: number;
 }
 
 export interface InspectOptions {
@@ -41,6 +53,27 @@ export interface InspectOptions {
    * everything.
    */
   outputSurface?: DiagnosticSurface;
+  /**
+   * Override baseline mode for this `inspect()` call. When omitted, the
+   * setting falls back to `userConfig.baseline`. Pass `false` to force
+   * baseline off (useful when --update-baseline is recording a fresh
+   * snapshot and shouldn't itself be filtered by the existing one).
+   */
+  baseline?: boolean | string;
+  /**
+   * When true, drop diagnostics whose line isn't covered by the active
+   * diff's touched-line ranges. Requires diff mode (paths in
+   * `includePaths` must come from a diff). Falls back to
+   * `userConfig.touchedLinesOnly`.
+   */
+  touchedLinesOnly?: boolean;
+  /**
+   * Optional pre-computed per-file touched line ranges to use when
+   * `touchedLinesOnly` is set. Avoids re-shelling out to `git diff`
+   * from inside `inspect()` when the caller (e.g. the CLI) already
+   * computed them at the project boundary.
+   */
+  touchedLinesByFile?: ReadonlyMap<string, ReadonlyArray<{ startLine: number; endLine: number }>>;
 }
 
 export interface DiffInfo {
@@ -48,6 +81,15 @@ export interface DiffInfo {
   baseBranch: string;
   changedFiles: string[];
   isCurrentChanges?: boolean;
+  /**
+   * Resolved git ref to diff against when computing touched-line
+   * ranges. For branch-vs-branch comparisons this is the `git merge-base`
+   * of `currentBranch` and `baseBranch` so unrelated commits on the
+   * base don't appear "touched" on the feature branch. For uncommitted
+   * working-tree changes (`isCurrentChanges: true`), this is `null` -
+   * `git diff` without a base ref already covers the right scope.
+   */
+  diffBaseRef?: string | null;
 }
 
 export type JsonReportMode = "full" | "diff" | "staged";
@@ -68,6 +110,18 @@ export interface JsonReportProjectEntry {
   /** Human-readable explanation per skipped check. See `InspectResult.skippedCheckReasons`. */
   skippedCheckReasons?: Record<string, string>;
   elapsedMilliseconds: number;
+  /**
+   * Baseline-known diagnostics for this project (already excluded from
+   * `diagnostics`). Populated only when baseline mode is active.
+   * Useful for dashboard / trend tracking - the count of historical
+   * debt that survived this scan but didn't block the build.
+   */
+  baselineDiagnostics?: Diagnostic[];
+  /**
+   * Number of diagnostics filtered out because they did not land on a
+   * touched line. Populated only when `touchedLinesOnly` is enabled.
+   */
+  diagnosticsHiddenByTouchedLines?: number;
 }
 
 export interface JsonReportSummary {
@@ -77,6 +131,13 @@ export interface JsonReportSummary {
   totalDiagnosticCount: number;
   score: number | null;
   scoreLabel: string | null;
+  /**
+   * Total number of baseline-matched diagnostics across all scanned
+   * projects (sum of `projects[].baselineDiagnostics.length`).
+   * Surfaced so PR comments / dashboards can say
+   * "12 issues (3 new, 9 baseline)" without re-walking every project.
+   */
+  baselineDiagnosticCount: number;
 }
 
 export interface JsonReportError {

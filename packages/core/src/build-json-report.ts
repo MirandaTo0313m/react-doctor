@@ -52,15 +52,28 @@ export const buildJsonReport = (input: BuildJsonReportInput): JsonReport => {
     skippedChecks: result.skippedChecks,
     ...(result.skippedCheckReasons ? { skippedCheckReasons: result.skippedCheckReasons } : {}),
     elapsedMilliseconds: result.elapsedMilliseconds,
+    ...(result.baselineDiagnostics !== undefined
+      ? { baselineDiagnostics: result.baselineDiagnostics }
+      : {}),
+    ...(result.diagnosticsHiddenByTouchedLines !== undefined &&
+    result.diagnosticsHiddenByTouchedLines > 0
+      ? { diagnosticsHiddenByTouchedLines: result.diagnosticsHiddenByTouchedLines }
+      : {}),
   }));
 
   const flattenedDiagnostics = projects.flatMap((entry) => entry.diagnostics);
   const worstScoredProject = findWorstScoredProject(projects);
 
+  const baselineDiagnosticCount = projects.reduce(
+    (total, project) => total + (project.baselineDiagnostics?.length ?? 0),
+    0,
+  );
+
   const summary = summarizeDiagnostics(
     flattenedDiagnostics,
     worstScoredProject?.score?.score ?? null,
     worstScoredProject?.score?.label ?? null,
+    baselineDiagnosticCount,
   );
 
   return {
