@@ -325,14 +325,32 @@ Fix:
 - Pass `--annotations` when enabled.
 - Document annotations-only, comments-only, or both.
 
-### [ ] Add category-level rule controls
+### [x] Add category-level rule controls
 
-Status: partially addressed.
+Status: landed.
 
-Fix:
+Done:
 
-- Support per-rule/per-tag controls for severity, score contribution, PR comment visibility, CLI visibility, and CI failure.
-- Use this for `design`, `test-noise`, React Native, server-action, and migration-hint rules.
+- Added a `severityOverrides` config block with `rules`, `categories`,
+  and `tags` channels (values: `"error"`, `"warn"`, `"off"`). Applied
+  at lint registration time so `"off"` short-circuits before the rule
+  runs, and re-stamped post-lint so `--fail-on`, the score, the CLI
+  summary, and external-plugin rules all see the user-chosen severity.
+  Precedence: `rules` > `categories` > `tags`; when multiple tags
+  match, the most permissive wins (`"off"` > `"warn"` > `"error"`).
+- Composes with the existing `surfaces` controls: use `surfaces` to
+  hide a rule from one channel (e.g. PR comment) while keeping it on
+  others; use `severityOverrides` to change severity (or fully silence)
+  across every channel at once.
+- Bucket-derived auto-tags so cross-cutting controls can target whole
+  families without each rule repeating the tag — `"react-native"` on
+  every rule in the `react-native/` bucket, `"server-action"` on every
+  rule in the `server/` bucket, and explicit `"migration-hint"` on
+  `no-react19-deprecated-apis`, `no-react-dom-deprecated-apis`,
+  `no-legacy-class-lifecycles`, and `no-legacy-context-api`.
+- README documents the five rule families called out in the original
+  fix (`design`, `test-noise`, `react-native`, `server-action`,
+  `migration-hint`) with copy-pasteable JSON examples.
 
 ### [ ] Support mature-codebase adoption workflows natively
 
