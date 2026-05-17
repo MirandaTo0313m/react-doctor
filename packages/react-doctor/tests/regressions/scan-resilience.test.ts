@@ -351,57 +351,36 @@ describe("issue #141: oxlint config must not reference unloaded plugins", () => 
     }
   });
 
-  it("loads eslint-plugin-react-you-might-not-need-an-effect when installed (#187)", () => {
+  it("ships the 8 ported `you-might-not-need-an-effect` rules as react-doctor rules", () => {
+    // After the native port (#187 follow-up), the previously-external
+    // `effect/*` rule surface lives inside `oxlint-plugin-react-doctor`
+    // as plain `react-doctor/*` global rules. No JS plugin entry, no
+    // separate `effect/` namespace, no optional peer dependency.
     const config = createOxlintConfig({
       pluginPath: "/tmp/react-doctor-plugin.js",
       project: buildTestProject({ rootDirectory: "/tmp/test" }),
     });
 
-    const effectRuleKeys = Object.keys(config.rules).filter((ruleKey) =>
-      ruleKey.startsWith("effect/"),
-    );
-    const hasEffectPluginEntry = config.jsPlugins.some(
-      (jsPlugin) => typeof jsPlugin === "object" && jsPlugin.name === "effect",
-    );
-
-    expect(hasEffectPluginEntry).toBe(true);
-    expect(effectRuleKeys.length).toBeGreaterThan(0);
-    expect(effectRuleKeys.every((ruleKey) => config.rules[ruleKey] === "warn")).toBe(true);
-  });
-
-  it("emits no effect/* rules when customRulesOnly skips third-party plugins (#187)", () => {
-    const config = createOxlintConfig({
-      pluginPath: "/tmp/react-doctor-plugin.js",
-      project: buildTestProject({ rootDirectory: "/tmp/test" }),
-      customRulesOnly: true,
-    });
-
-    const effectRuleKeys = Object.keys(config.rules).filter((ruleKey) =>
-      ruleKey.startsWith("effect/"),
-    );
-    const hasEffectPluginEntry = config.jsPlugins.some(
-      (jsPlugin) => typeof jsPlugin === "object" && jsPlugin.name === "effect",
-    );
-
-    expect(effectRuleKeys).toHaveLength(0);
-    expect(hasEffectPluginEntry).toBe(false);
-  });
-
-  it("only enables effect/* rules that the resolved plugin actually exports (#187)", async () => {
-    const config = createOxlintConfig({
-      pluginPath: "/tmp/react-doctor-plugin.js",
-      project: buildTestProject({ rootDirectory: "/tmp/test" }),
-    });
-    const pluginModule = await import("eslint-plugin-react-you-might-not-need-an-effect");
-    const availableRuleNames = new Set(
-      Object.keys((pluginModule.default ?? pluginModule).rules ?? {}),
-    );
-    const enabledRuleNames = Object.keys(config.rules)
-      .filter((ruleKey) => ruleKey.startsWith("effect/"))
-      .map((ruleKey) => ruleKey.replace(/^effect\//, ""));
-    expect(enabledRuleNames.length).toBeGreaterThan(0);
-    for (const ruleName of enabledRuleNames) {
-      expect(availableRuleNames.has(ruleName)).toBe(true);
+    const portedRuleIds = [
+      "no-derived-state",
+      "no-chain-state-updates",
+      "no-event-handler",
+      "no-adjust-state-on-prop-change",
+      "no-reset-all-state-on-prop-change",
+      "no-pass-live-state-to-parent",
+      "no-pass-data-to-parent",
+      "no-initialize-state",
+    ];
+    for (const ruleId of portedRuleIds) {
+      const fullKey = `react-doctor/${ruleId}`;
+      expect(config.rules[fullKey]).toBe("warn");
     }
+
+    expect(Object.keys(config.rules).some((ruleKey) => ruleKey.startsWith("effect/"))).toBe(false);
+    expect(
+      config.jsPlugins.some(
+        (jsPlugin) => typeof jsPlugin === "object" && jsPlugin.name === "effect",
+      ),
+    ).toBe(false);
   });
 });

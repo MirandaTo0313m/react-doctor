@@ -191,12 +191,13 @@ Each surface accepts `includeTags`, `excludeTags`, `includeCategories`, `exclude
 
 #### Optional companion plugins
 
-When the following ESLint plugins are installed in the scanned project (or hoisted in your monorepo), React Doctor folds their rules into the same scan. Both are listed as **optional peer dependencies** — install only what you want.
+When the following ESLint plugins are installed in the scanned project (or hoisted in your monorepo), React Doctor folds their rules into the same scan. Listed as **optional peer dependencies** — install only what you want.
 
-| Plugin                                                                                                                                          | Adds                                                                                                                                                                                                        | Namespace          |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| [`eslint-plugin-react-hooks`](https://www.npmjs.com/package/eslint-plugin-react-hooks) (v6 or v7)                                               | The React Compiler frontend's correctness rules — fired when a React Compiler is detected in the project.                                                                                                   | `react-hooks-js/*` |
-| [`eslint-plugin-react-you-might-not-need-an-effect`](https://github.com/nickjvandyke/eslint-plugin-react-you-might-not-need-an-effect) (v0.10+) | Complementary effects-as-anti-pattern rules (`no-derived-state`, `no-chain-state-updates`, `no-event-handler`, `no-pass-data-to-parent`, …) that run alongside React Doctor's native State & Effects rules. | `effect/*`         |
+| Plugin                                                                                            | Adds                                                                                                      | Namespace          |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------ |
+| [`eslint-plugin-react-hooks`](https://www.npmjs.com/package/eslint-plugin-react-hooks) (v6 or v7) | The React Compiler frontend's correctness rules — fired when a React Compiler is detected in the project. | `react-hooks-js/*` |
+
+The 8 rules from [`eslint-plugin-react-you-might-not-need-an-effect`](https://github.com/nickjvandyke/eslint-plugin-react-you-might-not-need-an-effect) (NickvanDyke, MIT) are now ported natively into React Doctor — they fire as `react-doctor/no-derived-state`, `react-doctor/no-chain-state-updates`, `react-doctor/no-event-handler`, `react-doctor/no-adjust-state-on-prop-change`, `react-doctor/no-reset-all-state-on-prop-change`, `react-doctor/no-pass-live-state-to-parent`, `react-doctor/no-pass-data-to-parent`, and `react-doctor/no-initialize-state`. No peer dependency required.
 
 ### Inline suppressions
 

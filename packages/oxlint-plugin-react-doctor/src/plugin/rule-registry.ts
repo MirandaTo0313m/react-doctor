@@ -52,11 +52,14 @@ import { nextjsNoPolyfillScript } from "./rules/nextjs/nextjs-no-polyfill-script
 import { nextjsNoRedirectInTryCatch } from "./rules/nextjs/nextjs-no-redirect-in-try-catch.js";
 import { nextjsNoSideEffectInGetHandler } from "./rules/nextjs/nextjs-no-side-effect-in-get-handler.js";
 import { nextjsNoUseSearchParamsWithoutSuspense } from "./rules/nextjs/nextjs-no-use-search-params-without-suspense.js";
+import { noAdjustStateOnPropChange } from "./rules/state-and-effects/no-adjust-state-on-prop-change.js";
 import { noArrayIndexAsKey } from "./rules/correctness/no-array-index-as-key.js";
 import { noBarrelImport } from "./rules/bundle-size/no-barrel-import.js";
 import { noCascadingSetState } from "./rules/state-and-effects/no-cascading-set-state.js";
+import { noChainStateUpdates } from "./rules/state-and-effects/no-chain-state-updates.js";
 import { noDarkModeGlow } from "./rules/design/no-dark-mode-glow.js";
 import { noDefaultProps } from "./rules/architecture/no-default-props.js";
+import { noDerivedState } from "./rules/state-and-effects/no-derived-state.js";
 import { noDerivedStateEffect } from "./rules/state-and-effects/no-derived-state-effect.js";
 import { noDerivedUseState } from "./rules/state-and-effects/no-derived-use-state.js";
 import { noDirectStateMutation } from "./rules/state-and-effects/no-direct-state-mutation.js";
@@ -67,6 +70,7 @@ import { noEffectChain } from "./rules/state-and-effects/no-effect-chain.js";
 import { noEffectEventHandler } from "./rules/state-and-effects/no-effect-event-handler.js";
 import { noEffectEventInDeps } from "./rules/state-and-effects/no-effect-event-in-deps.js";
 import { noEval } from "./rules/security/no-eval.js";
+import { noEventHandler } from "./rules/state-and-effects/no-event-handler.js";
 import { noEventTriggerState } from "./rules/state-and-effects/no-event-trigger-state.js";
 import { noFetchInEffect } from "./rules/state-and-effects/no-fetch-in-effect.js";
 import { noFlushSync } from "./rules/view-transitions/no-flush-sync.js";
@@ -76,6 +80,7 @@ import { noGiantComponent } from "./rules/architecture/no-giant-component.js";
 import { noGlobalCssVariableAnimation } from "./rules/performance/no-global-css-variable-animation.js";
 import { noGradientText } from "./rules/design/no-gradient-text.js";
 import { noGrayOnColoredBackground } from "./rules/design/no-gray-on-colored-background.js";
+import { noInitializeState } from "./rules/state-and-effects/no-initialize-state.js";
 import { noInlineBounceEasing } from "./rules/design/no-inline-bounce-easing.js";
 import { noInlineExhaustiveStyle } from "./rules/design/no-inline-exhaustive-style.js";
 import { noInlinePropOnMemoComponent } from "./rules/performance/no-inline-prop-on-memo-component.js";
@@ -92,6 +97,8 @@ import { noMoment } from "./rules/bundle-size/no-moment.js";
 import { noMutableInDeps } from "./rules/state-and-effects/no-mutable-in-deps.js";
 import { noNestedComponentDefinition } from "./rules/architecture/no-nested-component-definition.js";
 import { noOutlineNone } from "./rules/design/no-outline-none.js";
+import { noPassDataToParent } from "./rules/state-and-effects/no-pass-data-to-parent.js";
+import { noPassLiveStateToParent } from "./rules/state-and-effects/no-pass-live-state-to-parent.js";
 import { noPermanentWillChange } from "./rules/performance/no-permanent-will-change.js";
 import { noPolymorphicChildren } from "./rules/correctness/no-polymorphic-children.js";
 import { noPreventDefault } from "./rules/correctness/no-prevent-default.js";
@@ -101,6 +108,7 @@ import { noReactDomDeprecatedApis } from "./rules/architecture/no-react-dom-depr
 import { noReact19DeprecatedApis } from "./rules/architecture/no-react19-deprecated-apis.js";
 import { noRenderInRender } from "./rules/architecture/no-render-in-render.js";
 import { noRenderPropChildren } from "./rules/architecture/no-render-prop-children.js";
+import { noResetAllStateOnPropChange } from "./rules/state-and-effects/no-reset-all-state-on-prop-change.js";
 import { noScaleFromZero } from "./rules/performance/no-scale-from-zero.js";
 import { noSecretsInClientCode } from "./rules/security/no-secrets-in-client-code.js";
 import { noSetStateInRender } from "./rules/state-and-effects/no-set-state-in-render.js";
@@ -762,6 +770,19 @@ export const reactDoctorRules = [
     },
   },
   {
+    key: "react-doctor/no-adjust-state-on-prop-change",
+    id: "no-adjust-state-on-prop-change",
+    source: "react-doctor",
+    framework: "global",
+    category: "State & Effects",
+    severity: "warn",
+    rule: {
+      ...noAdjustStateOnPropChange,
+      framework: "global",
+      category: "State & Effects",
+    },
+  },
+  {
     key: "react-doctor/no-array-index-as-key",
     id: "no-array-index-as-key",
     source: "react-doctor",
@@ -801,6 +822,19 @@ export const reactDoctorRules = [
     },
   },
   {
+    key: "react-doctor/no-chain-state-updates",
+    id: "no-chain-state-updates",
+    source: "react-doctor",
+    framework: "global",
+    category: "State & Effects",
+    severity: "warn",
+    rule: {
+      ...noChainStateUpdates,
+      framework: "global",
+      category: "State & Effects",
+    },
+  },
+  {
     key: "react-doctor/no-dark-mode-glow",
     id: "no-dark-mode-glow",
     source: "react-doctor",
@@ -824,6 +858,19 @@ export const reactDoctorRules = [
       ...noDefaultProps,
       framework: "global",
       category: "Architecture",
+    },
+  },
+  {
+    key: "react-doctor/no-derived-state",
+    id: "no-derived-state",
+    source: "react-doctor",
+    framework: "global",
+    category: "State & Effects",
+    severity: "warn",
+    rule: {
+      ...noDerivedState,
+      framework: "global",
+      category: "State & Effects",
     },
   },
   {
@@ -957,6 +1004,19 @@ export const reactDoctorRules = [
     },
   },
   {
+    key: "react-doctor/no-event-handler",
+    id: "no-event-handler",
+    source: "react-doctor",
+    framework: "global",
+    category: "State & Effects",
+    severity: "warn",
+    rule: {
+      ...noEventHandler,
+      framework: "global",
+      category: "State & Effects",
+    },
+  },
+  {
     key: "react-doctor/no-event-trigger-state",
     id: "no-event-trigger-state",
     source: "react-doctor",
@@ -1071,6 +1131,19 @@ export const reactDoctorRules = [
       ...noGrayOnColoredBackground,
       framework: "global",
       category: "Accessibility",
+    },
+  },
+  {
+    key: "react-doctor/no-initialize-state",
+    id: "no-initialize-state",
+    source: "react-doctor",
+    framework: "global",
+    category: "State & Effects",
+    severity: "warn",
+    rule: {
+      ...noInitializeState,
+      framework: "global",
+      category: "State & Effects",
     },
   },
   {
@@ -1282,6 +1355,32 @@ export const reactDoctorRules = [
     },
   },
   {
+    key: "react-doctor/no-pass-data-to-parent",
+    id: "no-pass-data-to-parent",
+    source: "react-doctor",
+    framework: "global",
+    category: "State & Effects",
+    severity: "warn",
+    rule: {
+      ...noPassDataToParent,
+      framework: "global",
+      category: "State & Effects",
+    },
+  },
+  {
+    key: "react-doctor/no-pass-live-state-to-parent",
+    id: "no-pass-live-state-to-parent",
+    source: "react-doctor",
+    framework: "global",
+    category: "State & Effects",
+    severity: "warn",
+    rule: {
+      ...noPassLiveStateToParent,
+      framework: "global",
+      category: "State & Effects",
+    },
+  },
+  {
     key: "react-doctor/no-permanent-will-change",
     id: "no-permanent-will-change",
     source: "react-doctor",
@@ -1396,6 +1495,19 @@ export const reactDoctorRules = [
       ...noRenderPropChildren,
       framework: "global",
       category: "Architecture",
+    },
+  },
+  {
+    key: "react-doctor/no-reset-all-state-on-prop-change",
+    id: "no-reset-all-state-on-prop-change",
+    source: "react-doctor",
+    framework: "global",
+    category: "State & Effects",
+    severity: "warn",
+    rule: {
+      ...noResetAllStateOnPropChange,
+      framework: "global",
+      category: "State & Effects",
     },
   },
   {

@@ -51,26 +51,12 @@ export const EXTERNAL_RULES = [
   { key: "react-hooks-js/void-use-memo", source: "react-compiler", severity: "error" },
   { key: "react-hooks-js/incompatible-library", source: "react-compiler", severity: "error" },
   { key: "react-hooks-js/todo", source: "react-compiler", severity: "error" },
-  { key: "effect/no-derived-state", source: "you-might-not-need-effect", severity: "warn" },
-  { key: "effect/no-chain-state-updates", source: "you-might-not-need-effect", severity: "warn" },
-  { key: "effect/no-event-handler", source: "you-might-not-need-effect", severity: "warn" },
-  {
-    key: "effect/no-adjust-state-on-prop-change",
-    source: "you-might-not-need-effect",
-    severity: "warn",
-  },
-  {
-    key: "effect/no-reset-all-state-on-prop-change",
-    source: "you-might-not-need-effect",
-    severity: "warn",
-  },
-  {
-    key: "effect/no-pass-live-state-to-parent",
-    source: "you-might-not-need-effect",
-    severity: "warn",
-  },
-  { key: "effect/no-pass-data-to-parent", source: "you-might-not-need-effect", severity: "warn" },
-  { key: "effect/no-initialize-state", source: "you-might-not-need-effect", severity: "warn" },
+  // Note: the 8 `effect/*` rules from `eslint-plugin-react-you-might-not-need-an-effect`
+  // were previously listed here as external. They are now natively
+  // ported into this package under `react-doctor/*` (see
+  // `state-and-effects/no-derived-state.ts` and friends, plus
+  // `state-and-effects/effect/SOURCE.md`) and activate through the
+  // normal `REACT_DOCTOR_RULES` loop.
   { key: "react/rules-of-hooks", source: "builtin-react", severity: "error" },
   { key: "react/no-direct-mutation-state", source: "builtin-react", severity: "error" },
   { key: "react/jsx-no-duplicate-props", source: "builtin-react", severity: "error" },
@@ -112,8 +98,9 @@ export const ALL_REACT_DOCTOR_RULE_KEYS: ReadonlySet<string> = new Set(
 );
 export const FRAMEWORK_SPECIFIC_RULE_KEYS = collectFrameworkSpecificRuleKeys();
 export const REACT_COMPILER_RULES = toRuleMap(collectExternalRulesBySource("react-compiler"));
-export const YOU_MIGHT_NOT_NEED_EFFECT_RULES = toRuleMap(
-  collectExternalRulesBySource("you-might-not-need-effect"),
-);
+// Deprecated: kept as an empty map for back-compat. The 8 rules
+// formerly listed here are now natively ported as `react-doctor/*`.
+// Will be removed in a future major.
+export const YOU_MIGHT_NOT_NEED_EFFECT_RULES: Record<string, OxlintRuleSeverity> = {};
 export const BUILTIN_REACT_RULES = toRuleMap(collectExternalRulesBySource("builtin-react"));
 export const BUILTIN_A11Y_RULES = toRuleMap(collectExternalRulesBySource("builtin-a11y"));
