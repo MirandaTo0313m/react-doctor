@@ -22,7 +22,8 @@
     "oxlint": "^1.63.0",
     "oxlint-plugin-react-doctor": "workspace:*",
     "picomatch": "^4.0.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

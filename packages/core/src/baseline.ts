@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 import type { BaselineConfig, Diagnostic, ReactDoctorConfig } from "@react-doctor/types";
 
 export const DEFAULT_BASELINE_FILENAME = "react-doctor-baseline.json";
@@ -71,27 +72,18 @@ export const fingerprintDiagnostic = (diagnostic: Diagnostic, projectRoot: strin
   return hash.digest("hex").slice(0, DIGEST_LENGTH_HEX);
 };
 
-const isBaselineEntry = (value: unknown): value is BaselineEntry => {
-  if (typeof value !== "object" || value === null) return false;
-  const entry = value as Record<string, unknown>;
-  return (
-    typeof entry.plugin === "string" &&
-    typeof entry.rule === "string" &&
-    typeof entry.filePath === "string" &&
-    typeof entry.line === "number"
-  );
-};
+const baselineEntrySchema = z.object({
+  plugin: z.string(),
+  rule: z.string(),
+  filePath: z.string(),
+  line: z.number(),
+});
 
-const isBaselineFile = (value: unknown): value is BaselineFile => {
-  if (typeof value !== "object" || value === null) return false;
-  const baseline = value as Record<string, unknown>;
-  if (baseline.schemaVersion !== BASELINE_FORMAT_VERSION) return false;
-  if (typeof baseline.diagnostics !== "object" || baseline.diagnostics === null) return false;
-  for (const entry of Object.values(baseline.diagnostics)) {
-    if (!isBaselineEntry(entry)) return false;
-  }
-  return true;
-};
+const baselineFileSchema = z.object({
+  schemaVersion: z.literal(BASELINE_FORMAT_VERSION),
+  generatedAt: z.string(),
+  diagnostics: z.record(z.string(), baselineEntrySchema),
+});
 
 export const resolveBaselineSettings = (
   userConfig: ReactDoctorConfig | null,
@@ -127,8 +119,8 @@ export const readBaselineFile = (filePath: string): BaselineFile | null => {
   if (!fs.existsSync(filePath)) return null;
   try {
     const parsed: unknown = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-    if (!isBaselineFile(parsed)) return null;
-    return parsed;
+    const result = baselineFileSchema.safeParse(parsed);
+    return result.success ? result.data : null;
   } catch {
     return null;
   }
