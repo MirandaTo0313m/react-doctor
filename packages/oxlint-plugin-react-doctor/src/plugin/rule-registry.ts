@@ -230,7 +230,7 @@ export const reactDoctorRules = [
     source: "react-doctor",
     framework: "global",
     category: "Correctness",
-    severity: "warn",
+    severity: "error",
     rule: {
       ...a11yAltText,
       framework: "global",
@@ -334,7 +334,7 @@ export const reactDoctorRules = [
     source: "react-doctor",
     framework: "global",
     category: "Correctness",
-    severity: "warn",
+    severity: "error",
     rule: {
       ...a11yNoDistractingElements,
       framework: "global",
@@ -373,7 +373,7 @@ export const reactDoctorRules = [
     source: "react-doctor",
     framework: "global",
     category: "Correctness",
-    severity: "warn",
+    severity: "error",
     rule: {
       ...a11yRoleHasRequiredAriaProps,
       framework: "global",
