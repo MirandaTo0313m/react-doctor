@@ -6,17 +6,20 @@ import oxlintPlugin, {
   TANSTACK_QUERY_RULES,
   TANSTACK_START_RULES,
 } from "oxlint-plugin-react-doctor";
-import type {
-  EsTreeNode,
-  OxlintRuleSeverity,
-  Rule as PluginRule,
-  RuleVisitors,
-} from "oxlint-plugin-react-doctor";
+import type { EsTreeNode, OxlintRuleSeverity, RuleVisitors } from "oxlint-plugin-react-doctor";
 
+// All rules in oxlintPlugin.rules are wrapped with
+// wrapWithSemanticContext at plugin load time, so their `create`
+// signatures accept a BaseRuleContext (the minimal host I/O surface)
+// — NOT a fully-built RuleContext (which carries scopes + cfg). The
+// wrapper computes those internally on first access.
 interface EslintRuleContext {
   report: (descriptor: { node: EsTreeNode; message: string }) => void;
   getFilename?: () => string;
 }
+
+type WrappedRuleCreate = (context: EslintRuleContext) => RuleVisitors;
+type WrappedRule = { create: WrappedRuleCreate };
 
 interface EslintRuleMeta {
   type: "problem" | "suggestion" | "layout";
@@ -57,7 +60,7 @@ const RULE_DOCS_BASE_URL = "https://react.doctor/rules";
 
 const recommendedRuleKeys = new Set(Object.keys(RECOMMENDED_RULES));
 
-const wrapAsEslintRule = (ruleName: string, ruleImpl: PluginRule): EslintRule => ({
+const wrapAsEslintRule = (ruleName: string, ruleImpl: WrappedRule): EslintRule => ({
   meta: {
     type: "problem",
     docs: {
@@ -75,7 +78,7 @@ const wrapAsEslintRule = (ruleName: string, ruleImpl: PluginRule): EslintRule =>
 const eslintShapedRules: Record<string, EslintRule> = Object.fromEntries(
   Object.entries(oxlintPlugin.rules).map(([ruleName, ruleImpl]) => [
     ruleName,
-    wrapAsEslintRule(ruleName, ruleImpl),
+    wrapAsEslintRule(ruleName, ruleImpl as unknown as WrappedRule),
   ]),
 );
 

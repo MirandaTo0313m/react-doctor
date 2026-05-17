@@ -45,15 +45,22 @@
     "build": "pnpm gen && node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && NODE_ENV=production vp pack",
     "gen": "node ./scripts/generate-rule-registry.mjs",
     "gen:check": "node ./scripts/generate-rule-registry.mjs && git diff --exit-code -- src/plugin/rule-registry.ts",
+    "gen:fixtures": "node ./scripts/extract-oxc-fixtures.mjs /tmp/oxc",
+    "gen:fixture-tests": "node ./scripts/generate-fixture-tests.mjs",
     "typecheck": "pnpm gen && tsc --noEmit",
     "test": "pnpm gen && vp test run"
   },
   "dependencies": {
-    "@typescript-eslint/types": "^8.59.3"
+    "@types/eslint-scope": "^9.1.0",
+    "@types/eslint-visitor-keys": "^3.3.2",
+    "@typescript-eslint/types": "^8.59.3",
+    "eslint-scope": "^9.1.2",
+    "eslint-visitor-keys": "^5.0.1"
   },
   "devDependencies": {
     "@react-doctor/types": "workspace:*",
-    "@types/node": "^25.6.0"
+    "@types/node": "^25.6.0",
+    "oxc-parser": "^0.131.0"
   },
   "engines": {
     "node": ">=22"

@@ -1,0 +1,291 @@
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
+import { isNodeOfType } from "../../utils/is-node-of-type.js";
+import type { Rule } from "../../utils/rule.js";
+
+const ITERATOR_METHOD_NAMES = new Set(["map", "flatMap", "from"]);
+const MISSING_KEY_ARRAY = "Missing `key` prop for element in array.";
+const MISSING_KEY_ITERATOR = "Missing `key` prop for element in iterator.";
+const KEY_BEFORE_SPREAD =
+  "`key` prop must be placed before any `{...spread}` for the new JSX transform.";
+const DUPLICATE_KEY = (keyValue: string): string =>
+  `Duplicate key "${keyValue}" found in JSX elements.`;
+
+interface JsxKeySettings {
+  checkKeyMustBeforeSpread?: boolean;
+  warnOnDuplicates?: boolean;
+  checkFragmentShorthand?: boolean;
+}
+
+const resolveSettings = (
+  settings: Readonly<Record<string, unknown>> | undefined,
+): Required<JsxKeySettings> => {
+  const reactDoctor = settings?.["react-doctor"];
+  const ruleSettings =
+    typeof reactDoctor === "object" && reactDoctor !== null
+      ? ((reactDoctor as { jsxKey?: JsxKeySettings }).jsxKey ?? {})
+      : {};
+  return {
+    checkKeyMustBeforeSpread: ruleSettings.checkKeyMustBeforeSpread ?? true,
+    warnOnDuplicates: ruleSettings.warnOnDuplicates ?? false,
+    checkFragmentShorthand: ruleSettings.checkFragmentShorthand ?? true,
+  };
+};
+
+interface IteratorContextArray {
+  kind: "array";
+}
+interface IteratorContextIterator {
+  kind: "iterator";
+  callExpression: EsTreeNode;
+}
+type IteratorContext = IteratorContextArray | IteratorContextIterator;
+
+const findEnclosingIteratorContext = (jsxNode: EsTreeNode): IteratorContext | null => {
+  let current: EsTreeNode | null | undefined = jsxNode;
+  let isOutsideContainingFunction = false;
+  let didSeeReturnStatement = false;
+
+  while (current && current.parent) {
+    const parent: EsTreeNode = current.parent;
+    if (
+      isNodeOfType(parent, "ArrowFunctionExpression") ||
+      isNodeOfType(parent, "FunctionExpression") ||
+      isNodeOfType(parent, "FunctionDeclaration")
+    ) {
+      // Arrow function with expression body counts as implicit return.
+      if (isNodeOfType(parent, "ArrowFunctionExpression")) {
+        const isExpressionBody = parent.body && parent.body.type !== "BlockStatement";
+        if (!didSeeReturnStatement && !isExpressionBody) return null;
+      } else if (!didSeeReturnStatement) {
+        return null;
+      }
+
+      const grandparent = parent.parent;
+      if (grandparent && isNodeOfType(grandparent, "Property")) return null;
+      if (isOutsideContainingFunction) return null;
+      isOutsideContainingFunction = true;
+    } else if (isNodeOfType(parent, "ArrayExpression")) {
+      if (isOutsideContainingFunction) return null;
+      return { kind: "array" };
+    } else if (isNodeOfType(parent, "CallExpression")) {
+      const callee = parent.callee;
+      if (!isNodeOfType(callee, "MemberExpression")) return null;
+      if (!isNodeOfType(callee.property, "Identifier")) return null;
+      const methodName = callee.property.name;
+      if (!ITERATOR_METHOD_NAMES.has(methodName)) return null;
+      const targetArgIndex = methodName === "from" ? 1 : 0;
+      const targetArg = parent.arguments[targetArgIndex];
+      if (!targetArg) return null;
+      // Confirm `current` is the function passed as the target arg, or
+      // its descendant.
+      let walker: EsTreeNode | null = current;
+      while (walker && walker !== parent) {
+        if (walker === targetArg) return { kind: "iterator", callExpression: parent };
+        walker = walker.parent ?? null;
+      }
+      return null;
+    } else if (
+      isNodeOfType(parent, "JSXElement") ||
+      isNodeOfType(parent, "JSXOpeningElement") ||
+      isNodeOfType(parent, "JSXFragment") ||
+      isNodeOfType(parent, "Property")
+    ) {
+      return null;
+    } else if (isNodeOfType(parent, "ReturnStatement")) {
+      didSeeReturnStatement = true;
+    }
+    current = parent;
+  }
+  return null;
+};
+
+const isWithinChildrenToArray = (jsxNode: EsTreeNode): boolean => {
+  let current: EsTreeNode | null | undefined = jsxNode.parent;
+  while (current) {
+    if (isNodeOfType(current, "CallExpression")) {
+      const callee = current.callee;
+      if (
+        isNodeOfType(callee, "MemberExpression") &&
+        isNodeOfType(callee.property, "Identifier") &&
+        callee.property.name === "toArray"
+      ) {
+        // Accept any of:
+        //   - Children.toArray(...)        (named import)
+        //   - <X>.Children.toArray(...)    (e.g. React.Children, Act.Children)
+        const objectExpression = callee.object;
+        if (isNodeOfType(objectExpression, "Identifier") && objectExpression.name === "Children") {
+          return true;
+        }
+        if (
+          isNodeOfType(objectExpression, "MemberExpression") &&
+          isNodeOfType(objectExpression.property, "Identifier") &&
+          objectExpression.property.name === "Children"
+        ) {
+          return true;
+        }
+      }
+    }
+    current = current.parent ?? null;
+  }
+  return false;
+};
+
+const hasKeyAttribute = (openingElement: EsTreeNodeOfType<"JSXOpeningElement">): boolean => {
+  for (const attribute of openingElement.attributes) {
+    if (!isNodeOfType(attribute, "JSXAttribute")) continue;
+    if (!isNodeOfType(attribute.name, "JSXIdentifier")) continue;
+    if (attribute.name.name === "key") return true;
+  }
+  return false;
+};
+
+const checkKeyBeforeSpread = (
+  context: Parameters<Rule["create"]>[0],
+  openingElement: EsTreeNodeOfType<"JSXOpeningElement">,
+): void => {
+  // Track the FIRST spread we see; the diagnostic should fire whenever
+  // any spread comes before the key, not just when ALL spreads do. Bug
+  // caught by Bugbot: previously we recorded the LAST spread, so
+  // `<App {...a} key="x" {...b} />` (key after `{...a}` but before
+  // `{...b}`) was incorrectly silent.
+  let keyIndex: number | null = null;
+  let keyAttribute: EsTreeNode | null = null;
+  let firstSpreadIndex: number | null = null;
+  for (
+    let attributeIndex = 0;
+    attributeIndex < openingElement.attributes.length;
+    attributeIndex++
+  ) {
+    const attribute = openingElement.attributes[attributeIndex];
+    if (isNodeOfType(attribute, "JSXAttribute")) {
+      if (isNodeOfType(attribute.name, "JSXIdentifier") && attribute.name.name === "key") {
+        keyIndex = attributeIndex;
+        keyAttribute = attribute;
+      }
+    } else if (isNodeOfType(attribute, "JSXSpreadAttribute")) {
+      if (firstSpreadIndex === null) firstSpreadIndex = attributeIndex;
+    }
+  }
+  if (
+    keyIndex !== null &&
+    firstSpreadIndex !== null &&
+    keyIndex > firstSpreadIndex &&
+    keyAttribute
+  ) {
+    context.report({ node: keyAttribute, message: KEY_BEFORE_SPREAD });
+  }
+};
+
+const getKeyAttributeValueString = (
+  openingElement: EsTreeNodeOfType<"JSXOpeningElement">,
+): { keyValue: string; node: EsTreeNode } | null => {
+  for (const attribute of openingElement.attributes) {
+    if (!isNodeOfType(attribute, "JSXAttribute")) continue;
+    if (!isNodeOfType(attribute.name, "JSXIdentifier") || attribute.name.name !== "key") continue;
+    const value = attribute.value;
+    if (!value) return null;
+    if (isNodeOfType(value, "Literal")) {
+      const literalValue = value.value;
+      if (typeof literalValue === "string" || typeof literalValue === "number") {
+        return { keyValue: String(literalValue), node: attribute };
+      }
+      return null;
+    }
+    if (isNodeOfType(value, "JSXExpressionContainer")) {
+      const expression = value.expression;
+      if (isNodeOfType(expression, "Literal")) {
+        const literalValue = expression.value;
+        if (typeof literalValue === "string" || typeof literalValue === "number") {
+          return { keyValue: String(literalValue), node: attribute };
+        }
+        return null;
+      }
+      if (
+        isNodeOfType(expression, "TemplateLiteral") &&
+        expression.expressions.length === 0 &&
+        expression.quasis.length === 1
+      ) {
+        const cookedValue = expression.quasis[0].value.cooked;
+        if (typeof cookedValue === "string") {
+          return { keyValue: cookedValue, node: attribute };
+        }
+      }
+    }
+  }
+  return null;
+};
+
+// Port of `oxc_linter::rules::react::jsx_key`. Reports JSX elements (and
+// optionally `<>` fragments) inside array literals or `.map` / `.flatMap`
+// / `Array.from` callbacks that lack a `key` prop. Honors three settings:
+//   - checkKeyMustBeforeSpread (default true): reports `<X {...p} key=…>`
+//   - warnOnDuplicates (default true): duplicate `key` values among siblings
+//   - checkFragmentShorthand (default true): also flags `<>` in iterators
+// Skips elements wrapped by `Children.toArray(...)` since React's runtime
+// assigns synthetic keys for those.
+export const jsxKey = defineRule<Rule>({
+  id: "jsx-key",
+  severity: "error",
+  recommendation: "Add a `key={...}` prop to each element produced inside `.map` / array literal.",
+  create: (context) => {
+    const settings = resolveSettings(context.settings);
+    return {
+      JSXElement(node: EsTreeNodeOfType<"JSXElement">) {
+        const openingElement = node.openingElement;
+        if (settings.checkKeyMustBeforeSpread) {
+          checkKeyBeforeSpread(context, openingElement);
+        }
+        if (settings.warnOnDuplicates) {
+          // Duplicate keys among children of this element.
+          const seenKeys = new Set<string>();
+          for (const child of node.children) {
+            if (!isNodeOfType(child, "JSXElement")) continue;
+            const keyValue = getKeyAttributeValueString(child.openingElement);
+            if (!keyValue) continue;
+            if (seenKeys.has(keyValue.keyValue)) {
+              context.report({ node: keyValue.node, message: DUPLICATE_KEY(keyValue.keyValue) });
+            } else {
+              seenKeys.add(keyValue.keyValue);
+            }
+          }
+        }
+        // Missing key check: only on top-level JSX in an array/iterator.
+        const enclosingContext = findEnclosingIteratorContext(node);
+        if (!enclosingContext) return;
+        if (isWithinChildrenToArray(node)) return;
+        if (hasKeyAttribute(openingElement)) return;
+        context.report({
+          node: openingElement,
+          message: enclosingContext.kind === "array" ? MISSING_KEY_ARRAY : MISSING_KEY_ITERATOR,
+        });
+      },
+      JSXFragment(node: EsTreeNodeOfType<"JSXFragment">) {
+        if (!settings.checkFragmentShorthand) return;
+        const enclosingContext = findEnclosingIteratorContext(node);
+        if (!enclosingContext) return;
+        if (isWithinChildrenToArray(node)) return;
+        context.report({
+          node,
+          message: enclosingContext.kind === "array" ? MISSING_KEY_ARRAY : MISSING_KEY_ITERATOR,
+        });
+      },
+      ArrayExpression(node: EsTreeNodeOfType<"ArrayExpression">) {
+        if (!settings.warnOnDuplicates) return;
+        const seenKeys = new Set<string>();
+        for (const element of node.elements) {
+          if (!element) continue;
+          if (!isNodeOfType(element, "JSXElement")) continue;
+          const keyValue = getKeyAttributeValueString(element.openingElement);
+          if (!keyValue) continue;
+          if (seenKeys.has(keyValue.keyValue)) {
+            context.report({ node: keyValue.node, message: DUPLICATE_KEY(keyValue.keyValue) });
+          } else {
+            seenKeys.add(keyValue.keyValue);
+          }
+        }
+      },
+    };
+  },
+});

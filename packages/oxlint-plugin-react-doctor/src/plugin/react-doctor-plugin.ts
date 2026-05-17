@@ -2,6 +2,7 @@ import { ruleRegistry } from "./rule-registry.js";
 import type { Rule } from "./utils/rule.js";
 import type { RulePlugin } from "./utils/rule-plugin.js";
 import { wrapReactNativeRule } from "./utils/wrap-react-native-rule.js";
+import { wrapWithSemanticContext } from "./utils/wrap-with-semantic-context.js";
 
 // Wraps every `framework: "react-native"` rule with the shared package-
 // boundary check (`isReactNativeFileActive`) so they short-circuit on
@@ -10,10 +11,15 @@ import { wrapReactNativeRule } from "./utils/wrap-react-native-rule.js";
 // repeat the same gate — it just lands in the `react-native/` bucket
 // and the registry takes care of the rest. Non-RN rules pass through
 // unchanged.
+//
+// Then wraps EVERY rule with the semantic-context wrapper, which
+// builds a scope tree and CFG for the file lazily on first access.
+// Rules that never read `context.scopes` / `context.cfg` pay nothing.
 const applyFrameworkRuleWrappers = (registry: Record<string, Rule>): Record<string, Rule> => {
   const wrapped: Record<string, Rule> = {};
   for (const [ruleId, rule] of Object.entries(registry)) {
-    wrapped[ruleId] = rule.framework === "react-native" ? wrapReactNativeRule(rule) : rule;
+    const frameworkWrapped = rule.framework === "react-native" ? wrapReactNativeRule(rule) : rule;
+    wrapped[ruleId] = wrapWithSemanticContext(frameworkWrapped);
   }
   return wrapped;
 };

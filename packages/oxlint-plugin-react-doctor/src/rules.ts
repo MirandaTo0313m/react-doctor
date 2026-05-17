@@ -26,6 +26,9 @@ const collectFrameworkSpecificRuleKeys = (): ReadonlySet<string> => {
 
 export const REACT_DOCTOR_RULES = reactDoctorRules;
 
+// Only React Compiler rules remain external. The previous
+// `react/*`, `jsx-a11y/*`, and `effect/*` entries are now natively
+// ported into this package and ship through `REACT_DOCTOR_RULES`.
 export const EXTERNAL_RULES = [
   { key: "react-hooks-js/set-state-in-render", source: "react-compiler", severity: "error" },
   { key: "react-hooks-js/immutability", source: "react-compiler", severity: "error" },
@@ -51,52 +54,6 @@ export const EXTERNAL_RULES = [
   { key: "react-hooks-js/void-use-memo", source: "react-compiler", severity: "error" },
   { key: "react-hooks-js/incompatible-library", source: "react-compiler", severity: "error" },
   { key: "react-hooks-js/todo", source: "react-compiler", severity: "error" },
-  { key: "effect/no-derived-state", source: "you-might-not-need-effect", severity: "warn" },
-  { key: "effect/no-chain-state-updates", source: "you-might-not-need-effect", severity: "warn" },
-  { key: "effect/no-event-handler", source: "you-might-not-need-effect", severity: "warn" },
-  {
-    key: "effect/no-adjust-state-on-prop-change",
-    source: "you-might-not-need-effect",
-    severity: "warn",
-  },
-  {
-    key: "effect/no-reset-all-state-on-prop-change",
-    source: "you-might-not-need-effect",
-    severity: "warn",
-  },
-  {
-    key: "effect/no-pass-live-state-to-parent",
-    source: "you-might-not-need-effect",
-    severity: "warn",
-  },
-  { key: "effect/no-pass-data-to-parent", source: "you-might-not-need-effect", severity: "warn" },
-  { key: "effect/no-initialize-state", source: "you-might-not-need-effect", severity: "warn" },
-  { key: "react/rules-of-hooks", source: "builtin-react", severity: "error" },
-  { key: "react/no-direct-mutation-state", source: "builtin-react", severity: "error" },
-  { key: "react/jsx-no-duplicate-props", source: "builtin-react", severity: "error" },
-  { key: "react/jsx-key", source: "builtin-react", severity: "error" },
-  { key: "react/no-children-prop", source: "builtin-react", severity: "warn" },
-  { key: "react/no-danger", source: "builtin-react", severity: "warn" },
-  { key: "react/jsx-no-script-url", source: "builtin-react", severity: "error" },
-  { key: "react/no-render-return-value", source: "builtin-react", severity: "warn" },
-  { key: "react/no-string-refs", source: "builtin-react", severity: "warn" },
-  { key: "react/no-is-mounted", source: "builtin-react", severity: "warn" },
-  { key: "react/require-render-return", source: "builtin-react", severity: "error" },
-  { key: "react/no-unknown-property", source: "builtin-react", severity: "warn" },
-  { key: "jsx-a11y/alt-text", source: "builtin-a11y", severity: "error" },
-  { key: "jsx-a11y/anchor-is-valid", source: "builtin-a11y", severity: "warn" },
-  { key: "jsx-a11y/click-events-have-key-events", source: "builtin-a11y", severity: "warn" },
-  { key: "jsx-a11y/no-static-element-interactions", source: "builtin-a11y", severity: "warn" },
-  { key: "jsx-a11y/role-has-required-aria-props", source: "builtin-a11y", severity: "error" },
-  { key: "jsx-a11y/no-autofocus", source: "builtin-a11y", severity: "warn" },
-  { key: "jsx-a11y/heading-has-content", source: "builtin-a11y", severity: "warn" },
-  { key: "jsx-a11y/html-has-lang", source: "builtin-a11y", severity: "warn" },
-  { key: "jsx-a11y/no-redundant-roles", source: "builtin-a11y", severity: "warn" },
-  { key: "jsx-a11y/scope", source: "builtin-a11y", severity: "warn" },
-  { key: "jsx-a11y/tabindex-no-positive", source: "builtin-a11y", severity: "warn" },
-  { key: "jsx-a11y/label-has-associated-control", source: "builtin-a11y", severity: "warn" },
-  { key: "jsx-a11y/no-distracting-elements", source: "builtin-a11y", severity: "error" },
-  { key: "jsx-a11y/iframe-has-title", source: "builtin-a11y", severity: "warn" },
 ] as const;
 
 export const RULES = [...REACT_DOCTOR_RULES, ...EXTERNAL_RULES] as const;
@@ -112,8 +69,11 @@ export const ALL_REACT_DOCTOR_RULE_KEYS: ReadonlySet<string> = new Set(
 );
 export const FRAMEWORK_SPECIFIC_RULE_KEYS = collectFrameworkSpecificRuleKeys();
 export const REACT_COMPILER_RULES = toRuleMap(collectExternalRulesBySource("react-compiler"));
-export const YOU_MIGHT_NOT_NEED_EFFECT_RULES = toRuleMap(
-  collectExternalRulesBySource("you-might-not-need-effect"),
-);
-export const BUILTIN_REACT_RULES = toRuleMap(collectExternalRulesBySource("builtin-react"));
-export const BUILTIN_A11Y_RULES = toRuleMap(collectExternalRulesBySource("builtin-a11y"));
+// Empty maps preserved for back-compat with consumers that still
+// import these symbols. The 8 rules formerly in
+// YOU_MIGHT_NOT_NEED_EFFECT_RULES, the 12 rules in BUILTIN_REACT_RULES,
+// and the 14 rules in BUILTIN_A11Y_RULES are all now native
+// `react-doctor/*` rules served via REACT_DOCTOR_RULES.
+export const YOU_MIGHT_NOT_NEED_EFFECT_RULES: Record<string, OxlintRuleSeverity> = {};
+export const BUILTIN_REACT_RULES: Record<string, OxlintRuleSeverity> = {};
+export const BUILTIN_A11Y_RULES: Record<string, OxlintRuleSeverity> = {};

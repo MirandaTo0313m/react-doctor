@@ -1,0 +1,120 @@
+import path from "node:path";
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
+import { isAstNode } from "../../utils/is-ast-node.js";
+import type { Rule } from "../../utils/rule.js";
+
+const JSX_NOT_ALLOWED = (extension: string, allowedList: string): string =>
+  `JSX is not allowed in \`${extension}\` files — rename to one of: ${allowedList}.`;
+const EXTENSION_ONLY_FOR_JSX = (extension: string): string =>
+  `\`${extension}\` files are reserved for JSX content — this file contains none.`;
+
+interface JsxFilenameExtensionSettings {
+  extensions?: ReadonlyArray<string>;
+  allow?: "always" | "as-needed";
+  ignoreFilesWithoutCode?: boolean;
+}
+
+const resolveSettings = (
+  settings: Readonly<Record<string, unknown>> | undefined,
+): Required<JsxFilenameExtensionSettings> => {
+  const reactDoctor = settings?.["react-doctor"];
+  const ruleSettings =
+    typeof reactDoctor === "object" && reactDoctor !== null
+      ? ((reactDoctor as { jsxFilenameExtension?: JsxFilenameExtensionSettings })
+          .jsxFilenameExtension ?? {})
+      : {};
+  return {
+    extensions: ruleSettings.extensions ?? ["jsx", "tsx"],
+    allow: ruleSettings.allow ?? "always",
+    ignoreFilesWithoutCode: ruleSettings.ignoreFilesWithoutCode ?? false,
+  };
+};
+
+const normalizeExtensions = (raw: ReadonlyArray<string>): Set<string> => {
+  const set = new Set<string>();
+  for (const item of raw) set.add(item.startsWith(".") ? item.slice(1) : item);
+  return set;
+};
+
+const containsJsx = (root: EsTreeNode): boolean => {
+  let found = false;
+  const visit = (node: EsTreeNode): void => {
+    if (found) return;
+    if (node.type === "JSXElement" || node.type === "JSXFragment") {
+      found = true;
+      return;
+    }
+    const nodeRecord = node as unknown as Record<string, unknown>;
+    for (const key of Object.keys(nodeRecord)) {
+      if (key === "parent") continue;
+      const child = nodeRecord[key];
+      if (Array.isArray(child)) {
+        for (const item of child) {
+          if (isAstNode(item)) visit(item);
+          if (found) return;
+        }
+      } else if (isAstNode(child)) {
+        visit(child);
+      }
+      if (found) return;
+    }
+  };
+  visit(root);
+  return found;
+};
+
+// Port of `oxc_linter::rules::react::jsx_filename_extension`. Reports
+//   - JSX in a file whose extension isn't in the allowed set (default
+//     `jsx`, `tsx`),
+//   - in `as-needed` mode, allowed-extension files that contain NO
+//     JSX content (the file claims to be JSX but isn't).
+export const jsxFilenameExtension = defineRule<Rule>({
+  id: "jsx-filename-extension",
+  severity: "warn",
+  recommendation:
+    "Use `.jsx` / `.tsx` (or your project's chosen extension) for files containing JSX.",
+  category: "Architecture",
+  create: (context) => {
+    const settings = resolveSettings(context.settings);
+    const allowedExtensions = normalizeExtensions(settings.extensions);
+    const allowedList = [...allowedExtensions].map((extension) => `.${extension}`).join(", ");
+    const filename = context.getFilename ? context.getFilename() : "fixture.tsx";
+    const extensionOnly = path.extname(filename).slice(1);
+    const fileHasAllowedExtension = allowedExtensions.has(extensionOnly);
+    let didReportMismatch = false;
+
+    return {
+      Program(node: EsTreeNodeOfType<"Program">) {
+        if (settings.allow !== "as-needed") return;
+        if (!fileHasAllowedExtension) return;
+        // ignoreFilesWithoutCode skips empty files; our heuristic
+        // checks for any non-comment statement in the body.
+        const hasAnyStatements = Array.isArray(node.body) && node.body.length > 0;
+        if (settings.ignoreFilesWithoutCode && !hasAnyStatements) return;
+        if (containsJsx(node as EsTreeNode)) return;
+        context.report({
+          node,
+          message: EXTENSION_ONLY_FOR_JSX(`.${extensionOnly}`),
+        });
+      },
+      JSXElement(node: EsTreeNodeOfType<"JSXElement">) {
+        if (didReportMismatch || fileHasAllowedExtension) return;
+        didReportMismatch = true;
+        context.report({
+          node,
+          message: JSX_NOT_ALLOWED(`.${extensionOnly}`, allowedList),
+        });
+      },
+      JSXFragment(node: EsTreeNodeOfType<"JSXFragment">) {
+        if (didReportMismatch || fileHasAllowedExtension) return;
+        didReportMismatch = true;
+        context.report({
+          node,
+          message: JSX_NOT_ALLOWED(`.${extensionOnly}`, allowedList),
+        });
+      },
+    };
+  },
+});

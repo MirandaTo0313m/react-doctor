@@ -69,18 +69,13 @@
     "@react-doctor/project-info": "workspace:*",
     "@react-doctor/types": "workspace:*",
     "@types/prompts": "^2.4.9",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-you-might-not-need-an-effect": "^0.10.1"
+    "eslint-plugin-react-hooks": "^7.1.1"
   },
   "peerDependencies": {
-    "eslint-plugin-react-hooks": "^6 || ^7",
-    "eslint-plugin-react-you-might-not-need-an-effect": "^0.10"
+    "eslint-plugin-react-hooks": "^6 || ^7"
   },
   "peerDependenciesMeta": {
     "eslint-plugin-react-hooks": {
-      "optional": true
-    },
-    "eslint-plugin-react-you-might-not-need-an-effect": {
       "optional": true
     }
   },

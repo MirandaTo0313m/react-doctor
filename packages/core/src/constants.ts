@@ -35,12 +35,14 @@ export const FETCH_TIMEOUT_MS = 10_000;
 export const SPAWN_ARGS_MAX_LENGTH_CHARS = 24_000;
 
 // HACK: bound per-batch work so that JS-evaluated plugins with bad
-// scaling (notably `eslint-plugin-react-you-might-not-need-an-effect`
-// — verified to hit the 5-min spawn timeout on supabase/studio's ~3500
-// source files at batch=500, productive at batch=100) stay tractable
-// AND so that oxlint doesn't SIGABRT from memory pressure on very
-// large file sets. Smaller batches add ~50ms spawn overhead per
-// extra batch — negligible vs the hard-cap perf cliffs they prevent.
+// scaling (originally the upstream `effect` plugin — verified to hit
+// the 5-min spawn timeout on supabase/studio's ~3500 source files at
+// batch=500, productive at batch=100; same characteristics apply to
+// the ported `react-doctor/no-derived-state` family because both rely
+// on whole-component scope walking) stay tractable AND so that oxlint
+// doesn't SIGABRT from memory pressure on very large file sets.
+// Smaller batches add ~50ms spawn overhead per extra batch — negligible
+// vs the hard-cap perf cliffs they prevent.
 export const OXLINT_MAX_FILES_PER_BATCH = 100;
 
 export const DEFAULT_BRANCH_CANDIDATES = ["main", "master"];

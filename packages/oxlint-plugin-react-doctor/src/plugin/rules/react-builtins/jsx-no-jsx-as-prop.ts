@@ -1,0 +1,74 @@
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
+import { findVariableInitializer } from "../../utils/find-variable-initializer.js";
+import { isInsideFunctionScope } from "../../utils/is-inside-function-scope.js";
+import { isNodeOfType } from "../../utils/is-node-of-type.js";
+import { stripParenExpression } from "../../utils/strip-paren-expression.js";
+import type { Rule } from "../../utils/rule.js";
+
+const MESSAGE =
+  "JSX prop receives JSX created on every render — extract it or memoize to avoid re-renders.";
+
+const isJsxProducingExpression = (expression: EsTreeNode): boolean => {
+  const stripped = stripParenExpression(expression);
+  if (isNodeOfType(stripped, "JSXElement") || isNodeOfType(stripped, "JSXFragment")) return true;
+  if (isNodeOfType(stripped, "LogicalExpression")) {
+    return isJsxProducingExpression(stripped.left) || isJsxProducingExpression(stripped.right);
+  }
+  if (isNodeOfType(stripped, "ConditionalExpression")) {
+    return (
+      isJsxProducingExpression(stripped.consequent) || isJsxProducingExpression(stripped.alternate)
+    );
+  }
+  return false;
+};
+
+const followsRenderLocalJsxBinding = (
+  expression: EsTreeNode,
+  jsxAttribute: EsTreeNode,
+): boolean => {
+  const stripped = stripParenExpression(expression);
+  if (!isNodeOfType(stripped, "Identifier")) return false;
+  const binding = findVariableInitializer(stripped, stripped.name);
+  if (!binding || !binding.initializer) return false;
+  let walker: EsTreeNode | null = jsxAttribute;
+  while (walker) {
+    if (walker === binding.scopeOwner) {
+      if (binding.scopeOwner.type === "Program") return false;
+      break;
+    }
+    walker = walker.parent ?? null;
+  }
+  return isJsxProducingExpression(binding.initializer);
+};
+
+// Port of `oxc_linter::rules::react_perf::jsx_no_jsx_as_prop`. Same shape
+// as the other react_perf ports; flags `<C jsx={<X />} />` /
+// `<C jsx={a || <X />} />` / `<C jsx={a ? a : <X />} />` inside any
+// function scope. LIMITATION: scope-analysis cases (a JSX element bound
+// to a local variable inside a render function) require scope info we
+// don't track — those tests are not ported.
+export const jsxNoJsxAsProp = defineRule<Rule>({
+  id: "jsx-no-jsx-as-prop",
+  severity: "warn",
+  recommendation: "Hoist the inner JSX outside the render or memoize via `useMemo`.",
+  category: "Performance",
+  create: (context) => ({
+    JSXAttribute(node: EsTreeNodeOfType<"JSXAttribute">) {
+      if (!isInsideFunctionScope(node)) return;
+      const value = node.value;
+      if (!value || !isNodeOfType(value, "JSXExpressionContainer")) return;
+      const expression = value.expression;
+      if (!expression || expression.type === "JSXEmptyExpression") return;
+      const expressionNode = expression as EsTreeNode;
+      if (
+        !isJsxProducingExpression(expressionNode) &&
+        !followsRenderLocalJsxBinding(expressionNode, node)
+      ) {
+        return;
+      }
+      context.report({ node, message: MESSAGE });
+    },
+  }),
+});

@@ -30,7 +30,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.filter(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toHaveLength(0);
   });
@@ -56,7 +57,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.some(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toBe(true);
   });
@@ -81,7 +83,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.filter(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toHaveLength(0);
   });
@@ -108,7 +111,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.filter(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toHaveLength(0);
   });
@@ -136,7 +140,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.filter(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toHaveLength(0);
   });
@@ -163,7 +168,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.some(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toBe(true);
   });
@@ -189,7 +195,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.filter(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toHaveLength(0);
   });
@@ -215,7 +222,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.filter(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toHaveLength(0);
   });
@@ -242,7 +250,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.some(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toBe(true);
   });
@@ -269,7 +278,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.filter(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toHaveLength(0);
   });
@@ -297,7 +307,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.some(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toBe(true);
   });
@@ -323,7 +334,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.filter(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toHaveLength(0);
   });
@@ -352,7 +364,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.some(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toBe(true);
   });
@@ -381,7 +394,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.some(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toBe(true);
   });
@@ -411,7 +425,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.some(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toBe(true);
   });
@@ -438,7 +453,8 @@ describe("rules-of-hooks local use false positives", () => {
 
     expect(
       diagnostics.filter(
-        (diagnostic) => diagnostic.plugin === "react-hooks" && diagnostic.rule === "rules-of-hooks",
+        (diagnostic) =>
+          diagnostic.plugin === "react-doctor" && diagnostic.rule === "rules-of-hooks",
       ),
     ).toHaveLength(0);
   });

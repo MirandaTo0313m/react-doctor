@@ -3,18 +3,12 @@ import reactDoctorPlugin, {
   BUILTIN_A11Y_RULES,
   BUILTIN_REACT_RULES,
   REACT_COMPILER_RULES,
-  YOU_MIGHT_NOT_NEED_EFFECT_RULES,
 } from "oxlint-plugin-react-doctor";
 import type { OxlintRuleSeverity } from "oxlint-plugin-react-doctor";
 import type { ProjectInfo, RuleSeverityControls } from "@react-doctor/types";
 import { resolveRuleSeverityOverride } from "../../resolve-rule-severity-override.js";
 import { buildCapabilities, shouldEnableRule } from "./capabilities.js";
-import {
-  filterRulesToAvailable,
-  resolveReactHooksJsPlugin,
-  resolveYouMightNotNeedEffectPlugin,
-  YOU_MIGHT_NOT_NEED_EFFECT_NAMESPACE,
-} from "./plugin-resolution.js";
+import { filterRulesToAvailable, resolveReactHooksJsPlugin } from "./plugin-resolution.js";
 import type { JsPluginEntry } from "./plugin-resolution.js";
 
 export interface OxlintConfigOptions {
@@ -50,18 +44,8 @@ export const createOxlintConfig = ({
       )
     : {};
 
-  const youMightNotNeedEffectPlugin = resolveYouMightNotNeedEffectPlugin(customRulesOnly);
-  const youMightNotNeedEffectRules = youMightNotNeedEffectPlugin
-    ? filterRulesToAvailable(
-        YOU_MIGHT_NOT_NEED_EFFECT_RULES,
-        YOU_MIGHT_NOT_NEED_EFFECT_NAMESPACE,
-        youMightNotNeedEffectPlugin.availableRuleNames,
-      )
-    : {};
-
   const jsPlugins: JsPluginEntry[] = [];
   if (reactHooksJsPlugin) jsPlugins.push(reactHooksJsPlugin.entry);
-  if (youMightNotNeedEffectPlugin) jsPlugins.push(youMightNotNeedEffectPlugin.entry);
 
   const capabilities = buildCapabilities(project);
 
@@ -96,7 +80,12 @@ export const createOxlintConfig = ({
       style: "off",
       nursery: "off",
     },
-    plugins: customRulesOnly ? [] : ["react", "jsx-a11y"],
+    // We don't load any OXC built-in plugins anymore — every `react/*`
+    // and `jsx-a11y/*` rule has been ported into `react-doctor/*`. The
+    // empty `plugins:` array is intentional; rules come exclusively
+    // from our codegen-built registry plus configured npm-shipped
+    // plugins (react-hooks-js for the React Compiler frontend etc.).
+    plugins: [],
     jsPlugins: [...jsPlugins, pluginPath],
     settings: {
       "react-doctor": {
@@ -111,7 +100,6 @@ export const createOxlintConfig = ({
       ...(customRulesOnly ? {} : BUILTIN_REACT_RULES),
       ...(customRulesOnly ? {} : BUILTIN_A11Y_RULES),
       ...reactCompilerRules,
-      ...youMightNotNeedEffectRules,
       ...enabledReactDoctorRules,
     },
   };

@@ -1,0 +1,62 @@
+// Ported from `oxc_linter::globals::AriaProperty` constants — the full
+// list of `aria-*` attribute names supported by ARIA 1.2. Stored
+// lowercase, matched against the suffix after `aria-` lower-cased.
+export const ARIA_PROPERTY_NAMES: ReadonlySet<string> = new Set([
+  "activedescendant",
+  "atomic",
+  "autocomplete",
+  "braillelabel",
+  "brailleroledescription",
+  "busy",
+  "checked",
+  "colcount",
+  "colindex",
+  "colspan",
+  "controls",
+  "current",
+  "describedby",
+  "description",
+  "details",
+  "disabled",
+  "dropeffect",
+  "errormessage",
+  "expanded",
+  "flowto",
+  "grabbed",
+  "haspopup",
+  "hidden",
+  "invalid",
+  "keyshortcuts",
+  "label",
+  "labelledby",
+  "level",
+  "live",
+  "modal",
+  "multiline",
+  "multiselectable",
+  "orientation",
+  "owns",
+  "placeholder",
+  "posinset",
+  "pressed",
+  "readonly",
+  "relevant",
+  "required",
+  "roledescription",
+  "rowcount",
+  "rowindex",
+  "rowspan",
+  "selected",
+  "setsize",
+  "sort",
+  "valuemax",
+  "valuemin",
+  "valuenow",
+  "valuetext",
+]);
+
+export const isValidAriaProperty = (name: string): boolean => {
+  if (!name.startsWith("aria-")) return false;
+  const suffix = name.slice(5).toLowerCase();
+  return ARIA_PROPERTY_NAMES.has(suffix);
+};

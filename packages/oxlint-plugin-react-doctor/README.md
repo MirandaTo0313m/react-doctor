@@ -5,7 +5,18 @@
 
 [oxlint](https://oxc.rs/docs/guide/usage/linter) plugin for [React Doctor](https://react.doctor). Diagnoses React codebases for security, performance, correctness, accessibility, bundle-size, and architecture issues.
 
-This package owns the rule implementations (178 rules across architecture, performance, correctness, security, accessibility, bundle-size, and framework-specific buckets). [`eslint-plugin-react-doctor`](https://npmjs.com/package/eslint-plugin-react-doctor) wraps these same rules for ESLint, and the full diagnostic CLI lives in [`react-doctor`](https://npmjs.com/package/react-doctor).
+This package owns the rule implementations (287 rules across architecture, performance, correctness, security, accessibility, bundle-size, framework-specific, `react-builtins`, and `a11y` buckets). [`eslint-plugin-react-doctor`](https://npmjs.com/package/eslint-plugin-react-doctor) wraps these same rules for ESLint, and the full diagnostic CLI lives in [`react-doctor`](https://npmjs.com/package/react-doctor).
+
+### Ported OXC react + jsx-a11y rules
+
+The `react-builtins/` and `a11y/` buckets contain 100 rules ported from
+[`oxc-project/oxc`](https://github.com/oxc-project/oxc)'s
+`crates/oxc_linter/src/rules/{react,react_perf,jsx_a11y}/`. They cover
+every rule React Doctor previously consumed via oxlint's built-in
+`react/*` and `jsx-a11y/*` plugins (now sourced natively as
+`react-doctor/*`), including `react/rules-of-hooks` and
+`react/exhaustive-deps`, which run on top of a TS port of OXC's scope
+analysis + control-flow-graph layer.
 
 ## Install
 
@@ -55,6 +66,23 @@ Each rule can be set to `"error"`, `"warn"`, or `"off"`:
   },
 }
 ```
+
+## "You Might Not Need an Effect" rule family
+
+Eight rules ported 1:1 from [`eslint-plugin-react-you-might-not-need-an-effect`](https://github.com/NickvanDyke/eslint-plugin-react-you-might-not-need-an-effect) (MIT, NickvanDyke) ship natively in this package — same rule IDs, same diagnostic messages, same semantics (147 of 148 upstream test cases pass; the remaining one is upstream's own `todo: true`). Attribution and known divergences live in [`SOURCE.md`](https://github.com/millionco/react-doctor/blob/main/packages/oxlint-plugin-react-doctor/src/plugin/rules/state-and-effects/effect/SOURCE.md).
+
+| Rule                                             | What it catches                                                               |
+| ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `react-doctor/no-derived-state`                  | Storing derived state via `useEffect` instead of computing during render      |
+| `react-doctor/no-chain-state-updates`            | Chaining state updates across effects                                         |
+| `react-doctor/no-event-handler`                  | Using state + a guarded effect as an event handler                            |
+| `react-doctor/no-adjust-state-on-prop-change`    | Adjusting state in an effect when a prop changes                              |
+| `react-doctor/no-reset-all-state-on-prop-change` | Resetting all state in an effect (use a `key` prop instead)                   |
+| `react-doctor/no-pass-live-state-to-parent`      | Pushing live state to a parent via a callback in an effect                    |
+| `react-doctor/no-pass-data-to-parent`            | Passing fetched data to a parent via a callback in an effect                  |
+| `react-doctor/no-initialize-state`               | Initializing state inside a mount-only effect (pass it to `useState` instead) |
+
+If you previously enabled them as `effect/*` via the optional peer dep, drop the peer dep — they're enabled by default through React Doctor's CLI config now.
 
 ## Want the CLI too?
 

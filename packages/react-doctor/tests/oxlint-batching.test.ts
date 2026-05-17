@@ -3,8 +3,9 @@ import { OXLINT_MAX_FILES_PER_BATCH, batchIncludePaths } from "@react-doctor/cor
 
 describe("OXLINT_MAX_FILES_PER_BATCH (perf cliff guard)", () => {
   // HACK: empirically verified that the upstream `effect` plugin
-  // (`eslint-plugin-react-you-might-not-need-an-effect`) hits the
-  // 5-min oxlint spawn timeout at batch=500 on supabase/studio's
+  // (`eslint-plugin-react-you-might-not-need-an-effect`, the source of
+  // the now-natively-ported `react-doctor/no-derived-state` family)
+  // hits the 5-min oxlint spawn timeout at batch=500 on supabase/studio's
   // ~3500 source files (returns 0 diagnostics, marks lint as skipped),
   // but completes in ~30s with batch=100. If a future bump pushes this
   // back above ~250, large-monorepo scans regress to silent timeout.

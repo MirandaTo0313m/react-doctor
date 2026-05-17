@@ -1,0 +1,65 @@
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+import {
+  getArgsUpstreamRefs,
+  getCallExpr,
+  getUpstreamRefs,
+  isSynchronous,
+} from "./utils/effect/ast.js";
+import { getProgramAnalysis } from "./utils/effect/get-program-analysis.js";
+import {
+  getEffectDepsRefs,
+  getEffectFn,
+  getEffectFnRefs,
+  hasCleanup,
+  isState,
+  isStateSetterCall,
+  isUseEffect,
+} from "./utils/effect/react.js";
+
+// 1:1 port of upstream
+// `src/rules/no-chain-state-updates.js`.
+
+export const noChainStateUpdates = defineRule<Rule>({
+  id: "no-chain-state-updates",
+  severity: "warn",
+  recommendation:
+    "Update all related state simultaneously inside the event handler that originally fires, instead of reacting to one state update in a useEffect that writes another state. See https://react.dev/learn/you-might-not-need-an-effect#chains-of-computations",
+  create: (context: RuleContext) => ({
+    CallExpression(node: EsTreeNodeOfType<"CallExpression">) {
+      if (!isUseEffect(node) || hasCleanup(node)) return;
+      const analysis = getProgramAnalysis(node);
+      if (!analysis) return;
+      const effectFnRefs = getEffectFnRefs(analysis, node);
+      const depsRefs = getEffectDepsRefs(analysis, node);
+      if (!effectFnRefs || !depsRefs) return;
+      const effectFn = getEffectFn(node);
+      if (!effectFn) return;
+
+      const isSomeDepsState = depsRefs
+        .flatMap((ref) => getUpstreamRefs(analysis, ref))
+        .some((ref) => isState(ref));
+      if (!isSomeDepsState) return;
+
+      for (const ref of effectFnRefs) {
+        if (!isStateSetterCall(analysis, ref)) continue;
+        if (!isSynchronous(ref.identifier as unknown as EsTreeNode, effectFn)) continue;
+        const callExpr = getCallExpr(ref);
+        if (!callExpr) continue;
+        // Avoid overlap with no-derived-state
+        const isSomeArgsState = getArgsUpstreamRefs(analysis, ref).some((argRef) =>
+          isState(argRef),
+        );
+        if (isSomeArgsState) continue;
+        context.report({
+          node: callExpr,
+          message:
+            "Avoid chaining state changes. When possible, update all relevant state simultaneously.",
+        });
+      }
+    },
+  }),
+});

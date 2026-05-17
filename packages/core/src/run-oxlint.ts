@@ -500,13 +500,14 @@ export const runOxlint = async (options: RunOxlintOptions): Promise<Diagnostic[]
     // HACK: when `includePaths` is undefined we used to pass `["."]` and
     // let oxlint walk the tree itself. That defeated batching entirely
     // — verified on supabase/studio (3567 source files) that JS-plugin
-    // rules (notably `eslint-plugin-react-you-might-not-need-an-effect`)
-    // hit the 5-min `OXLINT_SPAWN_TIMEOUT_MS` in a single batch, leaving
-    // `skippedChecks: ["lint"]` and zero diagnostics for the entire
-    // project. Materializing the file list ahead of time and feeding
-    // it through `batchIncludePaths` keeps each spawn under the timeout
-    // (~7-8s per 100-file batch on studio) and recovers the diagnostics
-    // we were silently dropping.
+    // rules (originally the upstream `effect` plugin; now the natively
+    // ported `react-doctor/no-derived-state` family with comparable
+    // scope-walking cost) hit the 5-min `OXLINT_SPAWN_TIMEOUT_MS` in a
+    // single batch, leaving `skippedChecks: ["lint"]` and zero
+    // diagnostics for the entire project. Materializing the file list
+    // ahead of time and feeding it through `batchIncludePaths` keeps
+    // each spawn under the timeout (~7-8s per 100-file batch on studio)
+    // and recovers the diagnostics we were silently dropping.
     const fileBatches = batchIncludePaths(
       baseArgs,
       includePaths !== undefined ? includePaths : listSourceFiles(rootDirectory),
@@ -535,8 +536,9 @@ export const runOxlint = async (options: RunOxlintOptions): Promise<Diagnostic[]
       // binary-split below: large batches that time out / OOM split in
       // half and retry; the only files that reach this set are the
       // genuinely-pathological ones (e.g. one file × one quadratic
-      // JS-plugin rule, like supabase/studio's `apps/studio/pages/...`
-      // bucket against `eslint-plugin-react-you-might-not-need-an-effect`).
+      // JS-plugin rule, originally hit on supabase/studio's
+      // `apps/studio/pages/...` bucket against the upstream `effect`
+      // plugin and now applicable to the native port).
       const droppedFiles: string[] = [];
 
       const spawnLintBatch = async (batch: string[]): Promise<Diagnostic[]> => {

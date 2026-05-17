@@ -43,6 +43,7 @@ const BUCKET_TO_AUTO_TAGS = {
 // with an explicit `category: "..."` field in its `defineRule({...})` call
 // (e.g. some `tanstack-start/` and `nextjs/` rules override to "Security").
 const BUCKET_TO_DEFAULT_CATEGORY = {
+  a11y: "Accessibility",
   architecture: "Architecture",
   "bundle-size": "Bundle Size",
   client: "Performance",
@@ -51,6 +52,7 @@ const BUCKET_TO_DEFAULT_CATEGORY = {
   "js-performance": "Performance",
   nextjs: "Next.js",
   performance: "Performance",
+  "react-builtins": "Correctness",
   "react-native": "React Native",
   "react-ui": "Accessibility",
   security: "Security",

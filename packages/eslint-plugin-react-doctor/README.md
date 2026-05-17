@@ -5,6 +5,11 @@
 
 ESLint plugin for [React Doctor](https://react.doctor). Diagnoses React codebases for security, performance, correctness, accessibility, bundle-size, and architecture issues.
 
+The set now includes 100 rules ported from
+[`oxc-project/oxc`](https://github.com/oxc-project/oxc)'s React +
+jsx-a11y linting plugins, exposed alongside React Doctor's own rules
+under the `react-doctor/*` namespace.
+
 This package owns the ESLint adapter for React Doctor's rule set. The underlying rules ship in [`oxlint-plugin-react-doctor`](https://npmjs.com/package/oxlint-plugin-react-doctor) (auto-installed as a transitive dependency). The full diagnostic CLI lives in [`react-doctor`](https://npmjs.com/package/react-doctor) and pulls in this same rule set; install whichever fits your workflow.
 
 ## Install
