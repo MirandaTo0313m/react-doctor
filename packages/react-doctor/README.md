@@ -70,9 +70,41 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-When `github-token` is set on `pull_request` events, findings are posted (and updated) as a PR comment. The action also exposes a `score` output (0–100) you can use in subsequent steps.
+When `github-token` is set on `pull_request` events, findings are posted (and updated) as a sticky PR comment. The action also exposes a `score` output (0–100) you can use in subsequent steps.
 
-**Inputs:** `directory`, `verbose`, `project`, `diff`, `github-token`, `fail-on` (`error` / `warning` / `none`), `offline`, `node-version`. See [`action.yml`](https://github.com/millionco/react-doctor/blob/main/action.yml) for full descriptions.
+**Inputs:** `directory`, `verbose`, `project`, `diff`, `github-token`, `fail-on` (`error` / `warning` / `none`), `offline`, `annotations`, `node-version`. See [`action.yml`](https://github.com/millionco/react-doctor/blob/main/action.yml) for full descriptions.
+
+#### PR feedback modes
+
+The action can surface findings on a PR in three ways. Pick whichever fits — they're independent and the workflow command output is always parsed by GitHub Actions regardless of where it appears.
+
+**Sticky comment only (default).** Set `github-token`, leave `annotations` unset. One updating comment lands on the PR with the full report and score:
+
+```yaml
+- uses: millionco/react-doctor@main
+  with:
+    diff: main
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+**Inline annotations only.** Set `annotations: true`, omit `github-token`. Each finding appears as a `::error` / `::warning` annotation pinned to its file and line in the PR's Files changed view, with no comment posted:
+
+```yaml
+- uses: millionco/react-doctor@main
+  with:
+    diff: main
+    annotations: true
+```
+
+**Both.** Enable both inputs to get inline annotations and a sticky summary comment on the same run. Annotation lines are stripped from the comment body so it stays readable:
+
+```yaml
+- uses: millionco/react-doctor@main
+  with:
+    diff: main
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    annotations: true
+```
 
 Prefer not to add a marketplace action? The bare `npx` form works too:
 
