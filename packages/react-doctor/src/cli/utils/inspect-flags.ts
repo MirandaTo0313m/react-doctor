@@ -20,4 +20,6 @@ export interface InspectFlags {
   explain?: string;
   why?: string;
   failOn?: string;
+  /** Maximum number of workspace projects to scan in parallel. */
+  concurrency?: string;
 }

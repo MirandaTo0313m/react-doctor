@@ -29,6 +29,7 @@ export * from "./jsx-include-paths.js";
 export * from "./load-config.js";
 export * from "./logger.js";
 export * from "./merge-and-filter-diagnostics.js";
+export * from "./merge-configs.js";
 export * from "./neutralize-disable-directives.js";
 export * from "./parse-gitattributes-linguist.js";
 export * from "./read-file-lines-node.js";

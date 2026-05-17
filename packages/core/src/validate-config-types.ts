@@ -1,17 +1,174 @@
-import type {
-  DiagnosticSurface,
-  ReactDoctorConfig,
-  RuleSeverityOverride,
-  SurfaceControls,
-} from "@react-doctor/types";
-import { DIAGNOSTIC_SURFACES, isDiagnosticSurface } from "./diagnostic-surface.js";
+import { z } from "zod";
+import type { DiagnosticSurface, ReactDoctorConfig } from "@react-doctor/types";
+import { DIAGNOSTIC_SURFACES } from "./diagnostic-surface.js";
 
-const VALID_RULE_SEVERITIES: ReadonlyArray<RuleSeverityOverride> = ["error", "warn", "off"];
+// HACK: write to stderr directly so the warning is visible even in
+// `--json` mode (where the logger is silenced to keep stdout a single
+// valid JSON document). Same pattern as `coerceDiffValue` in cli.ts.
+const warnConfigField = (message: string): void => {
+  process.stderr.write(`[react-doctor] ${message}\n`);
+};
 
-// Boolean fields where the user might write `"true"` / `"false"` strings
-// in JSON by mistake. We coerce-and-warn rather than silently accept the
-// string (which JS treats as truthy and bypasses the negation path).
-const BOOLEAN_FIELD_NAMES = [
+const formatType = (value: unknown): string => {
+  if (Array.isArray(value)) return "array";
+  if (typeof value === "string") return `"${value}"`;
+  if (value === null) return "null";
+  return typeof value;
+};
+
+/**
+ * Boolean fields where the user might write `"true"` / `"false"` strings
+ * in JSON by mistake. Coerce-and-warn rather than silently accept the
+ * string (which JS treats as truthy and bypasses the negation path).
+ * The warning fires from the preprocess so it sees the original string
+ * even after coercion.
+ */
+const stringyBooleanSchema = (fieldName: string) =>
+  z.preprocess((value) => {
+    if (value !== "true" && value !== "false") return value;
+    const coerced = value === "true";
+    warnConfigField(
+      `config field "${fieldName}" is the string "${value}"; treating as boolean ${coerced}.`,
+    );
+    return coerced;
+  }, z.boolean());
+
+const RULE_SEVERITY_VALUES = ["error", "warn", "off"] as const;
+const ruleSeveritySchema = z.enum(RULE_SEVERITY_VALUES);
+
+/**
+ * Drop-and-warn array transform: keeps every entry that passes
+ * `predicate`, logs `warnMessage(entry)` on every dropped entry, and
+ * returns the filtered array. Used by the per-field array validators
+ * so a single bad entry never invalidates the whole list.
+ */
+const filteringArrayTransform =
+  <Out>(predicate: (value: unknown) => value is Out, warnMessage: (value: unknown) => string) =>
+  (entries: ReadonlyArray<unknown>): Out[] => {
+    const collected: Out[] = [];
+    for (const entry of entries) {
+      if (predicate(entry)) {
+        collected.push(entry);
+        continue;
+      }
+      warnConfigField(warnMessage(entry));
+    }
+    return collected;
+  };
+
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === "string" && value.length > 0;
+
+const filteringStringArraySchema = (fieldName: string) =>
+  z.array(z.unknown()).transform(
+    filteringArrayTransform(
+      (entry): entry is string => typeof entry === "string",
+      (entry) =>
+        `config field "${fieldName}" contains a non-string entry (${formatType(entry)}); ignoring the entry.`,
+    ),
+  );
+
+/**
+ * Filtering record schema for the severity maps (`rules` / `categories`).
+ * Records preserve every key whose value is a valid `RuleSeverityOverride`;
+ * entries with invalid keys (empty string) or invalid values are dropped
+ * with a stderr warning that names the offending path.
+ */
+const severityMapSchema = (fieldName: string) =>
+  z.record(z.string(), z.unknown()).transform((rawMap) => {
+    const validated: Record<string, (typeof RULE_SEVERITY_VALUES)[number]> = {};
+    for (const [key, value] of Object.entries(rawMap)) {
+      if (key.length === 0) {
+        warnConfigField(`config field "${fieldName}" has an empty key; ignoring the entry.`);
+        continue;
+      }
+      const parsed = ruleSeveritySchema.safeParse(value);
+      if (!parsed.success) {
+        warnConfigField(
+          `config field "${fieldName}.${key}" must be one of: ${RULE_SEVERITY_VALUES.join(", ")} (got ${formatType(value)}); ignoring the entry.`,
+        );
+        continue;
+      }
+      validated[key] = parsed.data;
+    }
+    return validated;
+  });
+
+const SURFACE_CONTROL_FIELDS = [
+  "includeTags",
+  "excludeTags",
+  "includeCategories",
+  "excludeCategories",
+  "includeRules",
+  "excludeRules",
+] as const;
+
+/**
+ * Validates each surface control field independently and drops invalid
+ * siblings without invalidating the rest of the surface. Using a single
+ * `z.object({...})` here would fail the whole surface on one malformed
+ * field; this transform mirrors the per-field-safeParse pattern the
+ * old hand-rolled validator used.
+ */
+const surfaceControlsSchema = (surface: DiagnosticSurface) =>
+  z.record(z.string(), z.unknown()).transform((rawControls) => {
+    const validated: Record<string, string[]> = {};
+    for (const controlField of SURFACE_CONTROL_FIELDS) {
+      const rawValue = rawControls[controlField];
+      if (rawValue === undefined) continue;
+      const fieldSchema = filteringStringArraySchema(`surfaces.${surface}.${controlField}`);
+      const parsed = fieldSchema.safeParse(rawValue);
+      if (parsed.success) {
+        validated[controlField] = parsed.data;
+        continue;
+      }
+      warnConfigField(
+        `config field "surfaces.${surface}.${controlField}" must be an array of strings (got ${formatType(rawValue)}); ignoring this field.`,
+      );
+    }
+    return validated;
+  });
+
+const KNOWN_DIAGNOSTIC_SURFACES = new Set<string>(DIAGNOSTIC_SURFACES);
+
+const surfacesSchema = z.record(z.string(), z.unknown()).transform((rawSurfaces) => {
+  const validated: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(rawSurfaces)) {
+    if (!KNOWN_DIAGNOSTIC_SURFACES.has(key)) {
+      warnConfigField(
+        `config field "surfaces.${key}" is not a known surface (expected one of: ${DIAGNOSTIC_SURFACES.join(", ")}); ignoring.`,
+      );
+      continue;
+    }
+    const surfaceKey = key as DiagnosticSurface;
+    const parsed = surfaceControlsSchema(surfaceKey).safeParse(value);
+    if (!parsed.success) {
+      warnConfigField(
+        `config field "surfaces.${surfaceKey}" must be an object (got ${formatType(value)}); ignoring this surface.`,
+      );
+      continue;
+    }
+    validated[surfaceKey] = parsed.data;
+  }
+  return validated;
+});
+
+const extendsSchema = z.union([
+  z.string().min(1),
+  z
+    .array(z.unknown())
+    .transform(
+      filteringArrayTransform(isNonEmptyString, (entry) =>
+        typeof entry === "string"
+          ? `config field "extends" contains an empty string; ignoring the entry.`
+          : `config field "extends" contains a non-string entry (${formatType(entry)}); ignoring the entry.`,
+      ),
+    ),
+]);
+
+const concurrencySchema = z.number().int().min(1);
+
+const BOOLEAN_CONFIG_FIELDS = [
   "lint",
   "verbose",
   "customRulesOnly",
@@ -21,190 +178,61 @@ const BOOLEAN_FIELD_NAMES = [
   "offline",
 ] as const satisfies ReadonlyArray<keyof ReactDoctorConfig>;
 
-const STRING_FIELD_NAMES = ["rootDir"] as const satisfies ReadonlyArray<keyof ReactDoctorConfig>;
+interface FieldDescriptor {
+  expectedDescription: string;
+  schema: z.ZodType;
+}
 
-const SURFACE_CONTROL_FIELD_NAMES = [
-  "includeTags",
-  "excludeTags",
-  "includeCategories",
-  "excludeCategories",
-  "includeRules",
-  "excludeRules",
-] as const satisfies ReadonlyArray<keyof SurfaceControls>;
-
-const SEVERITY_FIELD_NAMES = ["rules", "categories"] as const satisfies ReadonlyArray<
-  keyof ReactDoctorConfig
->;
-
-// HACK: write to stderr directly so the warning is visible even in
-// `--json` mode (where the logger is silenced to keep stdout a single
-// valid JSON document). Same pattern as `coerceDiffValue` in cli.ts.
-const warnConfigField = (message: string): void => {
-  process.stderr.write(`[react-doctor] ${message}\n`);
-};
-
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const formatType = (value: unknown): string =>
-  typeof value === "string" ? `"${value}"` : typeof value;
-
-const isRuleSeverity = (value: unknown): value is RuleSeverityOverride =>
-  typeof value === "string" && (VALID_RULE_SEVERITIES as ReadonlyArray<string>).includes(value);
-
-const coerceMaybeBooleanString = (fieldName: string, value: unknown): boolean | undefined => {
-  if (typeof value === "boolean") return value;
-  if (value === "true" || value === "false") {
-    const coerced = value === "true";
-    warnConfigField(
-      `config field "${fieldName}" is the string "${value}"; treating as boolean ${coerced}.`,
-    );
-    return coerced;
-  }
-  warnConfigField(
-    `config field "${fieldName}" must be a boolean (got ${typeof value}); ignoring this field.`,
+const buildBooleanDescriptors = (): Record<string, FieldDescriptor> =>
+  Object.fromEntries(
+    BOOLEAN_CONFIG_FIELDS.map((fieldName) => [
+      fieldName,
+      { expectedDescription: "a boolean", schema: stringyBooleanSchema(fieldName) },
+    ]),
   );
-  return undefined;
-};
 
-const validateString = (fieldName: string, value: unknown): string | undefined => {
-  if (typeof value === "string") return value;
-  warnConfigField(
-    `config field "${fieldName}" must be a string (got ${typeof value}); ignoring this field.`,
-  );
-  return undefined;
-};
+/**
+ * Per-field schema map. Fields are checked in iteration order; missing
+ * entries fall through unchanged - consumers still do their own runtime
+ * checks for those.
+ */
+const fieldDescriptors = {
+  ...buildBooleanDescriptors(),
+  rootDir: { expectedDescription: "a string", schema: z.string() },
+  barrelAllowlist: {
+    expectedDescription: "an array of strings",
+    schema: filteringStringArraySchema("barrelAllowlist"),
+  },
+  surfaces: { expectedDescription: "an object", schema: surfacesSchema },
+  rules: { expectedDescription: "an object", schema: severityMapSchema("rules") },
+  categories: { expectedDescription: "an object", schema: severityMapSchema("categories") },
+  extends: {
+    expectedDescription: "a non-empty string or array of strings",
+    schema: extendsSchema,
+  },
+  concurrency: { expectedDescription: "a positive integer", schema: concurrencySchema },
+} satisfies Record<string, FieldDescriptor>;
 
-const validateStringArrayField = (fieldName: string, value: unknown): string[] | undefined => {
-  if (!Array.isArray(value)) {
-    warnConfigField(
-      `config field "${fieldName}" must be an array of strings (got ${typeof value}); ignoring this field.`,
-    );
-    return undefined;
-  }
-  return value.filter((entry): entry is string => {
-    if (typeof entry === "string") return true;
-    warnConfigField(
-      `config field "${fieldName}" contains a non-string entry (${typeof entry}); ignoring the entry.`,
-    );
-    return false;
-  });
-};
-
-const validateSurfaceControls = (
-  surface: DiagnosticSurface,
-  rawControls: unknown,
-): SurfaceControls | undefined => {
-  if (!isPlainObject(rawControls)) {
-    warnConfigField(
-      `config field "surfaces.${surface}" must be an object (got ${typeof rawControls}); ignoring this surface.`,
-    );
-    return undefined;
-  }
-  const validated: SurfaceControls = {};
-  for (const fieldName of SURFACE_CONTROL_FIELD_NAMES) {
-    if (rawControls[fieldName] === undefined) continue;
-    const result = validateStringArrayField(
-      `surfaces.${surface}.${fieldName}`,
-      rawControls[fieldName],
-    );
-    if (result !== undefined) validated[fieldName] = result;
-  }
-  return validated;
-};
-
-const validateSurfacesField = (
-  rawSurfaces: unknown,
-): Partial<Record<DiagnosticSurface, SurfaceControls>> | undefined => {
-  if (!isPlainObject(rawSurfaces)) {
-    warnConfigField(
-      `config field "surfaces" must be an object (got ${typeof rawSurfaces}); ignoring this field.`,
-    );
-    return undefined;
-  }
-  const validated: Partial<Record<DiagnosticSurface, SurfaceControls>> = {};
-  for (const [key, value] of Object.entries(rawSurfaces)) {
-    if (!isDiagnosticSurface(key)) {
-      warnConfigField(
-        `config field "surfaces.${key}" is not a known surface (expected one of: ${DIAGNOSTIC_SURFACES.join(", ")}); ignoring.`,
-      );
-      continue;
-    }
-    const controls = validateSurfaceControls(key, value);
-    if (controls !== undefined) validated[key] = controls;
-  }
-  return validated;
-};
-
-// Validates one of the three top-level severity maps (`rules` /
-// `categories` / `tags`) — ESLint / oxlint-shaped severity surface.
-// Returns the validated map, dropping invalid entries with a warning.
-const validateSeverityMap = (
-  fieldName: string,
-  rawMap: unknown,
-): Record<string, RuleSeverityOverride> | undefined => {
-  if (!isPlainObject(rawMap)) {
-    warnConfigField(
-      `config field "${fieldName}" must be an object (got ${typeof rawMap}); ignoring this field.`,
-    );
-    return undefined;
-  }
-  const validated: Record<string, RuleSeverityOverride> = {};
-  for (const [key, value] of Object.entries(rawMap)) {
-    if (key.length === 0) {
-      warnConfigField(`config field "${fieldName}" has an empty key; ignoring the entry.`);
-      continue;
-    }
-    if (!isRuleSeverity(value)) {
-      warnConfigField(
-        `config field "${fieldName}.${key}" must be one of: ${VALID_RULE_SEVERITIES.join(", ")} (got ${formatType(value)}); ignoring the entry.`,
-      );
-      continue;
-    }
-    validated[key] = value;
-  }
-  return validated;
-};
-
-// Applies a validator to one config field: undefined skips, an `undefined`
-// return strips the field, anything else replaces it. Keeps the main
-// loop free of the repeating "if (raw === undefined) continue; result =
-// validator(...); if (result === undefined) delete; else assign" dance.
-const applyFieldValidator = <Key extends keyof ReactDoctorConfig>(
-  config: ReactDoctorConfig,
-  validated: ReactDoctorConfig,
-  fieldName: Key,
-  validator: (value: unknown) => ReactDoctorConfig[Key] | undefined,
-): void => {
-  const raw = (config as Record<string, unknown>)[fieldName];
-  if (raw === undefined) return;
-  const result = validator(raw);
-  if (result === undefined) {
-    delete (validated as Record<string, unknown>)[fieldName];
-  } else {
-    (validated as Record<string, unknown>)[fieldName] = result;
-  }
-};
-
-// Returns a config with boolean fields coerced from common JSON-typing
-// mistakes (string "true"/"false") and other invalid types stripped.
-// Non-validated fields pass through untouched — consumers still do their
-// own runtime checks for those.
+/**
+ * Returns a config with boolean fields coerced from common JSON-typing
+ * mistakes (string "true"/"false") and other invalid types stripped.
+ * Non-validated fields pass through untouched - consumers still do their
+ * own runtime checks for those.
+ */
 export const validateConfigTypes = (config: ReactDoctorConfig): ReactDoctorConfig => {
   const validated: ReactDoctorConfig = { ...config };
-  for (const fieldName of BOOLEAN_FIELD_NAMES) {
-    applyFieldValidator(config, validated, fieldName, (value) =>
-      coerceMaybeBooleanString(fieldName, value),
+  for (const [fieldName, descriptor] of Object.entries(fieldDescriptors)) {
+    const raw = (config as Record<string, unknown>)[fieldName];
+    if (raw === undefined) continue;
+    const parsed = descriptor.schema.safeParse(raw);
+    if (parsed.success) {
+      (validated as Record<string, unknown>)[fieldName] = parsed.data;
+      continue;
+    }
+    warnConfigField(
+      `config field "${fieldName}" must be ${descriptor.expectedDescription} (got ${formatType(raw)}); ignoring this field.`,
     );
-  }
-  for (const fieldName of STRING_FIELD_NAMES) {
-    applyFieldValidator(config, validated, fieldName, (value) => validateString(fieldName, value));
-  }
-  applyFieldValidator(config, validated, "surfaces", validateSurfacesField);
-  for (const fieldName of SEVERITY_FIELD_NAMES) {
-    applyFieldValidator(config, validated, fieldName, (value) =>
-      validateSeverityMap(fieldName, value),
-    );
+    delete (validated as Record<string, unknown>)[fieldName];
   }
   return validated;
 };

@@ -25,6 +25,7 @@ export interface OxlintConfigOptions {
   ignoredTags?: ReadonlySet<string>;
   serverAuthFunctionNames?: ReadonlyArray<string>;
   severityControls?: RuleSeverityControls;
+  barrelAllowlist?: ReadonlyArray<string>;
 }
 
 const resolveSettingsRootDirectory = (rootDirectory: string): string => {
@@ -40,6 +41,7 @@ export const createOxlintConfig = ({
   ignoredTags = new Set<string>(),
   serverAuthFunctionNames,
   severityControls,
+  barrelAllowlist,
 }: OxlintConfigOptions) => {
   const reactHooksJsPlugin = resolveReactHooksJsPlugin(project.hasReactCompiler, customRulesOnly);
   const reactCompilerRules = reactHooksJsPlugin
@@ -104,6 +106,9 @@ export const createOxlintConfig = ({
         rootDirectory: resolveSettingsRootDirectory(project.rootDirectory),
         ...(serverAuthFunctionNames && serverAuthFunctionNames.length > 0
           ? { serverAuthFunctionNames: [...serverAuthFunctionNames] }
+          : {}),
+        ...(barrelAllowlist && barrelAllowlist.length > 0
+          ? { barrelAllowlist: [...barrelAllowlist] }
           : {}),
       },
     },

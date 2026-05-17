@@ -95,6 +95,26 @@ describe("validateConfigTypes", () => {
       expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("dashboard"));
     });
 
+    it("keeps valid sibling fields on a surface when one field is malformed", () => {
+      // Regression: a string passed where an array of strings is expected
+      // for `includeTags` must NOT take down the rest of the surface
+      // (the sibling `excludeRules` is well-formed and should survive).
+      const result = validateConfigTypes({
+        surfaces: {
+          prComment: {
+            includeTags: "design" as unknown as string[],
+            excludeRules: ["react-doctor/no-vague-button-label"],
+          },
+        },
+      });
+      expect(result.surfaces?.prComment).toEqual({
+        excludeRules: ["react-doctor/no-vague-button-label"],
+      });
+      expect(stderrSpy).toHaveBeenCalledWith(
+        expect.stringContaining("surfaces.prComment.includeTags"),
+      );
+    });
+
     it("strips non-string entries from include/exclude arrays", () => {
       const result = validateConfigTypes({
         surfaces: {
@@ -113,6 +133,25 @@ describe("validateConfigTypes", () => {
       });
       expect(result.surfaces).toBeUndefined();
       expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("surfaces"));
+    });
+  });
+
+  describe("extends", () => {
+    it("rejects an empty string with a warning that mentions non-empty strings", () => {
+      const result = validateConfigTypes({
+        extends: "" as unknown as string,
+      });
+      expect((result as Record<string, unknown>).extends).toBeUndefined();
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("non-empty string"));
+    });
+
+    it("filters empty strings out of the array form with an accurate per-entry warning", () => {
+      const result = validateConfigTypes({
+        extends: ["./real.json", "", 42] as unknown as string[],
+      });
+      expect(result.extends).toEqual(["./real.json"]);
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("empty string"));
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("non-string entry"));
     });
   });
 

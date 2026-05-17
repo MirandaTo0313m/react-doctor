@@ -39,6 +39,7 @@ const program = new Command()
     "--pr-comment",
     "tune CLI output for sticky PR comments (drops weak-signal rule families like `design` from the printed list and the fail-on gate; configure via config.surfaces)",
   )
+  .option("--concurrency <n>", "scan up to N workspace projects in parallel (default: 1)")
   .option(
     "--explain <file:line>",
     "diagnose why a rule fired or why a suppression didn't apply at a specific location",

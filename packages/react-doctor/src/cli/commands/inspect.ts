@@ -30,10 +30,12 @@ import {
 import { printAnnotations } from "../utils/print-annotations.js";
 import { printBrandedHeader } from "../utils/print-branded-header.js";
 import { resolveCliInspectOptions } from "../utils/resolve-cli-inspect-options.js";
+import { resolveConcurrency } from "../utils/resolve-concurrency.js";
 import { resolveDiffMode } from "../utils/resolve-diff-mode.js";
 import { resolveEffectiveDiff } from "../utils/resolve-effective-diff.js";
 import { resolveFailOnLevel } from "../utils/resolve-fail-on-level.js";
 import { runExplain } from "../utils/run-explain.js";
+import { runWithConcurrency } from "../utils/run-with-concurrency.js";
 import { selectProjects } from "../utils/select-projects.js";
 import { shouldFailForDiagnostics } from "../utils/should-fail-for-diagnostics.js";
 import { shouldSkipPrompts } from "../utils/should-skip-prompts.js";
@@ -203,48 +205,85 @@ export const inspectAction = async (directory: string, flags: InspectFlags): Pro
       logger.break();
     }
 
-    const allDiagnostics: Diagnostic[] = [];
-    const completedScans: Array<{ directory: string; result: InspectResult }> = [];
+    const concurrency = resolveConcurrency(flags.concurrency, userConfig);
+    if (concurrency > 1 && !isQuiet) {
+      logger.dim(`Scanning up to ${concurrency} projects in parallel`);
+      logger.break();
+    }
 
-    for (const projectDirectory of projectDirectories) {
-      let includePaths: string[] | undefined;
-      if (isDiffMode) {
-        const projectDiffInfo =
-          projectDirectory === resolvedDirectory
-            ? diffInfo
-            : getDiffInfo(projectDirectory, explicitBaseBranch);
-        if (projectDiffInfo) {
-          const changedSourceFiles = filterSourceFiles(projectDiffInfo.changedFiles);
-          if (changedSourceFiles.length === 0) {
-            if (!isQuiet) {
-              logger.dim(`No changed source files in ${projectDirectory}, skipping.`);
-              logger.break();
-            }
-            continue;
-          }
-          includePaths = changedSourceFiles;
-        } else if (!isQuiet) {
-          logger.dim(
-            `Cannot detect diff for ${projectDirectory} (not a git repository?) — scanning all files.`,
-          );
+    interface PlannedProjectScan {
+      directory: string;
+      includePaths: string[] | undefined;
+      skipReason: string | null;
+    }
+
+    const plannedScans: PlannedProjectScan[] = projectDirectories.map((projectDirectory) => {
+      if (!isDiffMode) {
+        return { directory: projectDirectory, includePaths: undefined, skipReason: null };
+      }
+      const projectDiffInfo =
+        projectDirectory === resolvedDirectory
+          ? diffInfo
+          : getDiffInfo(projectDirectory, explicitBaseBranch);
+      if (!projectDiffInfo) {
+        return { directory: projectDirectory, includePaths: undefined, skipReason: "no-diff-info" };
+      }
+      const changedSourceFiles = filterSourceFiles(projectDiffInfo.changedFiles);
+      if (changedSourceFiles.length === 0) {
+        return {
+          directory: projectDirectory,
+          includePaths: changedSourceFiles,
+          skipReason: "no-changed-files",
+        };
+      }
+      return {
+        directory: projectDirectory,
+        includePaths: changedSourceFiles,
+        skipReason: null,
+      };
+    });
+
+    for (const plannedScan of plannedScans) {
+      if (plannedScan.skipReason === "no-changed-files" && !isQuiet) {
+        logger.dim(`No changed source files in ${plannedScan.directory}, skipping.`);
+        logger.break();
+      } else if (plannedScan.skipReason === "no-diff-info" && !isQuiet) {
+        logger.dim(
+          `Cannot detect diff for ${plannedScan.directory} (not a git repository?) - scanning all files.`,
+        );
+        logger.break();
+      }
+    }
+
+    const runnableScans = plannedScans.filter(
+      (plannedScan) => plannedScan.skipReason !== "no-changed-files",
+    );
+
+    const scanOutputs = await runWithConcurrency(
+      runnableScans,
+      concurrency,
+      async (plannedScan) => {
+        if (!isQuiet && concurrency <= 1) {
+          logger.dim(`Scanning ${plannedScan.directory}...`);
           logger.break();
         }
-      }
+        const scanResult = await inspect(plannedScan.directory, {
+          ...scanOptions,
+          includePaths: plannedScan.includePaths,
+          configOverride: userConfig,
+        });
+        if (!isQuiet && concurrency <= 1) {
+          logger.break();
+        }
+        return { directory: plannedScan.directory, result: scanResult };
+      },
+    );
 
-      if (!isQuiet) {
-        logger.dim(`Scanning ${projectDirectory}...`);
-        logger.break();
-      }
-      const scanResult = await inspect(projectDirectory, {
-        ...scanOptions,
-        includePaths,
-        configOverride: userConfig,
-      });
-      allDiagnostics.push(...scanResult.diagnostics);
-      completedScans.push({ directory: projectDirectory, result: scanResult });
-      if (!isQuiet) {
-        logger.break();
-      }
+    const allDiagnostics: Diagnostic[] = [];
+    const completedScans: Array<{ directory: string; result: InspectResult }> = [];
+    for (const scanOutput of scanOutputs) {
+      allDiagnostics.push(...scanOutput.result.diagnostics);
+      completedScans.push(scanOutput);
     }
 
     if (isJsonMode) {

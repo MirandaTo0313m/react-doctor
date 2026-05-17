@@ -1,6 +1,11 @@
 import { defineRule } from "../../utils/define-rule.js";
 import { createRelativeImportSource } from "../../utils/create-relative-import-source.js";
+import {
+  getReactDoctorStringArraySetting,
+  getReactDoctorStringSetting,
+} from "../../utils/get-react-doctor-setting.js";
 import { isBarrelIndexModule } from "../../utils/is-barrel-index-module.js";
+import { matchesBarrelAllowlist } from "../../utils/matches-barrel-allowlist.js";
 import { resolveBarrelExportFilePath } from "../../utils/resolve-barrel-export-file-path.js";
 import { resolveRelativeImportPath } from "../../utils/resolve-relative-import-path.js";
 import type { Rule } from "../../utils/rule.js";
@@ -81,6 +86,20 @@ export const noBarrelImport = defineRule<Rule>({
 
         const resolvedImportPath = resolveRelativeImportPath(filename, source);
         if (resolvedImportPath && isBarrelIndexModule(resolvedImportPath)) {
+          const allowlistPatterns = getReactDoctorStringArraySetting(
+            context.settings,
+            "barrelAllowlist",
+          );
+          const settingsRootDirectory = getReactDoctorStringSetting(
+            context.settings,
+            "rootDirectory",
+          );
+          if (
+            allowlistPatterns.length > 0 &&
+            matchesBarrelAllowlist(resolvedImportPath, allowlistPatterns, settingsRootDirectory)
+          ) {
+            return;
+          }
           didReportForFile = true;
           context.report({
             node,

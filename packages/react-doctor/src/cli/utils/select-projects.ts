@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { WorkspacePackage } from "@react-doctor/types";
 import { discoverReactSubprojects, listWorkspacePackages } from "@react-doctor/project-info";
-import { highlighter, logger } from "@react-doctor/core";
+import { highlighter, isLoggerSilent, logger } from "@react-doctor/core";
 import { prompts } from "./prompts.js";
 
 export const selectProjects = async (
@@ -16,9 +16,11 @@ export const selectProjects = async (
 
   if (packages.length === 0) return [rootDirectory];
   if (packages.length === 1) {
-    logger.log(
-      `${highlighter.success("✔")} Select projects to scan ${highlighter.dim("›")} ${packages[0].name}`,
-    );
+    if (!isLoggerSilent()) {
+      logger.log(
+        `${highlighter.success("✔")} Select projects to scan ${highlighter.dim("›")} ${packages[0].name}`,
+      );
+    }
     return [packages[0].directory];
   }
 

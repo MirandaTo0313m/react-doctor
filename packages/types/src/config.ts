@@ -85,6 +85,28 @@ export interface SurfaceControls {
 }
 
 export interface ReactDoctorConfig {
+  /**
+   * One or more parent config files to inherit from. Paths are
+   * resolved relative to the config file that declares `extends`
+   * (NOT relative to the CWD). Each entry is loaded the same way the
+   * top-level config is - so a parent can itself extend further.
+   *
+   * Inheritance semantics (consistent with tsconfig / eslint `extends`):
+   *
+   * - Later entries override earlier entries on scalar conflicts.
+   * - The CURRENT config always wins over anything it extends.
+   * - Scalar fields (e.g. `lint`, `failOn`) replace.
+   * - Array fields (e.g. `ignore.files`, `surfaces.*.excludeTags`)
+   *   concatenate in declaration order, then deduplicate.
+   * - Nested objects merge field-by-field.
+   *
+   * Typical use: a monorepo keeps its shared "house" rules in
+   * `react-doctor.base.json` at the root, and each package's
+   * `react-doctor.config.json` extends it before adding package-local
+   * overrides (e.g. `customRulesOnly: true` in legacy packages still
+   * adopting react-doctor).
+   */
+  extends?: string | string[];
   ignore?: ReactDoctorIgnoreConfig;
   lint?: boolean;
   verbose?: boolean;
@@ -93,6 +115,37 @@ export interface ReactDoctorConfig {
   customRulesOnly?: boolean;
   share?: boolean;
   offline?: boolean;
+  /**
+   * Maximum number of workspace projects to scan in parallel when
+   * react-doctor is invoked against a monorepo. `1` runs every project
+   * serially - the historical default and the only safe value when
+   * each project might saturate CPU on its own (e.g. very large
+   * standalone Next.js apps). Override with the `--concurrency <n>`
+   * CLI flag.
+   */
+  concurrency?: number;
+  /**
+   * Per-glob allowlist for the `no-barrel-import` rule.
+   *
+   * Note: matches the resolved barrel index file path, not the
+   * importer's path - so a single entry exempts every importer of
+   * that barrel, where `ignore.overrides` would require listing
+   * every importer. Re-exports
+   * from index modules matching any pattern here are treated as
+   * intentional public APIs and the rule does NOT fire. Patterns are
+   * matched against the resolved on-disk path of the imported file
+   * relative to the package root.
+   *
+   * Use this when your project ships barrel files on purpose - for
+   * example a published component library's `src/index.ts`, or a
+   * shared `apps/web/src/components/ui/index.ts` whose ordering /
+   * grouping is part of the team contract.
+   *
+   * Globs accept `*`, `**`, and `?`. Case sensitivity follows the
+   * host filesystem - case-sensitive on POSIX (Linux) and
+   * case-insensitive on Windows and the default macOS volume formats.
+   */
+  barrelAllowlist?: string[];
   /**
    * Redirect react-doctor at a different project directory than the one
    * it was invoked against. Resolved relative to the location of the
