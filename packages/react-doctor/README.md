@@ -80,43 +80,18 @@ Prefer not to add a marketplace action? The bare `npx` form works too:
 
 ## PR blocking and exit codes
 
-Two completely separate things can block a PR. Decide which one (or both) you want before tuning anything else:
+Two independent gates can block a PR — pick one or both:
 
-| You're gating on                                | How it's gated                                                                                      | What it sees                                                                      |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| **Individual diagnostics** (a rule fired)       | `--fail-on error` / `--fail-on warning` exit code                                                   | Whatever React Doctor scanned (`--diff` narrows it; default is the whole project) |
-| **Absolute score** (baseline health < a number) | A follow-up step that compares the action's `score` output to a threshold and `exit 1`s if it's low | The full project (the score step always runs a full scan)                         |
+- **`--fail-on <level>`** exits non-zero on diagnostics: `error` (default, any error-severity rule fires), `warning` (any diagnostic fires), or `none` (never). Runs against the `ciFailure` surface, so the default `design`-tag exclusion still applies.
+- **Score floor** — a follow-up step that reads the action's `score` output and `exit 1`s when it's below your threshold.
 
-These are independent. `--fail-on` knows nothing about the score; the score check knows nothing about `--fail-on`. Use one, the other, both, or neither.
+Combine `--fail-on` with `--diff <base>` to scope the gate to the PR's changed files only — that's the built-in way to fail on **new** regressions without dragging in baseline backlog. There is no separate `--fail-on-new` flag.
 
-### What `--fail-on` actually gates on
-
-| Level             | Exits non-zero when…                                 | Common use                                                            |
-| ----------------- | ---------------------------------------------------- | --------------------------------------------------------------------- |
-| `error` (default) | Any error-severity diagnostic fires in scanned files | Block merge on rules React Doctor classifies as breaking              |
-| `warning`         | Any error- or warning-severity diagnostic fires      | Strictest mode — PRs must be diagnostic-clean before merging          |
-| `none`            | Never (always exit 0)                                | Advisory mode — combine with `github-token` for a comment-only signal |
-
-The gate runs against the `ciFailure` surface, not every diagnostic. By default the `design` tag is excluded from `ciFailure` (and from the score and the PR comment) so Tailwind cleanup hints can't block merges. Override per tag, category, or rule id under `surfaces.ciFailure` in `react-doctor.config.json` (see [Surface controls](#surface-controls-cli-pr-comments-score-ci-failure)).
-
-### What scope `--fail-on` sees: new regressions vs. baseline
-
-Combine `--fail-on` with `--diff` to control what gets gated:
-
-- **Full scan** (no `--diff`) → `--fail-on` blocks on **any** matching diagnostic anywhere in the repo, including pre-existing baseline issues. A new contributor inherits the full backlog and can't merge until everything is clean.
-- **`--diff <base>`** → React Doctor only scans files changed vs the base branch. `--fail-on` then only sees diagnostics on the PR's changed files, so the gate effectively becomes "fail on **new** regressions introduced by this PR." Existing baseline issues in untouched files don't gate the merge.
-
-This is the only built-in way to separate "fail on new regressions in this PR" from "fail because the baseline score is below a threshold." There is no `--fail-on-new` flag — `--diff` is how you scope the failure surface.
-
-### Annotations and PR comments are independent of the gate
-
-- **`--annotations`** emits `::error` / `::warning` lines so GitHub renders inline annotations on the PR's Files Changed tab. Annotations don't change the exit code — they're a visualization layer. Currently exposed through the bare `npx` form; the composite action does not pass it through automatically.
-- **`github-token`** (composite action only) posts a sticky PR comment with the report and the score. The comment uses the `prComment` surface (which also drops the `design` tag by default), so what's visible in the comment can legitimately differ from what's gated by `--fail-on` if you've tuned the surfaces separately.
-- The action also exposes a **`score`** output (`steps.<id>.outputs.score`), populated by an internal `--score` step. Read it in a separate workflow step if you want to gate on an absolute number.
+`--annotations` (bare `npx` only) and `github-token` (sticky PR comment) are visualization layers and never change the exit code.
 
 ### Examples
 
-#### Advisory mode — never blocks, always comments
+**Advisory mode** — never blocks, always comments:
 
 ```yaml
 - uses: millionco/react-doctor@main
@@ -125,9 +100,7 @@ This is the only built-in way to separate "fail on new regressions in this PR" f
     fail-on: none
 ```
 
-Posts the sticky PR comment so reviewers see the report, but no React Doctor finding can ever fail the job. Useful when adopting React Doctor in a mature codebase without immediately enforcing it.
-
-#### Regression-only mode — fail only when this PR introduces new diagnostics
+**Regression-only mode** — fail only on new diagnostics introduced by the PR:
 
 ```yaml
 - uses: actions/checkout@v5
@@ -140,9 +113,7 @@ Posts the sticky PR comment so reviewers see the report, but no React Doctor fin
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-`diff: main` restricts the scan to files changed vs `main`. `fail-on: warning` then only sees diagnostics on those changed files, so the merge is blocked when the PR adds a new warning or error — but pre-existing issues in untouched files are ignored. Recommended default when onboarding an existing repository: it stops new regressions without forcing a backlog cleanup first.
-
-#### Strict threshold mode — fail when the baseline score drops below a floor
+**Strict threshold mode** — fail when the baseline score drops below a floor:
 
 ```yaml
 - id: doctor
@@ -150,22 +121,17 @@ Posts the sticky PR comment so reviewers see the report, but no React Doctor fin
   with:
     fail-on: error
     github-token: ${{ secrets.GITHUB_TOKEN }}
-- name: Enforce score floor
-  env:
+- env:
     SCORE: ${{ steps.doctor.outputs.score }}
     FLOOR: "80"
   run: |
-    if [ -z "$SCORE" ]; then
-      echo "::warning::no score reported; skipping floor check"
-      exit 0
-    fi
-    if [ "$SCORE" -lt "$FLOOR" ]; then
+    if [ -n "$SCORE" ] && [ "$SCORE" -lt "$FLOOR" ]; then
       echo "::error::React Doctor score $SCORE is below floor $FLOOR"
       exit 1
     fi
 ```
 
-`fail-on: error` keeps the per-rule gate on. The follow-up step enforces an absolute score floor by reading the `score` output. Tune `FLOOR` to your codebase — and pin to a specific `react-doctor` version, because new rule releases can lower the score even when your code hasn't changed (see [Scoring](#scoring)).
+Pin a specific `react-doctor` version when using a score floor — new rule releases can lower the score even when your code hasn't changed (see [Scoring](#scoring)).
 
 ## Configuration
 
