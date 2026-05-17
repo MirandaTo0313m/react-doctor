@@ -59,12 +59,12 @@ const skipIndices = (
   entries: ReadonlyArray<number | UpstreamSkipEntry> | undefined,
 ): ReadonlySet<number> => {
   if (!entries) return new Set();
-  const out = new Set<number>();
+  const indices = new Set<number>();
   for (const entry of entries) {
-    if (typeof entry === "number") out.add(entry);
-    else out.add(entry.index);
+    if (typeof entry === "number") indices.add(entry);
+    else indices.add(entry.index);
   }
-  return out;
+  return indices;
 };
 
 // Drives the upstream `eslint-plugin-react-hooks` test fixtures through
