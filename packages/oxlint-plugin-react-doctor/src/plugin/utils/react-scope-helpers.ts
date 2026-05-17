@@ -1,12 +1,7 @@
 import type { EsTreeNode } from "./es-tree-node.js";
 import type { RuleContext } from "./rule-context.js";
 import type { ScopeReference } from "./scope-types.js";
-import {
-  getDownstreamRefs,
-  getRef,
-  getUpstreamRefs,
-  isEventualCallTo,
-} from "./scope-traversal.js";
+import { getDownstreamRefs, getRef, getUpstreamRefs, isEventualCallTo } from "./scope-traversal.js";
 
 export const isReactFunctionalComponent = (node: EsTreeNode): boolean => {
   const nodeRecord = node as unknown as Record<string, unknown>;

@@ -5,10 +5,7 @@ import { isNodeOfType } from "../../utils/is-node-of-type.js";
 import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 import { findJsxAttributeIgnoreCase } from "../../utils/find-jsx-attribute-ignore-case.js";
 import { getJsxElementName } from "../../utils/get-jsx-element-name.js";
-import {
-  getJsxAttributeStringValue,
-  hasAccessibleChild,
-} from "../../utils/jsx-a11y-helpers.js";
+import { getJsxAttributeStringValue, hasAccessibleChild } from "../../utils/jsx-a11y-helpers.js";
 
 const MISSING_ALT_PROP =
   "Missing `alt` attribute. Must have `alt` prop, either with meaningful text, or an empty string for decorative images.";
