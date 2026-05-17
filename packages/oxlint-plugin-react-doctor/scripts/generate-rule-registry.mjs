@@ -27,6 +27,18 @@ const BUCKET_TO_FRAMEWORK = {
   "tanstack-query": "tanstack-query",
 };
 
+// Bucket directory → behavioral tags merged onto every rule in that
+// bucket at registry-build time. Lets cross-cutting controls
+// (`severityOverrides.tags`, `surfaces.*.excludeTags`,
+// `config.ignore.tags`) target whole rule families without each rule
+// needing to repeat the tag in its `defineRule({...})` call. Rule-
+// authored tags layer on top (deduped at runtime), so a rule can both
+// inherit a bucket tag and carry its own.
+const BUCKET_TO_AUTO_TAGS = {
+  "react-native": ["react-native"],
+  server: ["server-action"],
+};
+
 // Bucket directory → default category. A rule MAY override its category
 // with an explicit `category: "..."` field in its `defineRule({...})` call
 // (e.g. some `tanstack-start/` and `nextjs/` rules override to "Security").
@@ -96,7 +108,16 @@ for (const bucket of fs.readdirSync(PLUGIN_RULES_ROOT, { withFileTypes: true }))
         .relative(path.dirname(REGISTRY_OUTPUT), filePath)
         .replaceAll(path.sep, "/")
         .replace(/\.ts$/, ".js");
-    ruleEntries.push({ ruleId, identifier, relativeImport, framework, category, severity });
+    const autoTags = BUCKET_TO_AUTO_TAGS[bucket.name] ?? [];
+    ruleEntries.push({
+      ruleId,
+      identifier,
+      relativeImport,
+      framework,
+      category,
+      severity,
+      autoTags,
+    });
   }
 }
 
@@ -118,6 +139,26 @@ const importLines = ruleEntries
 // has nothing to rewrite. Single-line entries would be reformatted when
 // they exceed the 100-char default width, and the registry-overwrite-on-
 // codegen contract would loop forever.
+const PRETTIER_WIDTH = 100;
+
+const formatAutoTagsLine = (entry) => {
+  if (entry.autoTags.length === 0) return "";
+  const autoTagLiteral = entry.autoTags.map((tag) => `"${tag}"`).join(", ");
+  // Merge bucket-derived auto-tags with rule-authored tags at runtime.
+  // Dedup so a rule that explicitly repeats the bucket tag doesn't end
+  // up with `["react-native", "react-native"]`.
+  const singleLine = `      tags: Array.from(new Set([${autoTagLiteral}, ...(${entry.identifier}.tags ?? [])])),`;
+  // Match prettier's behavior: collapsed when it fits, otherwise wrapped.
+  // Picking the same shape ahead of time keeps the regen-equals-formatted
+  // contract enforced by `gen:check` from looping.
+  if (singleLine.length <= PRETTIER_WIDTH) return `${singleLine}\n`;
+  return (
+    `      tags: Array.from(\n` +
+    `        new Set([${autoTagLiteral}, ...(${entry.identifier}.tags ?? [])]),\n` +
+    `      ),\n`
+  );
+};
+
 const ruleLines = ruleEntries
   .map(
     (entry) =>
@@ -132,6 +173,7 @@ const ruleLines = ruleEntries
       `      ...${entry.identifier},\n` +
       `      framework: "${entry.framework}",\n` +
       `      category: "${entry.category}",\n` +
+      formatAutoTagsLine(entry) +
       `    },\n` +
       `  },`,
   )
