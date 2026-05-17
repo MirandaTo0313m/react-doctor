@@ -190,6 +190,15 @@ import { rnPressableSharedValueMutation } from "./rules/react-native/rn-pressabl
 import { rnScrollviewDynamicPadding } from "./rules/react-native/rn-scrollview-dynamic-padding.js";
 import { rnStylePreferBoxShadow } from "./rules/react-native/rn-style-prefer-box-shadow.js";
 import { rulesOfHooks } from "./rules/correctness/rules-of-hooks.js";
+import { scopeExhaustiveDeps } from "./rules/state-and-effects/scope-exhaustive-deps.js";
+import { scopeNoAdjustStateOnPropChange } from "./rules/state-and-effects/scope-no-adjust-state-on-prop-change.js";
+import { scopeNoChainStateUpdates } from "./rules/state-and-effects/scope-no-chain-state-updates.js";
+import { scopeNoDerivedState } from "./rules/state-and-effects/scope-no-derived-state.js";
+import { scopeNoEventHandler } from "./rules/state-and-effects/scope-no-event-handler.js";
+import { scopeNoInitializeState } from "./rules/state-and-effects/scope-no-initialize-state.js";
+import { scopeNoPassDataToParent } from "./rules/state-and-effects/scope-no-pass-data-to-parent.js";
+import { scopeNoPassLiveStateToParent } from "./rules/state-and-effects/scope-no-pass-live-state-to-parent.js";
+import { scopeNoResetAllStateOnPropChange } from "./rules/state-and-effects/scope-no-reset-all-state-on-prop-change.js";
 import { serverAfterNonblocking } from "./rules/server/server-after-nonblocking.js";
 import { serverAuthActions } from "./rules/server/server-auth-actions.js";
 import { serverCacheWithObjectLiteral } from "./rules/server/server-cache-with-object-literal.js";
@@ -1124,6 +1133,51 @@ export const ruleRegistry: Record<string, Rule> = {
     ...rulesOfHooks,
     framework: "global",
     category: "Correctness",
+  },
+  "scope-exhaustive-deps": {
+    ...scopeExhaustiveDeps,
+    framework: "global",
+    category: "State & Effects",
+  },
+  "scope-no-adjust-state-on-prop-change": {
+    ...scopeNoAdjustStateOnPropChange,
+    framework: "global",
+    category: "State & Effects",
+  },
+  "scope-no-chain-state-updates": {
+    ...scopeNoChainStateUpdates,
+    framework: "global",
+    category: "State & Effects",
+  },
+  "scope-no-derived-state": {
+    ...scopeNoDerivedState,
+    framework: "global",
+    category: "State & Effects",
+  },
+  "scope-no-event-handler": {
+    ...scopeNoEventHandler,
+    framework: "global",
+    category: "State & Effects",
+  },
+  "scope-no-initialize-state": {
+    ...scopeNoInitializeState,
+    framework: "global",
+    category: "State & Effects",
+  },
+  "scope-no-pass-data-to-parent": {
+    ...scopeNoPassDataToParent,
+    framework: "global",
+    category: "State & Effects",
+  },
+  "scope-no-pass-live-state-to-parent": {
+    ...scopeNoPassLiveStateToParent,
+    framework: "global",
+    category: "State & Effects",
+  },
+  "scope-no-reset-all-state-on-prop-change": {
+    ...scopeNoResetAllStateOnPropChange,
+    framework: "global",
+    category: "State & Effects",
   },
   "server-after-nonblocking": {
     ...serverAfterNonblocking,
