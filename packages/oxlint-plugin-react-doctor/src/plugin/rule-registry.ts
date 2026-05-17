@@ -36,6 +36,9 @@ import { jsLengthCheckFirst } from "./rules/js-performance/js-length-check-first
 import { jsMinMaxLoop } from "./rules/js-performance/js-min-max-loop.js";
 import { jsSetMapLookups } from "./rules/js-performance/js-set-map-lookups.js";
 import { jsTosortedImmutable } from "./rules/js-performance/js-tosorted-immutable.js";
+import { jsxKey } from "./rules/correctness/jsx-key.js";
+import { jsxNoDuplicateProps } from "./rules/correctness/jsx-no-duplicate-props.js";
+import { jsxNoScriptUrl } from "./rules/correctness/jsx-no-script-url.js";
 import { nextjsAsyncClientComponent } from "./rules/nextjs/nextjs-async-client-component.js";
 import { nextjsImageMissingSizes } from "./rules/nextjs/nextjs-image-missing-sizes.js";
 import { nextjsInlineScriptMissingId } from "./rules/nextjs/nextjs-inline-script-missing-id.js";
@@ -55,10 +58,13 @@ import { nextjsNoUseSearchParamsWithoutSuspense } from "./rules/nextjs/nextjs-no
 import { noArrayIndexAsKey } from "./rules/correctness/no-array-index-as-key.js";
 import { noBarrelImport } from "./rules/bundle-size/no-barrel-import.js";
 import { noCascadingSetState } from "./rules/state-and-effects/no-cascading-set-state.js";
+import { noChildrenProp } from "./rules/correctness/no-children-prop.js";
+import { noDanger } from "./rules/correctness/no-danger.js";
 import { noDarkModeGlow } from "./rules/design/no-dark-mode-glow.js";
 import { noDefaultProps } from "./rules/architecture/no-default-props.js";
 import { noDerivedStateEffect } from "./rules/state-and-effects/no-derived-state-effect.js";
 import { noDerivedUseState } from "./rules/state-and-effects/no-derived-use-state.js";
+import { noDirectMutationState } from "./rules/correctness/no-direct-mutation-state.js";
 import { noDirectStateMutation } from "./rules/state-and-effects/no-direct-state-mutation.js";
 import { noDisabledZoom } from "./rules/design/no-disabled-zoom.js";
 import { noDocumentStartViewTransition } from "./rules/view-transitions/no-document-start-view-transition.js";
@@ -79,6 +85,7 @@ import { noGrayOnColoredBackground } from "./rules/design/no-gray-on-colored-bac
 import { noInlineBounceEasing } from "./rules/design/no-inline-bounce-easing.js";
 import { noInlineExhaustiveStyle } from "./rules/design/no-inline-exhaustive-style.js";
 import { noInlinePropOnMemoComponent } from "./rules/performance/no-inline-prop-on-memo-component.js";
+import { noIsMounted } from "./rules/correctness/no-is-mounted.js";
 import { noJustifiedText } from "./rules/design/no-justified-text.js";
 import { noLargeAnimatedBlur } from "./rules/performance/no-large-animated-blur.js";
 import { noLayoutPropertyAnimation } from "./rules/performance/no-layout-property-animation.js";
@@ -101,14 +108,17 @@ import { noReactDomDeprecatedApis } from "./rules/architecture/no-react-dom-depr
 import { noReact19DeprecatedApis } from "./rules/architecture/no-react19-deprecated-apis.js";
 import { noRenderInRender } from "./rules/architecture/no-render-in-render.js";
 import { noRenderPropChildren } from "./rules/architecture/no-render-prop-children.js";
+import { noRenderReturnValue } from "./rules/correctness/no-render-return-value.js";
 import { noScaleFromZero } from "./rules/performance/no-scale-from-zero.js";
 import { noSecretsInClientCode } from "./rules/security/no-secrets-in-client-code.js";
 import { noSetStateInRender } from "./rules/state-and-effects/no-set-state-in-render.js";
 import { noSideTabBorder } from "./rules/design/no-side-tab-border.js";
+import { noStringRefs } from "./rules/correctness/no-string-refs.js";
 import { noTinyText } from "./rules/design/no-tiny-text.js";
 import { noTransitionAll } from "./rules/performance/no-transition-all.js";
 import { noUncontrolledInput } from "./rules/correctness/no-uncontrolled-input.js";
 import { noUndeferredThirdParty } from "./rules/bundle-size/no-undeferred-third-party.js";
+import { noUnknownProperty } from "./rules/correctness/no-unknown-property.js";
 import { noUsememoSimpleExpression } from "./rules/performance/no-usememo-simple-expression.js";
 import { noWideLetterSpacing } from "./rules/design/no-wide-letter-spacing.js";
 import { noZIndex9999 } from "./rules/design/no-z-index9999.js";
@@ -131,6 +141,7 @@ import { renderingHydrationNoFlicker } from "./rules/performance/rendering-hydra
 import { renderingScriptDeferAsync } from "./rules/performance/rendering-script-defer-async.js";
 import { renderingSvgPrecision } from "./rules/correctness/rendering-svg-precision.js";
 import { renderingUsetransitionLoading } from "./rules/performance/rendering-usetransition-loading.js";
+import { requireRenderReturn } from "./rules/correctness/require-render-return.js";
 import { rerenderDeferReadsHook } from "./rules/state-and-effects/rerender-defer-reads-hook.js";
 import { rerenderDependencies } from "./rules/state-and-effects/rerender-dependencies.js";
 import { rerenderDerivedStateFromHook } from "./rules/performance/rerender-derived-state-from-hook.js";
@@ -164,6 +175,7 @@ import { rnPreferReanimated } from "./rules/react-native/rn-prefer-reanimated.js
 import { rnPressableSharedValueMutation } from "./rules/react-native/rn-pressable-shared-value-mutation.js";
 import { rnScrollviewDynamicPadding } from "./rules/react-native/rn-scrollview-dynamic-padding.js";
 import { rnStylePreferBoxShadow } from "./rules/react-native/rn-style-prefer-box-shadow.js";
+import { rulesOfHooks } from "./rules/correctness/rules-of-hooks.js";
 import { serverAfterNonblocking } from "./rules/server/server-after-nonblocking.js";
 import { serverAuthActions } from "./rules/server/server-auth-actions.js";
 import { serverCacheWithObjectLiteral } from "./rules/server/server-cache-with-object-literal.js";
@@ -188,2336 +200,960 @@ import { tanstackStartServerFnMethodOrder } from "./rules/tanstack-start/tanstac
 import { tanstackStartServerFnValidateInput } from "./rules/tanstack-start/tanstack-start-server-fn-validate-input.js";
 import { useLazyMotion } from "./rules/bundle-size/use-lazy-motion.js";
 
-export const reactDoctorRules = [
-  {
-    key: "react-doctor/advanced-event-handler-refs",
-    id: "advanced-event-handler-refs",
-    source: "react-doctor",
+export const ruleRegistry: Record<string, Rule> = {
+  "advanced-event-handler-refs": {
+    ...advancedEventHandlerRefs,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...advancedEventHandlerRefs,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/async-await-in-loop",
-    id: "async-await-in-loop",
-    source: "react-doctor",
+  "async-await-in-loop": {
+    ...asyncAwaitInLoop,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...asyncAwaitInLoop,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/async-defer-await",
-    id: "async-defer-await",
-    source: "react-doctor",
+  "async-defer-await": {
+    ...asyncDeferAwait,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...asyncDeferAwait,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/async-parallel",
-    id: "async-parallel",
-    source: "react-doctor",
+  "async-parallel": {
+    ...asyncParallel,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...asyncParallel,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/client-localstorage-no-version",
-    id: "client-localstorage-no-version",
-    source: "react-doctor",
+  "client-localstorage-no-version": {
+    ...clientLocalstorageNoVersion,
     framework: "global",
     category: "Correctness",
-    severity: "warn",
-    rule: {
-      ...clientLocalstorageNoVersion,
-      framework: "global",
-      category: "Correctness",
-    },
   },
-  {
-    key: "react-doctor/client-passive-event-listeners",
-    id: "client-passive-event-listeners",
-    source: "react-doctor",
+  "client-passive-event-listeners": {
+    ...clientPassiveEventListeners,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...clientPassiveEventListeners,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/design-no-bold-heading",
-    id: "design-no-bold-heading",
-    source: "react-doctor",
+  "design-no-bold-heading": {
+    ...noBoldHeading,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noBoldHeading,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/design-no-default-tailwind-palette",
-    id: "design-no-default-tailwind-palette",
-    source: "react-doctor",
+  "design-no-default-tailwind-palette": {
+    ...noDefaultTailwindPalette,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noDefaultTailwindPalette,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/design-no-em-dash-in-jsx-text",
-    id: "design-no-em-dash-in-jsx-text",
-    source: "react-doctor",
+  "design-no-em-dash-in-jsx-text": {
+    ...noEmDashInJsxText,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noEmDashInJsxText,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/design-no-redundant-padding-axes",
-    id: "design-no-redundant-padding-axes",
-    source: "react-doctor",
+  "design-no-redundant-padding-axes": {
+    ...noRedundantPaddingAxes,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noRedundantPaddingAxes,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/design-no-redundant-size-axes",
-    id: "design-no-redundant-size-axes",
-    source: "react-doctor",
+  "design-no-redundant-size-axes": {
+    ...noRedundantSizeAxes,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noRedundantSizeAxes,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/design-no-space-on-flex-children",
-    id: "design-no-space-on-flex-children",
-    source: "react-doctor",
+  "design-no-space-on-flex-children": {
+    ...noSpaceOnFlexChildren,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noSpaceOnFlexChildren,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/design-no-three-period-ellipsis",
-    id: "design-no-three-period-ellipsis",
-    source: "react-doctor",
+  "design-no-three-period-ellipsis": {
+    ...noThreePeriodEllipsis,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noThreePeriodEllipsis,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/design-no-vague-button-label",
-    id: "design-no-vague-button-label",
-    source: "react-doctor",
+  "design-no-vague-button-label": {
+    ...noVagueButtonLabel,
     framework: "global",
     category: "Accessibility",
-    severity: "warn",
-    rule: {
-      ...noVagueButtonLabel,
-      framework: "global",
-      category: "Accessibility",
-    },
   },
-  {
-    key: "react-doctor/effect-needs-cleanup",
-    id: "effect-needs-cleanup",
-    source: "react-doctor",
+  "effect-needs-cleanup": {
+    ...effectNeedsCleanup,
     framework: "global",
     category: "State & Effects",
-    severity: "error",
-    rule: {
-      ...effectNeedsCleanup,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/js-batch-dom-css",
-    id: "js-batch-dom-css",
-    source: "react-doctor",
+  "js-batch-dom-css": {
+    ...jsBatchDomCss,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...jsBatchDomCss,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/js-cache-property-access",
-    id: "js-cache-property-access",
-    source: "react-doctor",
+  "js-cache-property-access": {
+    ...jsCachePropertyAccess,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...jsCachePropertyAccess,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/js-cache-storage",
-    id: "js-cache-storage",
-    source: "react-doctor",
+  "js-cache-storage": {
+    ...jsCacheStorage,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...jsCacheStorage,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/js-combine-iterations",
-    id: "js-combine-iterations",
-    source: "react-doctor",
+  "js-combine-iterations": {
+    ...jsCombineIterations,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...jsCombineIterations,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/js-early-exit",
-    id: "js-early-exit",
-    source: "react-doctor",
+  "js-early-exit": {
+    ...jsEarlyExit,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...jsEarlyExit,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/js-flatmap-filter",
-    id: "js-flatmap-filter",
-    source: "react-doctor",
+  "js-flatmap-filter": {
+    ...jsFlatmapFilter,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...jsFlatmapFilter,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/js-hoist-intl",
-    id: "js-hoist-intl",
-    source: "react-doctor",
+  "js-hoist-intl": {
+    ...jsHoistIntl,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...jsHoistIntl,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/js-hoist-regexp",
-    id: "js-hoist-regexp",
-    source: "react-doctor",
+  "js-hoist-regexp": {
+    ...jsHoistRegexp,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...jsHoistRegexp,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/js-index-maps",
-    id: "js-index-maps",
-    source: "react-doctor",
+  "js-index-maps": {
+    ...jsIndexMaps,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...jsIndexMaps,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/js-length-check-first",
-    id: "js-length-check-first",
-    source: "react-doctor",
+  "js-length-check-first": {
+    ...jsLengthCheckFirst,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...jsLengthCheckFirst,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/js-min-max-loop",
-    id: "js-min-max-loop",
-    source: "react-doctor",
+  "js-min-max-loop": {
+    ...jsMinMaxLoop,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...jsMinMaxLoop,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/js-set-map-lookups",
-    id: "js-set-map-lookups",
-    source: "react-doctor",
+  "js-set-map-lookups": {
+    ...jsSetMapLookups,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...jsSetMapLookups,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/js-tosorted-immutable",
-    id: "js-tosorted-immutable",
-    source: "react-doctor",
+  "js-tosorted-immutable": {
+    ...jsTosortedImmutable,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...jsTosortedImmutable,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/nextjs-async-client-component",
-    id: "nextjs-async-client-component",
-    source: "react-doctor",
+  "jsx-key": {
+    ...jsxKey,
+    framework: "global",
+    category: "Correctness",
+  },
+  "jsx-no-duplicate-props": {
+    ...jsxNoDuplicateProps,
+    framework: "global",
+    category: "Correctness",
+  },
+  "jsx-no-script-url": {
+    ...jsxNoScriptUrl,
+    framework: "global",
+    category: "Correctness",
+  },
+  "nextjs-async-client-component": {
+    ...nextjsAsyncClientComponent,
     framework: "nextjs",
     category: "Next.js",
-    severity: "error",
-    rule: {
-      ...nextjsAsyncClientComponent,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-image-missing-sizes",
-    id: "nextjs-image-missing-sizes",
-    source: "react-doctor",
+  "nextjs-image-missing-sizes": {
+    ...nextjsImageMissingSizes,
     framework: "nextjs",
     category: "Next.js",
-    severity: "warn",
-    rule: {
-      ...nextjsImageMissingSizes,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-inline-script-missing-id",
-    id: "nextjs-inline-script-missing-id",
-    source: "react-doctor",
+  "nextjs-inline-script-missing-id": {
+    ...nextjsInlineScriptMissingId,
     framework: "nextjs",
     category: "Next.js",
-    severity: "warn",
-    rule: {
-      ...nextjsInlineScriptMissingId,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-missing-metadata",
-    id: "nextjs-missing-metadata",
-    source: "react-doctor",
+  "nextjs-missing-metadata": {
+    ...nextjsMissingMetadata,
     framework: "nextjs",
     category: "Next.js",
-    severity: "warn",
-    rule: {
-      ...nextjsMissingMetadata,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-no-a-element",
-    id: "nextjs-no-a-element",
-    source: "react-doctor",
+  "nextjs-no-a-element": {
+    ...nextjsNoAElement,
     framework: "nextjs",
     category: "Next.js",
-    severity: "warn",
-    rule: {
-      ...nextjsNoAElement,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-no-client-fetch-for-server-data",
-    id: "nextjs-no-client-fetch-for-server-data",
-    source: "react-doctor",
+  "nextjs-no-client-fetch-for-server-data": {
+    ...nextjsNoClientFetchForServerData,
     framework: "nextjs",
     category: "Next.js",
-    severity: "warn",
-    rule: {
-      ...nextjsNoClientFetchForServerData,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-no-client-side-redirect",
-    id: "nextjs-no-client-side-redirect",
-    source: "react-doctor",
+  "nextjs-no-client-side-redirect": {
+    ...nextjsNoClientSideRedirect,
     framework: "nextjs",
     category: "Next.js",
-    severity: "warn",
-    rule: {
-      ...nextjsNoClientSideRedirect,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-no-css-link",
-    id: "nextjs-no-css-link",
-    source: "react-doctor",
+  "nextjs-no-css-link": {
+    ...nextjsNoCssLink,
     framework: "nextjs",
     category: "Next.js",
-    severity: "warn",
-    rule: {
-      ...nextjsNoCssLink,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-no-font-link",
-    id: "nextjs-no-font-link",
-    source: "react-doctor",
+  "nextjs-no-font-link": {
+    ...nextjsNoFontLink,
     framework: "nextjs",
     category: "Next.js",
-    severity: "warn",
-    rule: {
-      ...nextjsNoFontLink,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-no-head-import",
-    id: "nextjs-no-head-import",
-    source: "react-doctor",
+  "nextjs-no-head-import": {
+    ...nextjsNoHeadImport,
     framework: "nextjs",
     category: "Next.js",
-    severity: "error",
-    rule: {
-      ...nextjsNoHeadImport,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-no-img-element",
-    id: "nextjs-no-img-element",
-    source: "react-doctor",
+  "nextjs-no-img-element": {
+    ...nextjsNoImgElement,
     framework: "nextjs",
     category: "Next.js",
-    severity: "warn",
-    rule: {
-      ...nextjsNoImgElement,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-no-native-script",
-    id: "nextjs-no-native-script",
-    source: "react-doctor",
+  "nextjs-no-native-script": {
+    ...nextjsNoNativeScript,
     framework: "nextjs",
     category: "Next.js",
-    severity: "warn",
-    rule: {
-      ...nextjsNoNativeScript,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-no-polyfill-script",
-    id: "nextjs-no-polyfill-script",
-    source: "react-doctor",
+  "nextjs-no-polyfill-script": {
+    ...nextjsNoPolyfillScript,
     framework: "nextjs",
     category: "Next.js",
-    severity: "warn",
-    rule: {
-      ...nextjsNoPolyfillScript,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-no-redirect-in-try-catch",
-    id: "nextjs-no-redirect-in-try-catch",
-    source: "react-doctor",
+  "nextjs-no-redirect-in-try-catch": {
+    ...nextjsNoRedirectInTryCatch,
     framework: "nextjs",
     category: "Next.js",
-    severity: "warn",
-    rule: {
-      ...nextjsNoRedirectInTryCatch,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/nextjs-no-side-effect-in-get-handler",
-    id: "nextjs-no-side-effect-in-get-handler",
-    source: "react-doctor",
+  "nextjs-no-side-effect-in-get-handler": {
+    ...nextjsNoSideEffectInGetHandler,
     framework: "nextjs",
     category: "Security",
-    severity: "error",
-    rule: {
-      ...nextjsNoSideEffectInGetHandler,
-      framework: "nextjs",
-      category: "Security",
-    },
   },
-  {
-    key: "react-doctor/nextjs-no-use-search-params-without-suspense",
-    id: "nextjs-no-use-search-params-without-suspense",
-    source: "react-doctor",
+  "nextjs-no-use-search-params-without-suspense": {
+    ...nextjsNoUseSearchParamsWithoutSuspense,
     framework: "nextjs",
     category: "Next.js",
-    severity: "warn",
-    rule: {
-      ...nextjsNoUseSearchParamsWithoutSuspense,
-      framework: "nextjs",
-      category: "Next.js",
-    },
   },
-  {
-    key: "react-doctor/no-array-index-as-key",
-    id: "no-array-index-as-key",
-    source: "react-doctor",
+  "no-array-index-as-key": {
+    ...noArrayIndexAsKey,
     framework: "global",
     category: "Correctness",
-    severity: "warn",
-    rule: {
-      ...noArrayIndexAsKey,
-      framework: "global",
-      category: "Correctness",
-    },
   },
-  {
-    key: "react-doctor/no-barrel-import",
-    id: "no-barrel-import",
-    source: "react-doctor",
+  "no-barrel-import": {
+    ...noBarrelImport,
     framework: "global",
     category: "Bundle Size",
-    severity: "warn",
-    rule: {
-      ...noBarrelImport,
-      framework: "global",
-      category: "Bundle Size",
-    },
   },
-  {
-    key: "react-doctor/no-cascading-set-state",
-    id: "no-cascading-set-state",
-    source: "react-doctor",
+  "no-cascading-set-state": {
+    ...noCascadingSetState,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...noCascadingSetState,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/no-dark-mode-glow",
-    id: "no-dark-mode-glow",
-    source: "react-doctor",
+  "no-children-prop": {
+    ...noChildrenProp,
+    framework: "global",
+    category: "Correctness",
+  },
+  "no-danger": {
+    ...noDanger,
+    framework: "global",
+    category: "Correctness",
+  },
+  "no-dark-mode-glow": {
+    ...noDarkModeGlow,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noDarkModeGlow,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-default-props",
-    id: "no-default-props",
-    source: "react-doctor",
+  "no-default-props": {
+    ...noDefaultProps,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noDefaultProps,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-derived-state-effect",
-    id: "no-derived-state-effect",
-    source: "react-doctor",
+  "no-derived-state-effect": {
+    ...noDerivedStateEffect,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...noDerivedStateEffect,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/no-derived-useState",
-    id: "no-derived-useState",
-    source: "react-doctor",
+  "no-derived-useState": {
+    ...noDerivedUseState,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...noDerivedUseState,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/no-direct-state-mutation",
-    id: "no-direct-state-mutation",
-    source: "react-doctor",
+  "no-direct-mutation-state": {
+    ...noDirectMutationState,
+    framework: "global",
+    category: "Correctness",
+  },
+  "no-direct-state-mutation": {
+    ...noDirectStateMutation,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...noDirectStateMutation,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/no-disabled-zoom",
-    id: "no-disabled-zoom",
-    source: "react-doctor",
+  "no-disabled-zoom": {
+    ...noDisabledZoom,
     framework: "global",
     category: "Accessibility",
-    severity: "error",
-    rule: {
-      ...noDisabledZoom,
-      framework: "global",
-      category: "Accessibility",
-    },
   },
-  {
-    key: "react-doctor/no-document-start-view-transition",
-    id: "no-document-start-view-transition",
-    source: "react-doctor",
+  "no-document-start-view-transition": {
+    ...noDocumentStartViewTransition,
     framework: "global",
     category: "Correctness",
-    severity: "warn",
-    rule: {
-      ...noDocumentStartViewTransition,
-      framework: "global",
-      category: "Correctness",
-    },
   },
-  {
-    key: "react-doctor/no-dynamic-import-path",
-    id: "no-dynamic-import-path",
-    source: "react-doctor",
+  "no-dynamic-import-path": {
+    ...noDynamicImportPath,
     framework: "global",
     category: "Bundle Size",
-    severity: "warn",
-    rule: {
-      ...noDynamicImportPath,
-      framework: "global",
-      category: "Bundle Size",
-    },
   },
-  {
-    key: "react-doctor/no-effect-chain",
-    id: "no-effect-chain",
-    source: "react-doctor",
+  "no-effect-chain": {
+    ...noEffectChain,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...noEffectChain,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/no-effect-event-handler",
-    id: "no-effect-event-handler",
-    source: "react-doctor",
+  "no-effect-event-handler": {
+    ...noEffectEventHandler,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...noEffectEventHandler,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/no-effect-event-in-deps",
-    id: "no-effect-event-in-deps",
-    source: "react-doctor",
+  "no-effect-event-in-deps": {
+    ...noEffectEventInDeps,
     framework: "global",
     category: "State & Effects",
-    severity: "error",
-    rule: {
-      ...noEffectEventInDeps,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/no-eval",
-    id: "no-eval",
-    source: "react-doctor",
+  "no-eval": {
+    ...noEval,
     framework: "global",
     category: "Security",
-    severity: "error",
-    rule: {
-      ...noEval,
-      framework: "global",
-      category: "Security",
-    },
   },
-  {
-    key: "react-doctor/no-event-trigger-state",
-    id: "no-event-trigger-state",
-    source: "react-doctor",
+  "no-event-trigger-state": {
+    ...noEventTriggerState,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...noEventTriggerState,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/no-fetch-in-effect",
-    id: "no-fetch-in-effect",
-    source: "react-doctor",
+  "no-fetch-in-effect": {
+    ...noFetchInEffect,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...noFetchInEffect,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/no-flush-sync",
-    id: "no-flush-sync",
-    source: "react-doctor",
+  "no-flush-sync": {
+    ...noFlushSync,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...noFlushSync,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/no-full-lodash-import",
-    id: "no-full-lodash-import",
-    source: "react-doctor",
+  "no-full-lodash-import": {
+    ...noFullLodashImport,
     framework: "global",
     category: "Bundle Size",
-    severity: "warn",
-    rule: {
-      ...noFullLodashImport,
-      framework: "global",
-      category: "Bundle Size",
-    },
   },
-  {
-    key: "react-doctor/no-generic-handler-names",
-    id: "no-generic-handler-names",
-    source: "react-doctor",
+  "no-generic-handler-names": {
+    ...noGenericHandlerNames,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noGenericHandlerNames,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-giant-component",
-    id: "no-giant-component",
-    source: "react-doctor",
+  "no-giant-component": {
+    ...noGiantComponent,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noGiantComponent,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-global-css-variable-animation",
-    id: "no-global-css-variable-animation",
-    source: "react-doctor",
+  "no-global-css-variable-animation": {
+    ...noGlobalCssVariableAnimation,
     framework: "global",
     category: "Performance",
-    severity: "error",
-    rule: {
-      ...noGlobalCssVariableAnimation,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/no-gradient-text",
-    id: "no-gradient-text",
-    source: "react-doctor",
+  "no-gradient-text": {
+    ...noGradientText,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noGradientText,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-gray-on-colored-background",
-    id: "no-gray-on-colored-background",
-    source: "react-doctor",
+  "no-gray-on-colored-background": {
+    ...noGrayOnColoredBackground,
     framework: "global",
     category: "Accessibility",
-    severity: "warn",
-    rule: {
-      ...noGrayOnColoredBackground,
-      framework: "global",
-      category: "Accessibility",
-    },
   },
-  {
-    key: "react-doctor/no-inline-bounce-easing",
-    id: "no-inline-bounce-easing",
-    source: "react-doctor",
+  "no-inline-bounce-easing": {
+    ...noInlineBounceEasing,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...noInlineBounceEasing,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/no-inline-exhaustive-style",
-    id: "no-inline-exhaustive-style",
-    source: "react-doctor",
+  "no-inline-exhaustive-style": {
+    ...noInlineExhaustiveStyle,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noInlineExhaustiveStyle,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-inline-prop-on-memo-component",
-    id: "no-inline-prop-on-memo-component",
-    source: "react-doctor",
+  "no-inline-prop-on-memo-component": {
+    ...noInlinePropOnMemoComponent,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...noInlinePropOnMemoComponent,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/no-justified-text",
-    id: "no-justified-text",
-    source: "react-doctor",
+  "no-is-mounted": {
+    ...noIsMounted,
+    framework: "global",
+    category: "Correctness",
+  },
+  "no-justified-text": {
+    ...noJustifiedText,
     framework: "global",
     category: "Accessibility",
-    severity: "warn",
-    rule: {
-      ...noJustifiedText,
-      framework: "global",
-      category: "Accessibility",
-    },
   },
-  {
-    key: "react-doctor/no-large-animated-blur",
-    id: "no-large-animated-blur",
-    source: "react-doctor",
+  "no-large-animated-blur": {
+    ...noLargeAnimatedBlur,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...noLargeAnimatedBlur,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/no-layout-property-animation",
-    id: "no-layout-property-animation",
-    source: "react-doctor",
+  "no-layout-property-animation": {
+    ...noLayoutPropertyAnimation,
     framework: "global",
     category: "Performance",
-    severity: "error",
-    rule: {
-      ...noLayoutPropertyAnimation,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/no-layout-transition-inline",
-    id: "no-layout-transition-inline",
-    source: "react-doctor",
+  "no-layout-transition-inline": {
+    ...noLayoutTransitionInline,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...noLayoutTransitionInline,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/no-legacy-class-lifecycles",
-    id: "no-legacy-class-lifecycles",
-    source: "react-doctor",
+  "no-legacy-class-lifecycles": {
+    ...noLegacyClassLifecycles,
     framework: "global",
     category: "Correctness",
-    severity: "error",
-    rule: {
-      ...noLegacyClassLifecycles,
-      framework: "global",
-      category: "Correctness",
-    },
   },
-  {
-    key: "react-doctor/no-legacy-context-api",
-    id: "no-legacy-context-api",
-    source: "react-doctor",
+  "no-legacy-context-api": {
+    ...noLegacyContextApi,
     framework: "global",
     category: "Correctness",
-    severity: "error",
-    rule: {
-      ...noLegacyContextApi,
-      framework: "global",
-      category: "Correctness",
-    },
   },
-  {
-    key: "react-doctor/no-long-transition-duration",
-    id: "no-long-transition-duration",
-    source: "react-doctor",
+  "no-long-transition-duration": {
+    ...noLongTransitionDuration,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...noLongTransitionDuration,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/no-many-boolean-props",
-    id: "no-many-boolean-props",
-    source: "react-doctor",
+  "no-many-boolean-props": {
+    ...noManyBooleanProps,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noManyBooleanProps,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-mirror-prop-effect",
-    id: "no-mirror-prop-effect",
-    source: "react-doctor",
+  "no-mirror-prop-effect": {
+    ...noMirrorPropEffect,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...noMirrorPropEffect,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/no-moment",
-    id: "no-moment",
-    source: "react-doctor",
+  "no-moment": {
+    ...noMoment,
     framework: "global",
     category: "Bundle Size",
-    severity: "warn",
-    rule: {
-      ...noMoment,
-      framework: "global",
-      category: "Bundle Size",
-    },
   },
-  {
-    key: "react-doctor/no-mutable-in-deps",
-    id: "no-mutable-in-deps",
-    source: "react-doctor",
+  "no-mutable-in-deps": {
+    ...noMutableInDeps,
     framework: "global",
     category: "State & Effects",
-    severity: "error",
-    rule: {
-      ...noMutableInDeps,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/no-nested-component-definition",
-    id: "no-nested-component-definition",
-    source: "react-doctor",
+  "no-nested-component-definition": {
+    ...noNestedComponentDefinition,
     framework: "global",
     category: "Correctness",
-    severity: "error",
-    rule: {
-      ...noNestedComponentDefinition,
-      framework: "global",
-      category: "Correctness",
-    },
   },
-  {
-    key: "react-doctor/no-outline-none",
-    id: "no-outline-none",
-    source: "react-doctor",
+  "no-outline-none": {
+    ...noOutlineNone,
     framework: "global",
     category: "Accessibility",
-    severity: "warn",
-    rule: {
-      ...noOutlineNone,
-      framework: "global",
-      category: "Accessibility",
-    },
   },
-  {
-    key: "react-doctor/no-permanent-will-change",
-    id: "no-permanent-will-change",
-    source: "react-doctor",
+  "no-permanent-will-change": {
+    ...noPermanentWillChange,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...noPermanentWillChange,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/no-polymorphic-children",
-    id: "no-polymorphic-children",
-    source: "react-doctor",
+  "no-polymorphic-children": {
+    ...noPolymorphicChildren,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noPolymorphicChildren,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-prevent-default",
-    id: "no-prevent-default",
-    source: "react-doctor",
+  "no-prevent-default": {
+    ...noPreventDefault,
     framework: "global",
     category: "Correctness",
-    severity: "warn",
-    rule: {
-      ...noPreventDefault,
-      framework: "global",
-      category: "Correctness",
-    },
   },
-  {
-    key: "react-doctor/no-prop-callback-in-effect",
-    id: "no-prop-callback-in-effect",
-    source: "react-doctor",
+  "no-prop-callback-in-effect": {
+    ...noPropCallbackInEffect,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...noPropCallbackInEffect,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/no-pure-black-background",
-    id: "no-pure-black-background",
-    source: "react-doctor",
+  "no-pure-black-background": {
+    ...noPureBlackBackground,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noPureBlackBackground,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-react-dom-deprecated-apis",
-    id: "no-react-dom-deprecated-apis",
-    source: "react-doctor",
+  "no-react-dom-deprecated-apis": {
+    ...noReactDomDeprecatedApis,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noReactDomDeprecatedApis,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-react19-deprecated-apis",
-    id: "no-react19-deprecated-apis",
-    source: "react-doctor",
+  "no-react19-deprecated-apis": {
+    ...noReact19DeprecatedApis,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noReact19DeprecatedApis,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-render-in-render",
-    id: "no-render-in-render",
-    source: "react-doctor",
+  "no-render-in-render": {
+    ...noRenderInRender,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noRenderInRender,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-render-prop-children",
-    id: "no-render-prop-children",
-    source: "react-doctor",
+  "no-render-prop-children": {
+    ...noRenderPropChildren,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noRenderPropChildren,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-scale-from-zero",
-    id: "no-scale-from-zero",
-    source: "react-doctor",
+  "no-render-return-value": {
+    ...noRenderReturnValue,
+    framework: "global",
+    category: "Correctness",
+  },
+  "no-scale-from-zero": {
+    ...noScaleFromZero,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...noScaleFromZero,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/no-secrets-in-client-code",
-    id: "no-secrets-in-client-code",
-    source: "react-doctor",
+  "no-secrets-in-client-code": {
+    ...noSecretsInClientCode,
     framework: "global",
     category: "Security",
-    severity: "warn",
-    rule: {
-      ...noSecretsInClientCode,
-      framework: "global",
-      category: "Security",
-    },
   },
-  {
-    key: "react-doctor/no-set-state-in-render",
-    id: "no-set-state-in-render",
-    source: "react-doctor",
+  "no-set-state-in-render": {
+    ...noSetStateInRender,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...noSetStateInRender,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/no-side-tab-border",
-    id: "no-side-tab-border",
-    source: "react-doctor",
+  "no-side-tab-border": {
+    ...noSideTabBorder,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noSideTabBorder,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-tiny-text",
-    id: "no-tiny-text",
-    source: "react-doctor",
+  "no-string-refs": {
+    ...noStringRefs,
+    framework: "global",
+    category: "Correctness",
+  },
+  "no-tiny-text": {
+    ...noTinyText,
     framework: "global",
     category: "Accessibility",
-    severity: "warn",
-    rule: {
-      ...noTinyText,
-      framework: "global",
-      category: "Accessibility",
-    },
   },
-  {
-    key: "react-doctor/no-transition-all",
-    id: "no-transition-all",
-    source: "react-doctor",
+  "no-transition-all": {
+    ...noTransitionAll,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...noTransitionAll,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/no-uncontrolled-input",
-    id: "no-uncontrolled-input",
-    source: "react-doctor",
+  "no-uncontrolled-input": {
+    ...noUncontrolledInput,
     framework: "global",
     category: "Correctness",
-    severity: "warn",
-    rule: {
-      ...noUncontrolledInput,
-      framework: "global",
-      category: "Correctness",
-    },
   },
-  {
-    key: "react-doctor/no-undeferred-third-party",
-    id: "no-undeferred-third-party",
-    source: "react-doctor",
+  "no-undeferred-third-party": {
+    ...noUndeferredThirdParty,
     framework: "global",
     category: "Bundle Size",
-    severity: "warn",
-    rule: {
-      ...noUndeferredThirdParty,
-      framework: "global",
-      category: "Bundle Size",
-    },
   },
-  {
-    key: "react-doctor/no-usememo-simple-expression",
-    id: "no-usememo-simple-expression",
-    source: "react-doctor",
+  "no-unknown-property": {
+    ...noUnknownProperty,
+    framework: "global",
+    category: "Correctness",
+  },
+  "no-usememo-simple-expression": {
+    ...noUsememoSimpleExpression,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...noUsememoSimpleExpression,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/no-wide-letter-spacing",
-    id: "no-wide-letter-spacing",
-    source: "react-doctor",
+  "no-wide-letter-spacing": {
+    ...noWideLetterSpacing,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noWideLetterSpacing,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/no-z-index-9999",
-    id: "no-z-index-9999",
-    source: "react-doctor",
+  "no-z-index-9999": {
+    ...noZIndex9999,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...noZIndex9999,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/prefer-dynamic-import",
-    id: "prefer-dynamic-import",
-    source: "react-doctor",
+  "prefer-dynamic-import": {
+    ...preferDynamicImport,
     framework: "global",
     category: "Bundle Size",
-    severity: "warn",
-    rule: {
-      ...preferDynamicImport,
-      framework: "global",
-      category: "Bundle Size",
-    },
   },
-  {
-    key: "react-doctor/prefer-use-effect-event",
-    id: "prefer-use-effect-event",
-    source: "react-doctor",
+  "prefer-use-effect-event": {
+    ...preferUseEffectEvent,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...preferUseEffectEvent,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/prefer-use-sync-external-store",
-    id: "prefer-use-sync-external-store",
-    source: "react-doctor",
+  "prefer-use-sync-external-store": {
+    ...preferUseSyncExternalStore,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...preferUseSyncExternalStore,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/prefer-useReducer",
-    id: "prefer-useReducer",
-    source: "react-doctor",
+  "prefer-useReducer": {
+    ...preferUseReducer,
     framework: "global",
     category: "State & Effects",
-    severity: "warn",
-    rule: {
-      ...preferUseReducer,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/query-mutation-missing-invalidation",
-    id: "query-mutation-missing-invalidation",
-    source: "react-doctor",
+  "query-mutation-missing-invalidation": {
+    ...queryMutationMissingInvalidation,
     framework: "tanstack-query",
     category: "TanStack Query",
-    severity: "warn",
-    rule: {
-      ...queryMutationMissingInvalidation,
-      framework: "tanstack-query",
-      category: "TanStack Query",
-    },
   },
-  {
-    key: "react-doctor/query-no-query-in-effect",
-    id: "query-no-query-in-effect",
-    source: "react-doctor",
+  "query-no-query-in-effect": {
+    ...queryNoQueryInEffect,
     framework: "tanstack-query",
     category: "TanStack Query",
-    severity: "warn",
-    rule: {
-      ...queryNoQueryInEffect,
-      framework: "tanstack-query",
-      category: "TanStack Query",
-    },
   },
-  {
-    key: "react-doctor/query-no-rest-destructuring",
-    id: "query-no-rest-destructuring",
-    source: "react-doctor",
+  "query-no-rest-destructuring": {
+    ...queryNoRestDestructuring,
     framework: "tanstack-query",
     category: "TanStack Query",
-    severity: "warn",
-    rule: {
-      ...queryNoRestDestructuring,
-      framework: "tanstack-query",
-      category: "TanStack Query",
-    },
   },
-  {
-    key: "react-doctor/query-no-usequery-for-mutation",
-    id: "query-no-usequery-for-mutation",
-    source: "react-doctor",
+  "query-no-usequery-for-mutation": {
+    ...queryNoUseQueryForMutation,
     framework: "tanstack-query",
     category: "TanStack Query",
-    severity: "warn",
-    rule: {
-      ...queryNoUseQueryForMutation,
-      framework: "tanstack-query",
-      category: "TanStack Query",
-    },
   },
-  {
-    key: "react-doctor/query-no-void-query-fn",
-    id: "query-no-void-query-fn",
-    source: "react-doctor",
+  "query-no-void-query-fn": {
+    ...queryNoVoidQueryFn,
     framework: "tanstack-query",
     category: "TanStack Query",
-    severity: "warn",
-    rule: {
-      ...queryNoVoidQueryFn,
-      framework: "tanstack-query",
-      category: "TanStack Query",
-    },
   },
-  {
-    key: "react-doctor/query-stable-query-client",
-    id: "query-stable-query-client",
-    source: "react-doctor",
+  "query-stable-query-client": {
+    ...queryStableQueryClient,
     framework: "tanstack-query",
     category: "TanStack Query",
-    severity: "warn",
-    rule: {
-      ...queryStableQueryClient,
-      framework: "tanstack-query",
-      category: "TanStack Query",
-    },
   },
-  {
-    key: "react-doctor/react-compiler-destructure-method",
-    id: "react-compiler-destructure-method",
-    source: "react-doctor",
+  "react-compiler-destructure-method": {
+    ...reactCompilerDestructureMethod,
     framework: "global",
     category: "Architecture",
-    severity: "warn",
-    rule: {
-      ...reactCompilerDestructureMethod,
-      framework: "global",
-      category: "Architecture",
-    },
   },
-  {
-    key: "react-doctor/rendering-animate-svg-wrapper",
-    id: "rendering-animate-svg-wrapper",
-    source: "react-doctor",
+  "rendering-animate-svg-wrapper": {
+    ...renderingAnimateSvgWrapper,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...renderingAnimateSvgWrapper,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rendering-conditional-render",
-    id: "rendering-conditional-render",
-    source: "react-doctor",
+  "rendering-conditional-render": {
+    ...renderingConditionalRender,
     framework: "global",
     category: "Correctness",
-    severity: "warn",
-    rule: {
-      ...renderingConditionalRender,
-      framework: "global",
-      category: "Correctness",
-    },
   },
-  {
-    key: "react-doctor/rendering-hoist-jsx",
-    id: "rendering-hoist-jsx",
-    source: "react-doctor",
+  "rendering-hoist-jsx": {
+    ...renderingHoistJsx,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...renderingHoistJsx,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rendering-hydration-mismatch-time",
-    id: "rendering-hydration-mismatch-time",
-    source: "react-doctor",
+  "rendering-hydration-mismatch-time": {
+    ...renderingHydrationMismatchTime,
     framework: "global",
     category: "Correctness",
-    severity: "warn",
-    rule: {
-      ...renderingHydrationMismatchTime,
-      framework: "global",
-      category: "Correctness",
-    },
   },
-  {
-    key: "react-doctor/rendering-hydration-no-flicker",
-    id: "rendering-hydration-no-flicker",
-    source: "react-doctor",
+  "rendering-hydration-no-flicker": {
+    ...renderingHydrationNoFlicker,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...renderingHydrationNoFlicker,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rendering-script-defer-async",
-    id: "rendering-script-defer-async",
-    source: "react-doctor",
+  "rendering-script-defer-async": {
+    ...renderingScriptDeferAsync,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...renderingScriptDeferAsync,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rendering-svg-precision",
-    id: "rendering-svg-precision",
-    source: "react-doctor",
+  "rendering-svg-precision": {
+    ...renderingSvgPrecision,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...renderingSvgPrecision,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rendering-usetransition-loading",
-    id: "rendering-usetransition-loading",
-    source: "react-doctor",
+  "rendering-usetransition-loading": {
+    ...renderingUsetransitionLoading,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...renderingUsetransitionLoading,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rerender-defer-reads-hook",
-    id: "rerender-defer-reads-hook",
-    source: "react-doctor",
+  "require-render-return": {
+    ...requireRenderReturn,
+    framework: "global",
+    category: "Correctness",
+  },
+  "rerender-defer-reads-hook": {
+    ...rerenderDeferReadsHook,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...rerenderDeferReadsHook,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rerender-dependencies",
-    id: "rerender-dependencies",
-    source: "react-doctor",
+  "rerender-dependencies": {
+    ...rerenderDependencies,
     framework: "global",
     category: "State & Effects",
-    severity: "error",
-    rule: {
-      ...rerenderDependencies,
-      framework: "global",
-      category: "State & Effects",
-    },
   },
-  {
-    key: "react-doctor/rerender-derived-state-from-hook",
-    id: "rerender-derived-state-from-hook",
-    source: "react-doctor",
+  "rerender-derived-state-from-hook": {
+    ...rerenderDerivedStateFromHook,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...rerenderDerivedStateFromHook,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rerender-functional-setstate",
-    id: "rerender-functional-setstate",
-    source: "react-doctor",
+  "rerender-functional-setstate": {
+    ...rerenderFunctionalSetstate,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...rerenderFunctionalSetstate,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rerender-lazy-state-init",
-    id: "rerender-lazy-state-init",
-    source: "react-doctor",
+  "rerender-lazy-state-init": {
+    ...rerenderLazyStateInit,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...rerenderLazyStateInit,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rerender-memo-before-early-return",
-    id: "rerender-memo-before-early-return",
-    source: "react-doctor",
+  "rerender-memo-before-early-return": {
+    ...rerenderMemoBeforeEarlyReturn,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...rerenderMemoBeforeEarlyReturn,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rerender-memo-with-default-value",
-    id: "rerender-memo-with-default-value",
-    source: "react-doctor",
+  "rerender-memo-with-default-value": {
+    ...rerenderMemoWithDefaultValue,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...rerenderMemoWithDefaultValue,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rerender-state-only-in-handlers",
-    id: "rerender-state-only-in-handlers",
-    source: "react-doctor",
+  "rerender-state-only-in-handlers": {
+    ...rerenderStateOnlyInHandlers,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...rerenderStateOnlyInHandlers,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rerender-transitions-scroll",
-    id: "rerender-transitions-scroll",
-    source: "react-doctor",
+  "rerender-transitions-scroll": {
+    ...rerenderTransitionsScroll,
     framework: "global",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...rerenderTransitionsScroll,
-      framework: "global",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/rn-animate-layout-property",
-    id: "rn-animate-layout-property",
-    source: "react-doctor",
+  "rn-animate-layout-property": {
+    ...rnAnimateLayoutProperty,
     framework: "react-native",
     category: "React Native",
-    severity: "error",
-    rule: {
-      ...rnAnimateLayoutProperty,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-animation-reaction-as-derived",
-    id: "rn-animation-reaction-as-derived",
-    source: "react-doctor",
+  "rn-animation-reaction-as-derived": {
+    ...rnAnimationReactionAsDerived,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnAnimationReactionAsDerived,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-bottom-sheet-prefer-native",
-    id: "rn-bottom-sheet-prefer-native",
-    source: "react-doctor",
+  "rn-bottom-sheet-prefer-native": {
+    ...rnBottomSheetPreferNative,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnBottomSheetPreferNative,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-list-callback-per-row",
-    id: "rn-list-callback-per-row",
-    source: "react-doctor",
+  "rn-list-callback-per-row": {
+    ...rnListCallbackPerRow,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnListCallbackPerRow,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-list-data-mapped",
-    id: "rn-list-data-mapped",
-    source: "react-doctor",
+  "rn-list-data-mapped": {
+    ...rnListDataMapped,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnListDataMapped,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-list-recyclable-without-types",
-    id: "rn-list-recyclable-without-types",
-    source: "react-doctor",
+  "rn-list-recyclable-without-types": {
+    ...rnListRecyclableWithoutTypes,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnListRecyclableWithoutTypes,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-no-deprecated-modules",
-    id: "rn-no-deprecated-modules",
-    source: "react-doctor",
+  "rn-no-deprecated-modules": {
+    ...rnNoDeprecatedModules,
     framework: "react-native",
     category: "React Native",
-    severity: "error",
-    rule: {
-      ...rnNoDeprecatedModules,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-no-dimensions-get",
-    id: "rn-no-dimensions-get",
-    source: "react-doctor",
+  "rn-no-dimensions-get": {
+    ...rnNoDimensionsGet,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnNoDimensionsGet,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-no-inline-flatlist-renderitem",
-    id: "rn-no-inline-flatlist-renderitem",
-    source: "react-doctor",
+  "rn-no-inline-flatlist-renderitem": {
+    ...rnNoInlineFlatlistRenderitem,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnNoInlineFlatlistRenderitem,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-no-inline-object-in-list-item",
-    id: "rn-no-inline-object-in-list-item",
-    source: "react-doctor",
+  "rn-no-inline-object-in-list-item": {
+    ...rnNoInlineObjectInListItem,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnNoInlineObjectInListItem,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-no-legacy-expo-packages",
-    id: "rn-no-legacy-expo-packages",
-    source: "react-doctor",
+  "rn-no-legacy-expo-packages": {
+    ...rnNoLegacyExpoPackages,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnNoLegacyExpoPackages,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-no-legacy-shadow-styles",
-    id: "rn-no-legacy-shadow-styles",
-    source: "react-doctor",
+  "rn-no-legacy-shadow-styles": {
+    ...rnNoLegacyShadowStyles,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnNoLegacyShadowStyles,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-no-non-native-navigator",
-    id: "rn-no-non-native-navigator",
-    source: "react-doctor",
+  "rn-no-non-native-navigator": {
+    ...rnNoNonNativeNavigator,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnNoNonNativeNavigator,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-no-raw-text",
-    id: "rn-no-raw-text",
-    source: "react-doctor",
+  "rn-no-raw-text": {
+    ...rnNoRawText,
     framework: "react-native",
     category: "React Native",
-    severity: "error",
-    rule: {
-      ...rnNoRawText,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-no-scroll-state",
-    id: "rn-no-scroll-state",
-    source: "react-doctor",
+  "rn-no-scroll-state": {
+    ...rnNoScrollState,
     framework: "react-native",
     category: "React Native",
-    severity: "error",
-    rule: {
-      ...rnNoScrollState,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-no-scrollview-mapped-list",
-    id: "rn-no-scrollview-mapped-list",
-    source: "react-doctor",
+  "rn-no-scrollview-mapped-list": {
+    ...rnNoScrollviewMappedList,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnNoScrollviewMappedList,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-no-single-element-style-array",
-    id: "rn-no-single-element-style-array",
-    source: "react-doctor",
+  "rn-no-single-element-style-array": {
+    ...rnNoSingleElementStyleArray,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnNoSingleElementStyleArray,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-prefer-content-inset-adjustment",
-    id: "rn-prefer-content-inset-adjustment",
-    source: "react-doctor",
+  "rn-prefer-content-inset-adjustment": {
+    ...rnPreferContentInsetAdjustment,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnPreferContentInsetAdjustment,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-prefer-expo-image",
-    id: "rn-prefer-expo-image",
-    source: "react-doctor",
+  "rn-prefer-expo-image": {
+    ...rnPreferExpoImage,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnPreferExpoImage,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-prefer-pressable",
-    id: "rn-prefer-pressable",
-    source: "react-doctor",
+  "rn-prefer-pressable": {
+    ...rnPreferPressable,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnPreferPressable,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-prefer-reanimated",
-    id: "rn-prefer-reanimated",
-    source: "react-doctor",
+  "rn-prefer-reanimated": {
+    ...rnPreferReanimated,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnPreferReanimated,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-pressable-shared-value-mutation",
-    id: "rn-pressable-shared-value-mutation",
-    source: "react-doctor",
+  "rn-pressable-shared-value-mutation": {
+    ...rnPressableSharedValueMutation,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnPressableSharedValueMutation,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-scrollview-dynamic-padding",
-    id: "rn-scrollview-dynamic-padding",
-    source: "react-doctor",
+  "rn-scrollview-dynamic-padding": {
+    ...rnScrollviewDynamicPadding,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnScrollviewDynamicPadding,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/rn-style-prefer-boxshadow",
-    id: "rn-style-prefer-boxshadow",
-    source: "react-doctor",
+  "rn-style-prefer-boxshadow": {
+    ...rnStylePreferBoxShadow,
     framework: "react-native",
     category: "React Native",
-    severity: "warn",
-    rule: {
-      ...rnStylePreferBoxShadow,
-      framework: "react-native",
-      category: "React Native",
-    },
   },
-  {
-    key: "react-doctor/server-after-nonblocking",
-    id: "server-after-nonblocking",
-    source: "react-doctor",
+  "rules-of-hooks": {
+    ...rulesOfHooks,
+    framework: "global",
+    category: "Correctness",
+  },
+  "server-after-nonblocking": {
+    ...serverAfterNonblocking,
     framework: "global",
     category: "Server",
-    severity: "warn",
-    rule: {
-      ...serverAfterNonblocking,
-      framework: "global",
-      category: "Server",
-    },
   },
-  {
-    key: "react-doctor/server-auth-actions",
-    id: "server-auth-actions",
-    source: "react-doctor",
+  "server-auth-actions": {
+    ...serverAuthActions,
     framework: "global",
     category: "Server",
-    severity: "error",
-    rule: {
-      ...serverAuthActions,
-      framework: "global",
-      category: "Server",
-    },
   },
-  {
-    key: "react-doctor/server-cache-with-object-literal",
-    id: "server-cache-with-object-literal",
-    source: "react-doctor",
+  "server-cache-with-object-literal": {
+    ...serverCacheWithObjectLiteral,
     framework: "global",
     category: "Server",
-    severity: "warn",
-    rule: {
-      ...serverCacheWithObjectLiteral,
-      framework: "global",
-      category: "Server",
-    },
   },
-  {
-    key: "react-doctor/server-dedup-props",
-    id: "server-dedup-props",
-    source: "react-doctor",
+  "server-dedup-props": {
+    ...serverDedupProps,
     framework: "global",
     category: "Server",
-    severity: "warn",
-    rule: {
-      ...serverDedupProps,
-      framework: "global",
-      category: "Server",
-    },
   },
-  {
-    key: "react-doctor/server-fetch-without-revalidate",
-    id: "server-fetch-without-revalidate",
-    source: "react-doctor",
+  "server-fetch-without-revalidate": {
+    ...serverFetchWithoutRevalidate,
     framework: "global",
     category: "Server",
-    severity: "warn",
-    rule: {
-      ...serverFetchWithoutRevalidate,
-      framework: "global",
-      category: "Server",
-    },
   },
-  {
-    key: "react-doctor/server-hoist-static-io",
-    id: "server-hoist-static-io",
-    source: "react-doctor",
+  "server-hoist-static-io": {
+    ...serverHoistStaticIo,
     framework: "global",
     category: "Server",
-    severity: "warn",
-    rule: {
-      ...serverHoistStaticIo,
-      framework: "global",
-      category: "Server",
-    },
   },
-  {
-    key: "react-doctor/server-no-mutable-module-state",
-    id: "server-no-mutable-module-state",
-    source: "react-doctor",
+  "server-no-mutable-module-state": {
+    ...serverNoMutableModuleState,
     framework: "global",
     category: "Server",
-    severity: "error",
-    rule: {
-      ...serverNoMutableModuleState,
-      framework: "global",
-      category: "Server",
-    },
   },
-  {
-    key: "react-doctor/server-sequential-independent-await",
-    id: "server-sequential-independent-await",
-    source: "react-doctor",
+  "server-sequential-independent-await": {
+    ...serverSequentialIndependentAwait,
     framework: "global",
     category: "Server",
-    severity: "warn",
-    rule: {
-      ...serverSequentialIndependentAwait,
-      framework: "global",
-      category: "Server",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-get-mutation",
-    id: "tanstack-start-get-mutation",
-    source: "react-doctor",
+  "tanstack-start-get-mutation": {
+    ...tanstackStartGetMutation,
     framework: "tanstack-start",
     category: "Security",
-    severity: "warn",
-    rule: {
-      ...tanstackStartGetMutation,
-      framework: "tanstack-start",
-      category: "Security",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-loader-parallel-fetch",
-    id: "tanstack-start-loader-parallel-fetch",
-    source: "react-doctor",
+  "tanstack-start-loader-parallel-fetch": {
+    ...tanstackStartLoaderParallelFetch,
     framework: "tanstack-start",
     category: "Performance",
-    severity: "warn",
-    rule: {
-      ...tanstackStartLoaderParallelFetch,
-      framework: "tanstack-start",
-      category: "Performance",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-missing-head-content",
-    id: "tanstack-start-missing-head-content",
-    source: "react-doctor",
+  "tanstack-start-missing-head-content": {
+    ...tanstackStartMissingHeadContent,
     framework: "tanstack-start",
     category: "TanStack Start",
-    severity: "warn",
-    rule: {
-      ...tanstackStartMissingHeadContent,
-      framework: "tanstack-start",
-      category: "TanStack Start",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-no-anchor-element",
-    id: "tanstack-start-no-anchor-element",
-    source: "react-doctor",
+  "tanstack-start-no-anchor-element": {
+    ...tanstackStartNoAnchorElement,
     framework: "tanstack-start",
     category: "TanStack Start",
-    severity: "warn",
-    rule: {
-      ...tanstackStartNoAnchorElement,
-      framework: "tanstack-start",
-      category: "TanStack Start",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-no-direct-fetch-in-loader",
-    id: "tanstack-start-no-direct-fetch-in-loader",
-    source: "react-doctor",
+  "tanstack-start-no-direct-fetch-in-loader": {
+    ...tanstackStartNoDirectFetchInLoader,
     framework: "tanstack-start",
     category: "TanStack Start",
-    severity: "warn",
-    rule: {
-      ...tanstackStartNoDirectFetchInLoader,
-      framework: "tanstack-start",
-      category: "TanStack Start",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-no-dynamic-server-fn-import",
-    id: "tanstack-start-no-dynamic-server-fn-import",
-    source: "react-doctor",
+  "tanstack-start-no-dynamic-server-fn-import": {
+    ...tanstackStartNoDynamicServerFnImport,
     framework: "tanstack-start",
     category: "TanStack Start",
-    severity: "error",
-    rule: {
-      ...tanstackStartNoDynamicServerFnImport,
-      framework: "tanstack-start",
-      category: "TanStack Start",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-no-navigate-in-render",
-    id: "tanstack-start-no-navigate-in-render",
-    source: "react-doctor",
+  "tanstack-start-no-navigate-in-render": {
+    ...tanstackStartNoNavigateInRender,
     framework: "tanstack-start",
     category: "TanStack Start",
-    severity: "warn",
-    rule: {
-      ...tanstackStartNoNavigateInRender,
-      framework: "tanstack-start",
-      category: "TanStack Start",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-no-secrets-in-loader",
-    id: "tanstack-start-no-secrets-in-loader",
-    source: "react-doctor",
+  "tanstack-start-no-secrets-in-loader": {
+    ...tanstackStartNoSecretsInLoader,
     framework: "tanstack-start",
     category: "Security",
-    severity: "error",
-    rule: {
-      ...tanstackStartNoSecretsInLoader,
-      framework: "tanstack-start",
-      category: "Security",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-no-use-server-in-handler",
-    id: "tanstack-start-no-use-server-in-handler",
-    source: "react-doctor",
+  "tanstack-start-no-use-server-in-handler": {
+    ...tanstackStartNoUseServerInHandler,
     framework: "tanstack-start",
     category: "TanStack Start",
-    severity: "error",
-    rule: {
-      ...tanstackStartNoUseServerInHandler,
-      framework: "tanstack-start",
-      category: "TanStack Start",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-no-useeffect-fetch",
-    id: "tanstack-start-no-useeffect-fetch",
-    source: "react-doctor",
+  "tanstack-start-no-useeffect-fetch": {
+    ...tanstackStartNoUseEffectFetch,
     framework: "tanstack-start",
     category: "TanStack Start",
-    severity: "warn",
-    rule: {
-      ...tanstackStartNoUseEffectFetch,
-      framework: "tanstack-start",
-      category: "TanStack Start",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-redirect-in-try-catch",
-    id: "tanstack-start-redirect-in-try-catch",
-    source: "react-doctor",
+  "tanstack-start-redirect-in-try-catch": {
+    ...tanstackStartRedirectInTryCatch,
     framework: "tanstack-start",
     category: "TanStack Start",
-    severity: "warn",
-    rule: {
-      ...tanstackStartRedirectInTryCatch,
-      framework: "tanstack-start",
-      category: "TanStack Start",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-route-property-order",
-    id: "tanstack-start-route-property-order",
-    source: "react-doctor",
+  "tanstack-start-route-property-order": {
+    ...tanstackStartRoutePropertyOrder,
     framework: "tanstack-start",
     category: "TanStack Start",
-    severity: "error",
-    rule: {
-      ...tanstackStartRoutePropertyOrder,
-      framework: "tanstack-start",
-      category: "TanStack Start",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-server-fn-method-order",
-    id: "tanstack-start-server-fn-method-order",
-    source: "react-doctor",
+  "tanstack-start-server-fn-method-order": {
+    ...tanstackStartServerFnMethodOrder,
     framework: "tanstack-start",
     category: "TanStack Start",
-    severity: "error",
-    rule: {
-      ...tanstackStartServerFnMethodOrder,
-      framework: "tanstack-start",
-      category: "TanStack Start",
-    },
   },
-  {
-    key: "react-doctor/tanstack-start-server-fn-validate-input",
-    id: "tanstack-start-server-fn-validate-input",
-    source: "react-doctor",
+  "tanstack-start-server-fn-validate-input": {
+    ...tanstackStartServerFnValidateInput,
     framework: "tanstack-start",
     category: "TanStack Start",
-    severity: "warn",
-    rule: {
-      ...tanstackStartServerFnValidateInput,
-      framework: "tanstack-start",
-      category: "TanStack Start",
-    },
   },
-  {
-    key: "react-doctor/use-lazy-motion",
-    id: "use-lazy-motion",
-    source: "react-doctor",
+  "use-lazy-motion": {
+    ...useLazyMotion,
     framework: "global",
     category: "Bundle Size",
-    severity: "warn",
-    rule: {
-      ...useLazyMotion,
-      framework: "global",
-      category: "Bundle Size",
-    },
   },
-] as const;
-
-export const ruleRegistry: Record<string, Rule> = Object.fromEntries(
-  reactDoctorRules.map((rule) => [rule.id, rule.rule]),
-);
+};
