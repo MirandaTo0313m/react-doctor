@@ -1,16 +1,11 @@
 import picomatch from "picomatch";
 import { MAX_GLOB_PATTERN_LENGTH_CHARS, MAX_GLOB_PATTERN_WILDCARD_COUNT } from "../constants.js";
 
-export interface InvalidGlobPatternErrorOptions {
-  pattern: string;
-  reason: string;
-}
-
 export class InvalidGlobPatternError extends Error {
   public readonly pattern: string;
   public readonly reason: string;
 
-  public constructor({ pattern, reason }: InvalidGlobPatternErrorOptions) {
+  public constructor(pattern: string, reason: string) {
     super(`Invalid glob pattern ${JSON.stringify(pattern)}: ${reason}`);
     this.name = "InvalidGlobPatternError";
     this.pattern = pattern;
@@ -18,63 +13,72 @@ export class InvalidGlobPatternError extends Error {
   }
 }
 
-const countGlobWildcards = (pattern: string): number => {
-  let wildcardCount = 0;
-  for (let characterIndex = 0; characterIndex < pattern.length; characterIndex++) {
-    const character = pattern[characterIndex];
-    if (character === "*" || character === "?") wildcardCount++;
-  }
-  return wildcardCount;
+const assertGlobPattern = (condition: boolean, pattern: string, reason: string): void => {
+  if (!condition) throw new InvalidGlobPatternError(pattern, reason);
 };
+
+const countGlobWildcards = (pattern: string): number => (pattern.match(/[*?]/g) ?? []).length;
 
 const normalizeGlobPattern = (pattern: string): string =>
   pattern.replace(/\\/g, "/").replace(/^\//, "");
 
-const validateGlobPatternShape = (rawPattern: string): void => {
-  if (typeof rawPattern !== "string" || rawPattern.length === 0) {
-    throw new InvalidGlobPatternError({
-      pattern: String(rawPattern),
-      reason: "pattern must be a non-empty string.",
-    });
-  }
-  if (rawPattern.length > MAX_GLOB_PATTERN_LENGTH_CHARS) {
-    throw new InvalidGlobPatternError({
-      pattern: rawPattern,
-      reason: `pattern length ${rawPattern.length} exceeds the maximum of ${MAX_GLOB_PATTERN_LENGTH_CHARS} characters.`,
-    });
-  }
-  const wildcardCount = countGlobWildcards(rawPattern);
-  if (wildcardCount > MAX_GLOB_PATTERN_WILDCARD_COUNT) {
-    throw new InvalidGlobPatternError({
-      pattern: rawPattern,
-      reason: `pattern uses ${wildcardCount} wildcards (\`*\` / \`?\`), exceeding the maximum of ${MAX_GLOB_PATTERN_WILDCARD_COUNT}. This guards against catastrophic backtracking from pathological patterns; split the pattern into multiple smaller entries.`,
-    });
-  }
-};
-
 // Reuse the same `picomatch` options everywhere so behavior stays
 // identical across compilation sites. `dot: true` preserves the
-// historical behavior of the hand-rolled compiler, which made no
-// distinction between dotfiles and regular files. `strictSlashes:
-// false` keeps trailing-slash matching forgiving (e.g. `src/**`
-// matches `src` exactly as well as nested paths).
+// historical hand-rolled compiler's behavior (no dotfile distinction).
+// `strictSlashes: false` keeps trailing-slash matching forgiving
+// (e.g. `src/**` matches `src` as well as nested paths). `windows:
+// false` forces POSIX semantics because callers pre-normalize paths
+// via `toRelativePath` before testing.
 const PICOMATCH_OPTIONS: picomatch.PicomatchOptions = {
   dot: true,
   strictSlashes: false,
-  // Force POSIX path semantics so behavior is identical regardless
-  // of the host platform; callers always pre-normalize to forward
-  // slashes via `toRelativePath` before testing.
   windows: false,
 };
 
-export const compileGlobPattern = (pattern: string): RegExp => {
-  validateGlobPatternShape(pattern);
-  const normalizedPattern = normalizeGlobPattern(pattern);
+export const compileGlobPattern = (rawPattern: string): RegExp => {
+  assertGlobPattern(
+    typeof rawPattern === "string" && rawPattern.length > 0,
+    String(rawPattern),
+    "pattern must be a non-empty string.",
+  );
+  assertGlobPattern(
+    rawPattern.length <= MAX_GLOB_PATTERN_LENGTH_CHARS,
+    rawPattern,
+    `pattern length ${rawPattern.length} exceeds the maximum of ${MAX_GLOB_PATTERN_LENGTH_CHARS} characters.`,
+  );
+  const wildcardCount = countGlobWildcards(rawPattern);
+  assertGlobPattern(
+    wildcardCount <= MAX_GLOB_PATTERN_WILDCARD_COUNT,
+    rawPattern,
+    `pattern uses ${wildcardCount} wildcards (\`*\` / \`?\`), exceeding the maximum of ${MAX_GLOB_PATTERN_WILDCARD_COUNT}. This guards against catastrophic backtracking from pathological patterns; split the pattern into multiple smaller entries.`,
+  );
 
   try {
-    return picomatch.makeRe(normalizedPattern, PICOMATCH_OPTIONS);
+    return picomatch.makeRe(normalizeGlobPattern(rawPattern), PICOMATCH_OPTIONS);
   } catch (caughtError) {
-    const reason = caughtError instanceof Error ? caughtError.message : String(caughtError);
-    throw new InvalidGlobPatternError({ pattern, reason });
+    throw new InvalidGlobPatternError(
+      rawPattern,
+      caughtError instanceof Error ? caughtError.message : String(caughtError),
+    );
   }
+};
+
+// Compiles a list of glob patterns, routing each `InvalidGlobPatternError`
+// to `onInvalid` and dropping the offender so a single bad entry in a
+// user config can't take down a whole scan. Non-glob errors still
+// propagate.
+export const compileGlobPatternsLenient = (
+  patterns: readonly string[],
+  onInvalid: (error: InvalidGlobPatternError) => void,
+): RegExp[] => {
+  const compiled: RegExp[] = [];
+  for (const pattern of patterns) {
+    try {
+      compiled.push(compileGlobPattern(pattern));
+    } catch (caughtError) {
+      if (!(caughtError instanceof InvalidGlobPatternError)) throw caughtError;
+      onInvalid(caughtError);
+    }
+  }
+  return compiled;
 };
