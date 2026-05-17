@@ -47,12 +47,17 @@ export interface UpstreamParityOptions {
 
 const fixturesDirectory = path.dirname(url.fileURLToPath(import.meta.url));
 
+// Upper bound on the number of characters of code to embed in an
+// `it("…")` label. Beyond this we replace the tail with an ellipsis so
+// the test reporter stays readable on long fixtures.
+const MAX_LABEL_LENGTH_CHARS = 70;
+
 const loadFixture = (slug: string): UpstreamFixture =>
   JSON.parse(fs.readFileSync(path.join(fixturesDirectory, `${slug}.json`), "utf8"));
 
-const truncate = (text: string, max = 70): string => {
+const truncate = (text: string, maxLength = MAX_LABEL_LENGTH_CHARS): string => {
   const oneLine = text.replace(/\s+/g, " ").trim();
-  return oneLine.length <= max ? oneLine : `${oneLine.slice(0, max - 1)}…`;
+  return oneLine.length <= maxLength ? oneLine : `${oneLine.slice(0, maxLength - 1)}…`;
 };
 
 const skipIndices = (
@@ -79,36 +84,33 @@ export const runUpstreamParity = (
   const validSkipSet = skipIndices(options.validSkips);
   const invalidSkipSet = skipIndices(options.invalidSkips);
 
-  describe(`${fixtureSlug} upstream parity (eslint-plugin-react-hooks)`, () => {
-    fixture.valid.forEach((testCase, caseIndex) => {
-      const isSkipped = testCase.skip || validSkipSet.has(caseIndex);
-      const itFunction = isSkipped ? it.skip : it;
-      const label = `valid #${caseIndex} ${testCase.name ?? truncate(testCase.code)}`;
-      itFunction(label, () => {
-        const settings =
-          options.translateOptions !== undefined
-            ? options.translateOptions(testCase.options)
-            : testCase.settings;
-        const filename = testCase.filename ?? "Component.tsx";
-        const result = runRule(rule, testCase.code, { filename, settings, forceJsx: true });
-        expect(result.diagnostics).toHaveLength(0);
-      });
+  const registerCase = (
+    kind: "valid" | "invalid",
+    testCase: UpstreamCase,
+    caseIndex: number,
+    skipSet: ReadonlySet<number>,
+  ): void => {
+    const isSkipped = Boolean(testCase.skip) || skipSet.has(caseIndex);
+    const itFunction = isSkipped ? it.skip : it;
+    const expectedDiagnostics = kind === "valid" ? 0 : (testCase.errorCount ?? 1);
+    const label = `${kind} #${caseIndex} ${testCase.name ?? truncate(testCase.code)}`;
+    itFunction(label, () => {
+      const settings =
+        options.translateOptions !== undefined
+          ? options.translateOptions(testCase.options)
+          : testCase.settings;
+      const filename = testCase.filename ?? "Component.tsx";
+      const result = runRule(rule, testCase.code, { filename, settings, forceJsx: true });
+      expect(result.diagnostics).toHaveLength(expectedDiagnostics);
     });
+  };
 
-    fixture.invalid.forEach((testCase, caseIndex) => {
-      const isSkipped = testCase.skip || invalidSkipSet.has(caseIndex);
-      const itFunction = isSkipped ? it.skip : it;
-      const expectedErrorCount = testCase.errorCount ?? 1;
-      const label = `invalid #${caseIndex} ${testCase.name ?? truncate(testCase.code)}`;
-      itFunction(label, () => {
-        const settings =
-          options.translateOptions !== undefined
-            ? options.translateOptions(testCase.options)
-            : testCase.settings;
-        const filename = testCase.filename ?? "Component.tsx";
-        const result = runRule(rule, testCase.code, { filename, settings, forceJsx: true });
-        expect(result.diagnostics).toHaveLength(expectedErrorCount);
-      });
-    });
+  describe(`${fixtureSlug} upstream parity (eslint-plugin-react-hooks)`, () => {
+    fixture.valid.forEach((testCase, caseIndex) =>
+      registerCase("valid", testCase, caseIndex, validSkipSet),
+    );
+    fixture.invalid.forEach((testCase, caseIndex) =>
+      registerCase("invalid", testCase, caseIndex, invalidSkipSet),
+    );
   });
 };
