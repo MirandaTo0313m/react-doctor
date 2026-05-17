@@ -87,9 +87,9 @@ const wrapped = `${trimmed}
 // test file evaluates.
 const stubFunction = () => stubFunction;
 const stubObject = new Proxy(stubFunction, {
-  get: (target, key) => {
-    if (key === Symbol.toPrimitive) return () => "";
-    if (key === "default") return stubObject;
+  get: (_target, propertyKey) => {
+    if (propertyKey === Symbol.toPrimitive) return () => "";
+    if (propertyKey === "default") return stubObject;
     return stubObject;
   },
 });

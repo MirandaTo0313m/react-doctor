@@ -52,20 +52,12 @@ export const createOxlintConfig = ({
   for (const registryEntry of REACT_DOCTOR_RULES) {
     const rule = reactDoctorPlugin.rules[registryEntry.id];
     if (!rule) continue;
-    // `customRulesOnly` opts users out of upstream-equivalent rules so
-    // diagnostics stay narrow to react-doctor's distinctive checks.
-    // Rules ported 1:1 from OXC's `react/*` and `jsx-a11y/*` plugins
-    // are flagged via `originallyExternal: true` in the generated
-    // registry and skipped here when the flag is on.
+    // `customRulesOnly` mirrors the historical behavior of the
+    // pre-port `BUILTIN_REACT_RULES` / `BUILTIN_A11Y_RULES` gate —
+    // skip everything ported 1:1 from upstream OXC plugins.
     if (customRulesOnly && registryEntry.originallyExternal) continue;
-    // Framework-specific rules MUST opt in via a `requires` capability
-    // (e.g. `requires: ["nextjs"]`). Global rules ship without `requires`
-    // and activate unconditionally once any tag filters pass.
     if (rule.framework !== "global" && !rule.requires) continue;
     if (!shouldEnableRule(rule.requires, rule.tags, capabilities, ignoredTags)) continue;
-    // `"off"` short-circuits the rule before registration (it never runs,
-    // never emits, never reaches any surface). `"error"` / `"warn"` flow
-    // straight into the oxlint config as the registered severity.
     const severity =
       resolveRuleSeverityOverride(
         { ruleKey: registryEntry.key, category: rule.category },
