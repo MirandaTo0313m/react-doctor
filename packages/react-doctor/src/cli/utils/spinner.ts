@@ -17,8 +17,6 @@ export const setSpinnerStatic = (staticOnly: boolean): void => {
   forceStatic = staticOnly;
 };
 
-export const isSpinnerStatic = (): boolean => forceStatic;
-
 interface SpinnerHandle {
   succeed(displayText: string): void;
   fail(displayText: string): void;
