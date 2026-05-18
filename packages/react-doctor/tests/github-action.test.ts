@@ -33,8 +33,19 @@ describe("GitHub Action contract", () => {
 
     expect(scoreStep).toContain("--score");
     expect(scoreStep).toContain('"--fail-on" "none"');
-    expect(scoreStep).toContain("SCORE=$(npx react-doctor@latest");
+    expect(scoreStep).toContain("SCORE=$(npx react-doctor@beta");
     expect(scoreStep).toContain("|| true");
+  });
+
+  it("issue #292: every `npx react-doctor` call resolves to the beta line that ships --pr-comment", () => {
+    const actionYaml = readActionYaml();
+
+    expect(actionYaml).not.toContain("npx react-doctor@latest");
+    const npxInvocations = actionYaml.match(/npx react-doctor@[^\s"']+/g) ?? [];
+    expect(npxInvocations.length).toBeGreaterThan(0);
+    for (const invocation of npxInvocations) {
+      expect(invocation).toBe("npx react-doctor@beta");
+    }
   });
 
   it("issue #188 + #61: action exposes CI inputs used by the scan step", () => {
