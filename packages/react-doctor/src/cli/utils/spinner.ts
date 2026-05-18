@@ -1,12 +1,9 @@
-import ora from "ora";
+import ora, { type Ora } from "ora";
 import { SPINNER_INDENT_CHARS } from "@react-doctor/core";
-
-let sharedInstance: ReturnType<typeof ora> | null = null;
-let activeCount = 0;
-const pendingTexts = new Set<string>();
-const finalizedHandles = new WeakSet<object>();
+import { isSpinnerInteractive } from "./is-spinner-interactive.js";
 
 let isSilent = false;
+let forceStatic = false;
 
 export const setSpinnerSilent = (silent: boolean): void => {
   isSilent = silent;
@@ -14,57 +11,59 @@ export const setSpinnerSilent = (silent: boolean): void => {
 
 export const isSpinnerSilent = (): boolean => isSilent;
 
-const noopHandle = Object.freeze({
+// Forces every spinner to use the static (no-animation) one-shot variant.
+// Wired in from the `--no-spinner` CLI flag.
+export const setSpinnerStatic = (staticOnly: boolean): void => {
+  forceStatic = staticOnly;
+};
+
+export const isSpinnerStatic = (): boolean => forceStatic;
+
+interface SpinnerHandle {
+  succeed(displayText: string): void;
+  fail(displayText: string): void;
+}
+
+const noopHandle: SpinnerHandle = Object.freeze({
   succeed: () => {},
   fail: () => {},
 });
 
-const finalize = (method: "succeed" | "fail", originalText: string, displayText: string) => {
-  pendingTexts.delete(originalText);
-  activeCount = Math.max(0, activeCount - 1);
-
-  if (activeCount === 0 || !sharedInstance) {
-    sharedInstance?.[method](displayText);
-    sharedInstance = null;
-    activeCount = 0;
-    return;
-  }
-
-  sharedInstance.stop();
-  ora({ text: displayText, indent: SPINNER_INDENT_CHARS }).start()[method](displayText);
-
-  const [remainingText] = pendingTexts;
-  if (remainingText) {
-    sharedInstance.text = remainingText;
-  }
-  sharedInstance.start();
+const createHandle = (instance: Ora): SpinnerHandle => {
+  let didFinalize = false;
+  return {
+    succeed(displayText) {
+      if (didFinalize) return;
+      didFinalize = true;
+      instance.succeed(displayText);
+    },
+    fail(displayText) {
+      if (didFinalize) return;
+      didFinalize = true;
+      instance.fail(displayText);
+    },
+  };
 };
 
 export const spinner = (text: string) => ({
-  start() {
+  start(): SpinnerHandle {
     if (isSilent) return noopHandle;
 
-    activeCount++;
-    pendingTexts.add(text);
-
-    if (!sharedInstance) {
-      sharedInstance = ora({ text, indent: SPINNER_INDENT_CHARS }).start();
-    } else {
-      sharedInstance.text = text;
-    }
-
-    const handle = {
-      succeed: (displayText: string) => {
-        if (finalizedHandles.has(handle)) return;
-        finalizedHandles.add(handle);
-        finalize("succeed", text, displayText);
-      },
-      fail: (displayText: string) => {
-        if (finalizedHandles.has(handle)) return;
-        finalizedHandles.add(handle);
-        finalize("fail", text, displayText);
-      },
-    };
-    return handle;
+    // HACK: when the run isn't interactive we hand ora `isEnabled: false`
+    // and skip the animation loop entirely. We also avoid calling
+    // `start()` on the instance so it doesn't print a "- <text>"
+    // placeholder line — only the final `succeed()` / `fail()` line is
+    // emitted. This dodges the cursor-up + erase-line escape stream that
+    // `log-update`-style rendering produces when stdout is a TTY but
+    // `columns` is 0/undefined (issue #293: react-doctor pegging 99% CPU
+    // inside Git pre-push hooks and under `script(1)`).
+    const shouldAnimate = !forceStatic && isSpinnerInteractive();
+    const instance = ora({
+      text,
+      indent: SPINNER_INDENT_CHARS,
+      isEnabled: shouldAnimate,
+    });
+    if (shouldAnimate) instance.start();
+    return createHandle(instance);
   },
 });

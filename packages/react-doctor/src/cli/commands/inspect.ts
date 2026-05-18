@@ -37,6 +37,7 @@ import { runExplain } from "../utils/run-explain.js";
 import { selectProjects } from "../utils/select-projects.js";
 import { shouldFailForDiagnostics } from "../utils/should-fail-for-diagnostics.js";
 import { shouldSkipPrompts } from "../utils/should-skip-prompts.js";
+import { setSpinnerStatic } from "../utils/spinner.js";
 import { validateModeFlags } from "../utils/validate-mode-flags.js";
 import { VERSION } from "../utils/version.js";
 
@@ -49,6 +50,10 @@ export const inspectAction = async (directory: string, flags: InspectFlags): Pro
 
   if (isJsonMode) {
     enableJsonMode({ compact: Boolean(flags.jsonCompact), directory: requestedDirectory });
+  }
+
+  if (flags.spinner === false) {
+    setSpinnerStatic(true);
   }
 
   try {

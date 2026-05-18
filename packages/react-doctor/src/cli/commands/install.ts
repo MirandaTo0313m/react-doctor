@@ -1,10 +1,12 @@
 import { handleError } from "../utils/handle-error.js";
 import { runInstallSkill } from "../utils/install-skill.js";
 import { printBrandedHeader } from "../utils/print-branded-header.js";
+import { setSpinnerStatic } from "../utils/spinner.js";
 
 interface InstallCommandOptions {
   yes?: boolean;
   dryRun?: boolean;
+  spinner?: boolean;
   // Commander's `--cwd` always supplies `process.cwd()` as the default,
   // so this is defined when invoked via the CLI. The fallback is for
   // direct callers (tests) that construct the options object manually.
@@ -12,6 +14,9 @@ interface InstallCommandOptions {
 }
 
 export const installAction = async (options: InstallCommandOptions): Promise<void> => {
+  if (options.spinner === false) {
+    setSpinnerStatic(true);
+  }
   printBrandedHeader();
   try {
     await runInstallSkill({
