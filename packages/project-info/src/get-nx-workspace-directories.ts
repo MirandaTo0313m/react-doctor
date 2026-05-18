@@ -1,5 +1,5 @@
-import fs from "node:fs";
 import path from "node:path";
+import { isDirectory } from "./utils/is-directory.js";
 import { isFile } from "./utils/is-file.js";
 import { readDirectoryEntries } from "./utils/read-directory-entries.js";
 
@@ -11,7 +11,7 @@ export const getNxWorkspaceDirectories = (rootDirectory: string): string[] => {
   const collected: string[] = [];
   for (const candidate of NX_PROJECT_DISCOVERY_DIRS) {
     const candidatePath = path.join(rootDirectory, candidate);
-    if (!fs.existsSync(candidatePath) || !fs.statSync(candidatePath).isDirectory()) continue;
+    if (!isDirectory(candidatePath)) continue;
     for (const entry of readDirectoryEntries(candidatePath)) {
       if (!entry.isDirectory()) continue;
       const projectDirectory = path.join(candidatePath, entry.name);

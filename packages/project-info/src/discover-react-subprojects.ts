@@ -1,7 +1,7 @@
-import fs from "node:fs";
 import path from "node:path";
 import { IGNORED_DIRECTORIES } from "./constants.js";
 import type { PackageJson, WorkspacePackage } from "@react-doctor/types";
+import { isDirectory } from "./utils/is-directory.js";
 import { isFile } from "./utils/is-file.js";
 import { readDirectoryEntries } from "./utils/read-directory-entries.js";
 import { getNxWorkspaceDirectories } from "./get-nx-workspace-directories.js";
@@ -85,7 +85,7 @@ const discoverReactSubprojectsByFilesystem = (rootDirectory: string): WorkspaceP
 };
 
 export const discoverReactSubprojects = (rootDirectory: string): WorkspacePackage[] => {
-  if (!fs.existsSync(rootDirectory) || !fs.statSync(rootDirectory).isDirectory()) return [];
+  if (!isDirectory(rootDirectory)) return [];
 
   const manifestPackages = listManifestWorkspacePackages(rootDirectory);
   if (manifestPackages.length > 0) return manifestPackages;

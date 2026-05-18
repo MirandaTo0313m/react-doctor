@@ -34,9 +34,12 @@ import {
   SPAWN_ARGS_MAX_LENGTH_CHARS,
 } from "@react-doctor/core";
 import {
+  clearPackageJsonCache,
   discoverProject,
   discoverReactSubprojects,
+  isDirectory,
   readDirectoryEntries,
+  readPackageJson,
 } from "@react-doctor/project-info";
 import {
   getStagedSourceFiles,
@@ -215,6 +218,54 @@ describe("issue #275 + #290: filesystem walks tolerate EPERM/EACCES (macOS Libra
       expect(subprojectNames).toContain("accessible-app");
     } finally {
       fs.chmodSync(unreadableSibling, 0o755);
+    }
+  });
+
+  // Same root cause as the readdir crash, one level deeper: when the
+  // walk reaches a package.json under a TCC-protected directory, the
+  // subsequent fs.readFileSync would throw EPERM and bring down the
+  // whole scan. Mirror EISDIR/EACCES handling for EPERM (macOS TCC)
+  // and ENOENT (race during long walks) so the unreadable manifest
+  // gets treated as an empty package.json instead of a fatal error.
+  it("readPackageJson returns {} for an unreadable manifest (EPERM/EACCES) on posix", () => {
+    if (process.platform === "win32") return;
+    if (process.getuid?.() === 0) return;
+
+    const projectDir = path.join(tempRoot, "issue-275-unreadable-manifest");
+    fs.mkdirSync(projectDir, { recursive: true });
+    const manifestPath = path.join(projectDir, "package.json");
+    writeJson(manifestPath, { name: "hidden", dependencies: { react: "^19.0.0" } });
+    clearPackageJsonCache();
+    fs.chmodSync(manifestPath, 0o000);
+    try {
+      expect(readPackageJson(manifestPath)).toEqual({});
+    } finally {
+      fs.chmodSync(manifestPath, 0o644);
+      clearPackageJsonCache();
+    }
+  });
+
+  it("readPackageJson returns {} when the manifest no longer exists (ENOENT)", () => {
+    const missingPath = path.join(tempRoot, "issue-275-missing-manifest", "package.json");
+    clearPackageJsonCache();
+    expect(readPackageJson(missingPath)).toEqual({});
+  });
+
+  // Resolves the unsafe `fs.existsSync && fs.statSync().isDirectory()`
+  // pattern that throws on EPERM if existsSync somehow returned true
+  // but statSync was denied (narrow race / TCC interaction).
+  it("isDirectory returns false rather than throwing for an inaccessible path", () => {
+    if (process.platform === "win32") return;
+    if (process.getuid?.() === 0) return;
+
+    const outerDirectory = path.join(tempRoot, "issue-275-isdir-outer");
+    const childDirectory = path.join(outerDirectory, "child");
+    fs.mkdirSync(childDirectory, { recursive: true });
+    fs.chmodSync(outerDirectory, 0o000);
+    try {
+      expect(isDirectory(childDirectory)).toBe(false);
+    } finally {
+      fs.chmodSync(outerDirectory, 0o755);
     }
   });
 });
