@@ -21,6 +21,7 @@ export {
 } from "./errors.js";
 export { isFile } from "./utils/is-file.js";
 export { isPlainObject } from "./utils/is-plain-object.js";
+export { readDirectoryEntries } from "./utils/read-directory-entries.js";
 export {
   GIT_LS_FILES_MAX_BUFFER_BYTES,
   IGNORED_DIRECTORIES,

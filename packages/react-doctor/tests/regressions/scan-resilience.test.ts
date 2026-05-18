@@ -33,7 +33,11 @@ import {
   OXLINT_MAX_FILES_PER_BATCH,
   SPAWN_ARGS_MAX_LENGTH_CHARS,
 } from "@react-doctor/core";
-import { discoverProject } from "@react-doctor/project-info";
+import {
+  discoverProject,
+  discoverReactSubprojects,
+  readDirectoryEntries,
+} from "@react-doctor/project-info";
 import {
   getStagedSourceFiles,
   materializeStagedFiles,
@@ -149,6 +153,69 @@ describe("issue #53: source file count fallback for non-git directories", () => 
 
     const projectInfo = discoverProject(projectDir);
     expect(projectInfo.sourceFileCount).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe("issue #275 + #290: filesystem walks tolerate EPERM/EACCES (macOS Library/Accounts)", () => {
+  // On macOS, certain directories like ~/Library/Accounts are protected
+  // by TCC and throw EPERM on readdir even for the owning user. If the
+  // CLI is run from a parent directory (e.g. $HOME), the recursive
+  // discovery walk would crash the entire scan with:
+  //   EPERM: operation not permitted, scandir '/Users/<user>/Library/Accounts'
+  // The fix swallows ignorable readdir errors (EPERM, EACCES, ENOENT,
+  // ENOTDIR) and continues the walk so a single unreadable directory
+  // can't take down the whole run.
+  it("readDirectoryEntries returns [] for a non-existent path", () => {
+    const missingDirectory = path.join(tempRoot, "issue-275-missing-directory");
+    expect(readDirectoryEntries(missingDirectory)).toEqual([]);
+  });
+
+  it("readDirectoryEntries returns [] for a path that points at a file (ENOTDIR)", () => {
+    const filePath = path.join(tempRoot, "issue-275-not-a-directory.txt");
+    writeFile(filePath, "not a directory\n");
+    expect(readDirectoryEntries(filePath)).toEqual([]);
+  });
+
+  // Posix permission bits behave the way we expect on linux + macOS in CI.
+  // Skipped on Windows where chmod 0 doesn't deny readdir to the owner.
+  it("readDirectoryEntries returns [] for an unreadable directory (EACCES) on posix", () => {
+    if (process.platform === "win32") return;
+    if (process.getuid?.() === 0) return;
+
+    const unreadableDirectory = path.join(tempRoot, "issue-275-unreadable");
+    fs.mkdirSync(unreadableDirectory, { recursive: true });
+    fs.writeFileSync(path.join(unreadableDirectory, "child.txt"), "hidden\n");
+    fs.chmodSync(unreadableDirectory, 0o000);
+    try {
+      expect(readDirectoryEntries(unreadableDirectory)).toEqual([]);
+    } finally {
+      fs.chmodSync(unreadableDirectory, 0o755);
+    }
+  });
+
+  it("discoverReactSubprojects skips unreadable nested directories and keeps walking", () => {
+    if (process.platform === "win32") return;
+    if (process.getuid?.() === 0) return;
+
+    const walkRoot = path.join(tempRoot, "issue-275-walk-root");
+    fs.mkdirSync(walkRoot, { recursive: true });
+
+    writeJson(path.join(walkRoot, "accessible-app", "package.json"), {
+      name: "accessible-app",
+      dependencies: { react: "^19.0.0" },
+    });
+
+    const unreadableSibling = path.join(walkRoot, "Library", "Accounts");
+    fs.mkdirSync(unreadableSibling, { recursive: true });
+    fs.chmodSync(unreadableSibling, 0o000);
+
+    try {
+      const subprojects = discoverReactSubprojects(walkRoot);
+      const subprojectNames = subprojects.map((subproject) => subproject.name);
+      expect(subprojectNames).toContain("accessible-app");
+    } finally {
+      fs.chmodSync(unreadableSibling, 0o755);
+    }
   });
 });
 

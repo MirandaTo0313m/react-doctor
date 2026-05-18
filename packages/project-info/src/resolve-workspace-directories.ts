@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { isFile } from "./utils/is-file.js";
+import { readDirectoryEntries } from "./utils/read-directory-entries.js";
 
 export const resolveWorkspaceDirectories = (rootDirectory: string, pattern: string): string[] => {
   const cleanPattern = pattern.replace(/["']/g, "").replace(/\/\*\*$/, "/*");
@@ -22,8 +23,8 @@ export const resolveWorkspaceDirectories = (rootDirectory: string, pattern: stri
   }
 
   const resolved: string[] = [];
-  for (const entry of fs.readdirSync(baseDirectory)) {
-    const entryPath = path.join(baseDirectory, entry, suffixAfterWildcard);
+  for (const entry of readDirectoryEntries(baseDirectory)) {
+    const entryPath = path.join(baseDirectory, entry.name, suffixAfterWildcard);
     if (
       fs.existsSync(entryPath) &&
       fs.statSync(entryPath).isDirectory() &&
