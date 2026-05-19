@@ -12,6 +12,89 @@ import type { Rule } from "../../utils/rule.js";
 const MESSAGE =
   "JSX prop receives a new Array on every render — extract it or memoize to avoid re-renders.";
 
+// Data-collection-shape prop names that conventionally receive an
+// inline array literal: list/table/menu/chart components, command
+// palettes, tabs, etc. all take a `data` / `items` / `options` /
+// `tabs` / `series` array. Flagging these creates noise on every
+// library consumer without surfacing actual perf bugs.
+const DATA_ARRAY_PROP_NAMES: ReadonlySet<string> = new Set([
+  // Generic data slots
+  "data",
+  "items",
+  "options",
+  "entries",
+  "list",
+  "dataset",
+  "elements",
+  "values",
+  // Domain-specific collections
+  "tabs",
+  "columns",
+  "rows",
+  "pages",
+  "categories",
+  "tags",
+  "keywords",
+  "files",
+  "blocks",
+  "entities",
+  "shapes",
+  "events",
+  "messages",
+  "users",
+  "series",
+  "datasets",
+  "children",
+  "subRows",
+  "nodes",
+  "edges",
+  // Chart / virtualization specifics
+  "size",
+  "ticks",
+  "yAxis",
+  "xAxis",
+  // Picker / list / menu / command palette
+  "actions",
+  "commands",
+  "customCommandPaletteItems",
+  "renderingShapes",
+  "calendarEvents",
+]);
+
+// Suffix patterns: `*Items`, `*Options`, `*Tabs`, `*Columns`, `*Rows`,
+// `*List`, `*Series`, `*Categories`, `*Events`, `*Entries`, `*Elements`,
+// `*Shapes`, `*Children`, `*Nodes`, `*Edges`, `*Data`, `*Collection`,
+// `*Models`, `*Records`.
+const DATA_ARRAY_PROP_SUFFIXES: ReadonlyArray<string> = [
+  "Items",
+  "Options",
+  "Tabs",
+  "Columns",
+  "Rows",
+  "List",
+  "Series",
+  "Categories",
+  "Events",
+  "Entries",
+  "Elements",
+  "Shapes",
+  "Children",
+  "Nodes",
+  "Edges",
+  "Data",
+  "Collection",
+  "Models",
+  "Records",
+];
+
+const isDataArrayPropName = (propName: string): boolean => {
+  if (DATA_ARRAY_PROP_NAMES.has(propName)) return true;
+  for (const suffix of DATA_ARRAY_PROP_SUFFIXES) {
+    if (propName.length > suffix.length && propName.endsWith(suffix)) return true;
+  }
+  return false;
+};
+
 const ARRAY_CONSTRUCTOR_NAMES = new Set(["Array"]);
 // `.map(fn)` / `.filter(fn)` always take exactly one callback argument
 // — flagging them with a different arity is almost certainly a false
@@ -114,6 +197,18 @@ export const jsxNoNewArrayAsProp = defineRule<Rule>({
         // arrays on them is unactionable. See `jsx-no-new-function-as-prop`
         // for the full rationale.
         if (isJsxAttributeOnIntrinsicHtmlElement(node)) return;
+        // Data-collection slot props (`items`, `data`, `options`,
+        // `tabs`, `*Items`, `*Options`, etc.) receive inline array
+        // literals by convention — every list/table/menu/chart
+        // component uses this pattern. The perf footgun the rule
+        // targets is hot-path identity changes; these are one-time
+        // configuration arrays.
+        if (
+          isNodeOfType(node.name, "JSXIdentifier") &&
+          isDataArrayPropName(node.name.name)
+        ) {
+          return;
+        }
         if (!isInsideFunctionScope(node)) return;
         const value = node.value;
         if (!value || !isNodeOfType(value, "JSXExpressionContainer")) return;

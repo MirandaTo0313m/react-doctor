@@ -12,8 +12,11 @@ describe("react-builtins/jsx-no-new-array-as-prop — regressions", () => {
   // Bugbot review: OXC's port required `.concat()` to take exactly one
   // arg; we broaden to any-arg since `arr.concat()` (shallow copy) and
   // `arr.concat(a, b)` (multi-element) also allocate a new array.
+  // NOTE: use a non-skipped prop name (`payload` rather than `list` /
+  // `items` / `data`) so the data-array-prop-name skip doesn't
+  // suppress the rule.
   it("flags arrow with zero-arg .concat() (shallow copy)", () =>
-    expectFail(`const Foo = () => (<Item list={arr1.concat()} />)`));
+    expectFail(`const Foo = () => (<Item payload={arr1.concat()} />)`));
   it("flags arrow with multi-arg .concat(a, b)", () =>
-    expectFail(`const Foo = () => (<Item list={arr1.concat(a, b)} />)`));
+    expectFail(`const Foo = () => (<Item payload={arr1.concat(a, b)} />)`));
 });

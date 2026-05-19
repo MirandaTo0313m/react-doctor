@@ -22,6 +22,87 @@ const ALWAYS_FRESH_OBJECT_PROPS: ReadonlySet<string> = new Set([
   "style",
 ]);
 
+// Configuration-shape prop names that conventionally receive an
+// inline object literal (one-time setup, not a hot-path value). Every
+// design system / chart library / animation library defines these:
+// flagging them creates massive noise for library consumers without
+// any actionable signal.
+const CONFIG_OBJECT_PROP_NAMES: ReadonlySet<string> = new Set([
+  // Generic config slots
+  "options",
+  "config",
+  "settings",
+  "params",
+  "input",
+  "value",
+  "values",
+  "data",
+  "metadata",
+  // Component / element slot configs
+  "components",
+  "customComponents",
+  "slots",
+  "elements",
+  // Style / theme / className configs
+  "classNames",
+  "theme",
+  "styles",
+  "sx",
+  "css",
+  // Layout configs (chart / canvas libs)
+  "margin",
+  "padding",
+  "viewport",
+  "viewBox",
+  "bounds",
+  "extent",
+  "domain",
+  "range",
+  // Animation / motion configs (framer-motion, react-spring, etc.)
+  "animate",
+  "initial",
+  "exit",
+  "transition",
+  "variants",
+  "whileHover",
+  "whileTap",
+  "whileFocus",
+  "whileInView",
+  "drag",
+  "dragConstraints",
+  // Tldraw / Excalidraw / library-specific
+  "UIOptions",
+  "renderConfig",
+  "shape",
+  "shapes",
+  "user",
+  "users",
+]);
+
+// Suffixes that mark a prop as a "config object" by convention —
+// `*Props` (Radix / MUI / shadcn pass-through props), `*Config`,
+// `*Configuration`, `*Options`, `*Settings`, `*Style`, `*ClassName`.
+const CONFIG_OBJECT_PROP_SUFFIXES: ReadonlyArray<string> = [
+  "Props",
+  "Config",
+  "Configuration",
+  "Options",
+  "Settings",
+  "Style",
+  "Styles",
+  "ClassName",
+  "ClassNames",
+  "Theme",
+];
+
+const isConfigObjectPropName = (propName: string): boolean => {
+  if (CONFIG_OBJECT_PROP_NAMES.has(propName)) return true;
+  for (const suffix of CONFIG_OBJECT_PROP_SUFFIXES) {
+    if (propName.length > suffix.length && propName.endsWith(suffix)) return true;
+  }
+  return false;
+};
+
 const OBJECT_CONSTRUCTOR_NAMES = new Set(["Object"]);
 const OBJECT_PRODUCING_METHODS = new Set([
   "assign",
@@ -117,6 +198,13 @@ export const jsxNoNewObjectAsProp = defineRule<Rule>({
         if (!isInsideFunctionScope(node)) return;
         if (!isNodeOfType(node.name, "JSXIdentifier")) return;
         if (ALWAYS_FRESH_OBJECT_PROPS.has(node.name.name)) return;
+        // Configuration-shape props (`options`, `config`, `theme`,
+        // `wrapperProps`, etc. + `*Props` / `*Config` / `*Options`
+        // suffixes) receive inline literals by design — chart libs,
+        // animation libs, design systems all use this pattern. The
+        // perf footgun the rule targets is hot-path identity changes;
+        // config slots aren't that.
+        if (isConfigObjectPropName(node.name.name)) return;
         const value = node.value;
         if (!value || !isNodeOfType(value, "JSXExpressionContainer")) return;
         const expression = value.expression;

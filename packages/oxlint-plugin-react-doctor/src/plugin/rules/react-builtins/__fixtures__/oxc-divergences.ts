@@ -16,15 +16,9 @@ export interface OxcDivergence {
 }
 
 export const DIVERGENCES: Record<string, OxcDivergence> = {
-  "jsx-no-new-object-as-prop": {
-    // OXC flags `style={{...}}` as an inline-object-prop allocation.
-    // We exempt `style` (and `dangerouslySetInnerHTML`) because both
-    // are React-mandated object-shape APIs and the perf footgun is
-    // unactionable on non-memoized components, where almost every
-    // real hit lives. See `ALWAYS_FRESH_OBJECT_PROPS` in the rule.
-    failSkips: [5],
-    reason: "Intentional: skip `style` / `dangerouslySetInnerHTML` to suppress FP noise.",
-  },
+  // (Merged into the comprehensive `jsx-no-new-object-as-prop`
+  // entry below, which combines the `style` / `dangerouslySetInnerHTML`
+  // skip with the config-shape prop-name skip.)
   "jsx-max-depth": {
     // OXC's default `max: 2` flags JSX trees that depth past 2 levels,
     // which is far too strict for real React UIs (any shadcn Card
@@ -86,6 +80,30 @@ export const DIVERGENCES: Record<string, OxcDivergence> = {
     // `icon` slot.
     failSkips: [4],
     reason: "Intentional: skip known slot-prop names (icon, tooltip, fallback, render*, etc.).",
+  },
+  "jsx-no-new-object-as-prop": {
+    // Two unrelated skips merged:
+    // (1) `style` / `dangerouslySetInnerHTML` (fail[5]) — these are
+    //     React-mandated object-shape APIs and the perf footgun is
+    //     unactionable on non-memoized components, where almost every
+    //     real hit lives. See `ALWAYS_FRESH_OBJECT_PROPS` in the rule.
+    // (2) configuration-shape prop names (fail[0-4, 6-8]) — `config`,
+    //     `options`, `settings`, `theme`, `*Config`, `*Options`, etc.
+    //     receive inline literals by design (chart / animation libs,
+    //     design systems). The perf footgun the rule targets is
+    //     hot-path identity changes; these are one-time setup.
+    failSkips: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+    reason:
+      "Intentional: skip `style` / `dangerouslySetInnerHTML` + configuration-shape prop names.",
+  },
+  "jsx-no-new-array-as-prop": {
+    // OXC's fixtures use `<Item list={[...]}/>` to test inline-array
+    // detection. We skip data-collection prop names (`list`, `items`,
+    // `data`, `options`, `*Items`, `*Options`, etc.) because list /
+    // table / menu / chart components all take inline arrays by
+    // convention. fail[0-10] all exercise the `list` prop pattern.
+    failSkips: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    reason: "Intentional: skip data-collection prop names (list, items, options, data, etc.).",
   },
   "style-prop-object": {
     // OXC flags `style="..."` on any JSX element. We only flag it on
