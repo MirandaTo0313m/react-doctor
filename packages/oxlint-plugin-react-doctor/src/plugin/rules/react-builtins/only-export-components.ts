@@ -287,6 +287,36 @@ const NON_FAST_REFRESH_PATH_SEGMENTS: ReadonlyArray<string> = [
   "/stories/",
 ];
 
+// File basenames that conventionally are application entry points —
+// they call `createRoot(...).render(...)` / `hydrateRoot(...)` /
+// `ReactDOM.render(...)` once and never participate in Fast Refresh
+// (the dev server reloads the whole page when these change). Mixed
+// exports and local components in these files are fine.
+const ENTRY_POINT_BASENAMES: ReadonlySet<string> = new Set([
+  "main.tsx",
+  "main.jsx",
+  "main.js",
+  "index.tsx",
+  "index.jsx",
+  "entry.tsx",
+  "entry.jsx",
+  "bootstrap.tsx",
+  "bootstrap.jsx",
+  "client.tsx",
+  "client.jsx",
+  "server.tsx",
+  "server.jsx",
+]);
+
+const isEntryPointFile = (filename: string): boolean => {
+  // Match the last path segment regardless of separator (`/` on POSIX,
+  // `\\` on Windows — `path.basename`-style logic without depending on
+  // node:path in the rule body).
+  const lastSlash = Math.max(filename.lastIndexOf("/"), filename.lastIndexOf("\\"));
+  const basename = lastSlash === -1 ? filename : filename.slice(lastSlash + 1);
+  return ENTRY_POINT_BASENAMES.has(basename);
+};
+
 const isFileNameAllowed = (filename: string | undefined, checkJS: boolean): boolean => {
   // No filename means we're in a unit-test runner — keep the rule active
   // so the test suite still exercises the analyzer.
@@ -306,6 +336,11 @@ const isFileNameAllowed = (filename: string | undefined, checkJS: boolean): bool
   for (const segment of NON_FAST_REFRESH_PATH_SEGMENTS) {
     if (filename.includes(segment)) return false;
   }
+  // Application entry points (`main.tsx`, `index.tsx`, `bootstrap.tsx`,
+  // etc.) call `createRoot(...).render(...)` once and don't participate
+  // in HMR — they get full reloaded when changed. Local-component and
+  // mixed-export warnings are unactionable here.
+  if (isEntryPointFile(filename)) return false;
   // Only `.tsx` / `.jsx` (and `.js` when `checkJS` is on) modules run
   // through Fast Refresh. Pure `.ts` files — barrels, utility modules,
   // server code — can't break it no matter what they export, so the

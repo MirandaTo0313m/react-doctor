@@ -12,14 +12,16 @@ import type { Rule } from "../../utils/rule.js";
 const MESSAGE =
   "JSX prop receives a new Function on every render — extract it or memoize (`useCallback`) to avoid re-renders.";
 
-// Handler prop names that conventionally fire at most once per
-// component lifecycle (mount / unmount / ready / error / load /
-// destroy / completion). For these, a new function reference per
-// render has zero measurable perf impact — the handler isn't called
-// in a hot path, and even if the surrounding component is memoized
-// and re-renders, the handler still fires the same number of times.
-// Common across React itself, tldraw, Excalidraw, Tldraw editors,
-// query libraries, etc.
+// Handler / render-prop names that conventionally fire at most once
+// per component lifecycle (mount / unmount / ready / error / load /
+// destroy / completion / open / close) OR are render-prop slots
+// called per-render but only when the slot is mounted (one-shot
+// fallbacks, render-as-function patterns, custom UI hooks).
+//
+// For these, a new function reference per render has zero measurable
+// perf impact — the handler isn't called in a hot interaction path,
+// and even if the surrounding component is memoized and re-renders,
+// the handler still fires the same number of times.
 const ONE_SHOT_LIFECYCLE_HANDLER_NAMES: ReadonlySet<string> = new Set([
   "onMount",
   "onUnmount",
@@ -43,7 +45,52 @@ const ONE_SHOT_LIFECYCLE_HANDLER_NAMES: ReadonlySet<string> = new Set([
   "onDismiss",
   "onCancel",
   "onConfirm",
+  // Render-prop / customization slots — accept a function that's
+  // either called once (fallback) or used by the parent to render
+  // subviews. Real perf hits flow through the children, not the
+  // identity of these slot functions.
+  "fallback",
+  "fallbackRender",
+  "render",
+  "renderItem",
+  "renderRow",
+  "renderCell",
+  "renderEmpty",
+  "renderError",
+  "renderLoading",
+  "renderHeader",
+  "renderFooter",
+  "renderName",
+  "renderContent",
+  "renderTrigger",
+  "renderOption",
+  "renderItemActions",
+  "children",
+  "useCustom",
 ]);
+
+// Render-prop suffix conventions — `render*`, `*Render`, `*Renderer`,
+// `*Slot`, `*Component`, `*Element` props receiving callable values.
+const ONE_SHOT_HANDLER_SUFFIXES: ReadonlyArray<string> = [
+  "Render",
+  "Renderer",
+  "Slot",
+  "Component",
+  "Element",
+];
+
+const isOneShotHandlerName = (propName: string): boolean => {
+  if (ONE_SHOT_LIFECYCLE_HANDLER_NAMES.has(propName)) return true;
+  if (propName.startsWith("render") && propName.length > 6) {
+    const fourthCharCode = propName.charCodeAt(6);
+    // `render<X>` where X is uppercase A-Z = render-prop convention
+    if (fourthCharCode >= 65 && fourthCharCode <= 90) return true;
+  }
+  for (const suffix of ONE_SHOT_HANDLER_SUFFIXES) {
+    if (propName.length > suffix.length && propName.endsWith(suffix)) return true;
+  }
+  return false;
+};
 
 const isFunctionProducingExpression = (expression: EsTreeNode): boolean => {
   const stripped = stripParenExpression(expression);
@@ -128,14 +175,12 @@ export const jsxNoNewFunctionAsProp = defineRule<Rule>({
         // bails on the new reference.
         if (isJsxAttributeOnIntrinsicHtmlElement(node)) return;
         // One-shot lifecycle handlers (onMount / onError / onClose /
-        // etc.) fire at most once per component lifecycle, so a new
-        // function reference per render has zero measurable perf
-        // impact — even if the parent re-renders, the handler still
-        // fires the same number of times.
-        if (
-          isNodeOfType(node.name, "JSXIdentifier") &&
-          ONE_SHOT_LIFECYCLE_HANDLER_NAMES.has(node.name.name)
-        ) {
+        // etc.) and render-prop slots (`fallback`, `render*`, `*Render`,
+        // `*Renderer`, etc.) accept inline functions by design — they
+        // either fire at most once per lifecycle or are used by the
+        // parent for opaque rendering. New function reference per
+        // render has zero measurable perf impact.
+        if (isNodeOfType(node.name, "JSXIdentifier") && isOneShotHandlerName(node.name.name)) {
           return;
         }
         if (!isInsideFunctionScope(node)) return;
