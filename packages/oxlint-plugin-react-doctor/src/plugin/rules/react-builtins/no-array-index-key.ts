@@ -21,9 +21,61 @@ const SECOND_INDEX_METHODS: ReadonlySet<string> = new Set([
 
 const THIRD_INDEX_METHODS: ReadonlySet<string> = new Set(["reduce", "reduceRight"]);
 
+// Returns true when the receiver of the iteration call is provably
+// "positional and stable" — its element order is determined by the
+// iteration index itself, so an `index`-based key is correct by
+// construction. Catches:
+//   `Array.from({ length: N }).map((_, i) => ...)`
+//   `Array(N).fill(...).map((_, i) => ...)`
+//   `str.split(sep).map((_, i) => ...)`  (text-position iteration)
+// In each of these the array's identity-vs-position is fixed by the
+// source string/length — reordering can't happen, so using the index
+// as the key is semantically right.
+const isPositionallyStableIterationReceiver = (receiver: EsTreeNode): boolean => {
+  if (!isNodeOfType(receiver, "CallExpression")) return false;
+  const callee = receiver.callee;
+  // Array.from({ length: N })  /  Array.from({ length: N }, ...)
+  if (
+    isNodeOfType(callee, "MemberExpression") &&
+    isNodeOfType(callee.object, "Identifier") &&
+    callee.object.name === "Array" &&
+    isNodeOfType(callee.property, "Identifier") &&
+    callee.property.name === "from" &&
+    receiver.arguments.length >= 1 &&
+    isNodeOfType(receiver.arguments[0] as EsTreeNode, "ObjectExpression")
+  ) {
+    return true;
+  }
+  // Array(N) / new Array(N) — the result has a fixed length, can't reorder.
+  if (isNodeOfType(callee, "Identifier") && callee.name === "Array") return true;
+  // <expr>.split(...) — text-position iteration. Skip even if chained
+  // (e.g. `text.split('\n')`).
+  if (
+    isNodeOfType(callee, "MemberExpression") &&
+    isNodeOfType(callee.property, "Identifier") &&
+    callee.property.name === "split"
+  ) {
+    return true;
+  }
+  // Chained: `<expr>.fill(...).map(...)` — strip `.fill(...)` and
+  // check the receiver. Pattern: `Array(N).fill(0)`.
+  if (
+    isNodeOfType(callee, "MemberExpression") &&
+    isNodeOfType(callee.property, "Identifier") &&
+    (callee.property.name === "fill" || callee.property.name === "flat")
+  ) {
+    return isPositionallyStableIterationReceiver(callee.object as EsTreeNode);
+  }
+  return false;
+};
+
 // Find the iteration callback's index parameter binding (Identifier
 // node) by walking up from a JSXOpeningElement / CallExpression until
 // we find an enclosing array-iteration call.
+//
+// Returns null if the iteration source is positionally stable (see
+// `isPositionallyStableIterationReceiver` above) — `index` keys ARE
+// correct in those cases.
 const findIndexParameterBinding = (node: EsTreeNode): EsTreeNodeOfType<"Identifier"> | null => {
   let walker: EsTreeNode | null | undefined = node.parent;
   while (walker) {
@@ -45,6 +97,11 @@ const findIndexParameterBinding = (node: EsTreeNode): EsTreeNodeOfType<"Identifi
           if (SECOND_INDEX_METHODS.has(methodName)) position = 1;
           else if (THIRD_INDEX_METHODS.has(methodName)) position = 2;
           if (position !== null) {
+            // Iteration source — `<receiver>.map((_, i) => ...)`.
+            // Skip the entire rule if the receiver is positionally
+            // stable.
+            const receiver = callee.object as EsTreeNode;
+            if (isPositionallyStableIterationReceiver(receiver)) return null;
             const params = walker.params;
             const param = params[position] as EsTreeNode | undefined;
             if (param && isNodeOfType(param, "Identifier")) {
