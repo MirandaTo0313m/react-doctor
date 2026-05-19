@@ -221,10 +221,7 @@ export const jsxNoNewArrayAsProp = defineRule<Rule>({
         // component uses this pattern. The perf footgun the rule
         // targets is hot-path identity changes; these are one-time
         // configuration arrays.
-        if (
-          isNodeOfType(node.name, "JSXIdentifier") &&
-          isDataArrayPropName(node.name.name)
-        ) {
+        if (isNodeOfType(node.name, "JSXIdentifier") && isDataArrayPropName(node.name.name)) {
           return;
         }
         if (!isInsideFunctionScope(node)) return;
