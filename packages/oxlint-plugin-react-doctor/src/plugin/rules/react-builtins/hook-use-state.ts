@@ -65,6 +65,12 @@ const expectedSetterNames = (prefix: string, suffix: string): ReadonlyArray<stri
 export const hookUseState = defineRule<Rule>({
   id: "hook-use-state",
   severity: "warn",
+  // Stylistic naming rule — flags `const [count, _setCount]` (the
+  // unused-marker underscore convention) and `const [instance] =
+  // useState(() => new Foo())` (the create-once initializer pattern
+  // where the setter is intentionally never used). Both are
+  // idiomatic. Default off.
+  defaultEnabled: false,
   recommendation: "Destructure useState as `const [thing, setThing] = useState(…)`.",
   category: "Architecture",
   create: (context) => {

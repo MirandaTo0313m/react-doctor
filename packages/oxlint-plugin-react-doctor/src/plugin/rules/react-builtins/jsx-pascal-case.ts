@@ -25,9 +25,14 @@ const resolveSettings = (
       ? ((reactDoctor as { jsxPascalCase?: JsxPascalCaseSettings }).jsxPascalCase ?? {})
       : {};
   return {
+    // Default `allowLeadingUnderscore: true` because `<_ComponentName>`
+    // is the canonical pattern for Radix UI / Headless UI / React Aria
+    // import-alias wrappers (`import * as _ContextMenu from
+    // '@radix-ui/react-context-menu'`). Flagging the underscore
+    // generates noise on every consumer of those libraries.
     allowAllCaps: ruleSettings.allowAllCaps ?? false,
     allowNamespace: ruleSettings.allowNamespace ?? false,
-    allowLeadingUnderscore: ruleSettings.allowLeadingUnderscore ?? false,
+    allowLeadingUnderscore: ruleSettings.allowLeadingUnderscore ?? true,
     ignore: ruleSettings.ignore ?? [],
   };
 };

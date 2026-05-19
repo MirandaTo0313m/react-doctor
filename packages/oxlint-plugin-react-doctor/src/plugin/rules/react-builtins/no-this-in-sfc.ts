@@ -78,6 +78,13 @@ const looksLikeFunctionComponent = (
       if (isNodeOfType(parent.left, "Identifier")) return isReactComponentName(parent.left.name);
       return false;
     }
+    // Object-property method (`{ addAttributes() {...} }` or `{ foo: () => ... }`)
+    // is an object method, not a component candidate — its enclosing
+    // PascalCase variable (e.g. `const ResizableImage = TiptapImage.extend({...})`)
+    // is the wrapper expression, not a React function component. Stop
+    // here so we don't misattribute `this` inside Tiptap / ProseMirror /
+    // class-style object configs as being inside a React SFC.
+    if (isNodeOfType(parent, "Property")) return false;
     if (
       isNodeOfType(parent, "FunctionDeclaration") ||
       isNodeOfType(parent, "FunctionExpression") ||

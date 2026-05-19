@@ -176,6 +176,9 @@ const isScriptElement = (openingElement: EsTreeNodeOfType<"JSXOpeningElement">):
 export const jsxCurlyBracePresence = defineRule<Rule>({
   id: "jsx-curly-brace-presence",
   severity: "warn",
+  // Pure stylistic rule — `{'string'}` vs `"string"` is a formatter
+  // concern, not a bug class. Default off.
+  defaultEnabled: false,
   recommendation: "Pick a consistent quoting style for JSX literal values.",
   category: "Architecture",
   create: (context) => {

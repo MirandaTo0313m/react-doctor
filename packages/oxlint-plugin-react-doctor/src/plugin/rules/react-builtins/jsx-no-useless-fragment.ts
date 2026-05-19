@@ -106,6 +106,12 @@ const isFragmentWithOnlyTextAndNotJsxChild = (
 export const jsxNoUselessFragment = defineRule<Rule>({
   id: "jsx-no-useless-fragment",
   severity: "warn",
+  // Single-child fragments are often intentional — they force the
+  // return type to `ReactNode` rather than `ReactElement` (broader and
+  // safer for callers), and they keep conditional renders symmetric
+  // (`shouldShow ? <>{children}</> : null`). Default off; users who
+  // want strict cleanup can opt in.
+  defaultEnabled: false,
   recommendation:
     "Drop the fragment when it wraps a single child or sits directly under an HTML tag.",
   category: "Architecture",

@@ -19,6 +19,10 @@ const buildMessage = (character: string): string =>
 export const noUnescapedEntities = defineRule<Rule>({
   id: "no-unescaped-entities",
   severity: "warn",
+  // Pure stylistic rule — replacing `'` with `&apos;` etc. is a
+  // cosmetic preference that doesn't catch bugs (modern JSX
+  // compilers + browsers handle bare entities fine). Default off.
+  defaultEnabled: false,
   recommendation: "Replace bare `'` / `\"` / `>` / `}` characters in JSX text with HTML entities.",
   create: (context) => ({
     JSXText(node: EsTreeNodeOfType<"JSXText">) {

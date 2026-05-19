@@ -328,6 +328,11 @@ const findProgramRoot = (node: EsTreeNode): EsTreeNode | null => {
 export const displayName = defineRule<Rule>({
   id: "display-name",
   severity: "warn",
+  // Minor debug-helper rule — modern bundlers preserve function names
+  // so React DevTools shows meaningful names without explicit
+  // `displayName` in most cases. Off-by-default in upstream
+  // `eslint-plugin-react`'s recommended config since v8.x. Default off.
+  defaultEnabled: false,
   recommendation: "Assign each component a stable `displayName` for clearer dev-tooling output.",
   category: "Architecture",
   create: (context) => {

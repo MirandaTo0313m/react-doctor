@@ -24,8 +24,38 @@ interface ControlHasAssociatedLabelSettings {
   ignoreRoles?: ReadonlyArray<string>;
 }
 
-const DEFAULT_IGNORE_ELEMENTS: ReadonlyArray<string> = ["link"];
+// `link` is upstream's only default-ignored element. We add `canvas`
+// because a canvas is a drawing surface — it can't have a *text label*
+// (its child text is a screen-reader fallback that doesn't satisfy the
+// rule's "labelled control" model), and almost every flagged hit in
+// real codebases is unactionable (devtools overlays, internal SDK
+// canvases, etc.). Users who genuinely need labels on canvases (rare)
+// set `aria-label` and the labelling-prop check passes; users who want
+// to enforce regardless can override via `ignoreElements: []`.
+const DEFAULT_IGNORE_ELEMENTS: ReadonlyArray<string> = ["link", "canvas"];
 const DEFAULT_LABELLING_PROPS: ReadonlyArray<string> = ["alt", "aria-label", "aria-labelledby"];
+
+// Default depth for the children-walk. Upstream `eslint-plugin-jsx-a11y`
+// defaults to 2, but real-world buttons routinely nest text deeper
+// (icon + label inside flex wrappers easily reaches depth 4-5). The
+// shallow default makes the rule miss visible text labels and emit
+// false positives at scale.
+const DEFAULT_DEPTH = 5;
+const MAX_DEPTH = 25;
+
+// Test, story, and Cypress files don't participate in production
+// accessibility audits — they exercise component shapes, not user
+// flows. Skipping them removes a steady stream of FPs (test fixtures
+// rendering bare `<input ref={...}/>` without labels).
+const isTestlikeFilename = (filename: string | undefined): boolean => {
+  if (!filename) return false;
+  return (
+    filename.includes(".test.") ||
+    filename.includes(".spec.") ||
+    filename.includes(".cy.") ||
+    filename.includes(".stories.")
+  );
+};
 
 const resolveSettings = (
   settings: Readonly<Record<string, unknown>> | undefined,
@@ -37,7 +67,7 @@ const resolveSettings = (
           .controlHasAssociatedLabel ?? {})
       : {};
   return {
-    depth: Math.min(ruleSettings.depth ?? 2, 25),
+    depth: Math.min(ruleSettings.depth ?? DEFAULT_DEPTH, MAX_DEPTH),
     labelAttributes: ruleSettings.labelAttributes ?? [],
     controlComponents: ruleSettings.controlComponents ?? [],
     ignoreElements: ruleSettings.ignoreElements ?? [],
@@ -117,8 +147,10 @@ export const controlHasAssociatedLabel = defineRule<Rule>({
   category: "Accessibility",
   create: (context) => {
     const settings = resolveSettings(context.settings);
+    const isTestlikeFile = isTestlikeFilename(context.getFilename?.());
     return {
       JSXElement(node: EsTreeNodeOfType<"JSXElement">) {
+        if (isTestlikeFile) return;
         const opening = node.openingElement;
         const tagName = getElementType(opening, context.settings);
         if (DEFAULT_IGNORE_ELEMENTS.includes(tagName)) return;

@@ -12,6 +12,12 @@ const MESSAGE = "Do not use `this.setState` in components.";
 export const noSetState = defineRule<Rule>({
   id: "no-set-state",
   severity: "warn",
+  // Effectively a "no class components" rule — `this.setState` is the
+  // canonical class-component API and class components remain valid
+  // React. Real codebases still use them for error boundaries,
+  // legacy code, third-party integrations. Default off; opt in when
+  // migrating away from class components on purpose.
+  defaultEnabled: false,
   recommendation: "Lift state up or use an external store instead of `this.setState`.",
   category: "Architecture",
   create: (context) => ({

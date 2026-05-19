@@ -42,6 +42,9 @@ const resolveSettings = (
 export const jsxBooleanValue = defineRule<Rule>({
   id: "jsx-boolean-value",
   severity: "warn",
+  // Pure stylistic rule — `attr={true}` vs `attr` is a formatter
+  // concern, not a bug class. Default off.
+  defaultEnabled: false,
   recommendation:
     "Pick a single boolean-attribute style across the codebase (default: omit `={true}`).",
   category: "Architecture",

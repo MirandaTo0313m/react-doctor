@@ -43,4 +43,26 @@ export const DIVERGENCES: Record<string, OxcDivergence> = {
     failSkips: [3, 4, 10, 14],
     reason: "Intentional: default allowConstantExport=true to suppress shadcn-style FPs.",
   },
+  "jsx-pascal-case": {
+    // OXC defaults `allowLeadingUnderscore: false`. We default to
+    // `true` because Radix UI / Headless UI / React Aria consumers
+    // routinely import components as `_ContextMenu`, `_DialogPrimitive`
+    // etc. fail[3] (`<_TEST_COMPONENT />` with `allowAllCaps: true`)
+    // is the only fixture where the underscore-strip changes the
+    // verdict — with leading underscore allowed, the stripped name
+    // `TEST_COMPONENT` passes the all-caps check.
+    failSkips: [3],
+    reason: "Intentional: default allowLeadingUnderscore=true for Radix-style wrappers.",
+  },
+  "no-unstable-nested-components": {
+    // OXC defaults `allowAsProps: false`, which flags render-prop
+    // components passed as JSX props. We default to `true` because
+    // render-prop / component-as-prop is the canonical React
+    // composition pattern (`<Trans bold={(el) => <b>{el}</b>}/>`,
+    // tldraw's `components={{HelperButtons: () => ...}}`, twenty's
+    // `<Button Icon={() => <Loader/>}/>` etc.). These 12 fixtures
+    // all exercise the render-prop-as-component path and now pass.
+    failSkips: [20, 21, 22, 23, 26, 27, 28, 30, 31, 32, 40, 41],
+    reason: "Intentional: default allowAsProps=true to allow render-prop components.",
+  },
 };

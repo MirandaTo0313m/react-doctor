@@ -45,7 +45,12 @@ const resolveSettings = (
           .noUnstableNestedComponents ?? {})
       : {};
   return {
-    allowAsProps: ruleSettings.allowAsProps ?? false,
+    // Default `true` because passing a render-prop component
+    // (`<Foo Icon={() => <Bar/>}/>`, `<Trans bold={(el) => <b>{el}</b>}/>`,
+    // tldraw's `components={{HelperButtons: () => ...}}`, etc.) is the
+    // canonical React composition pattern. Users who want strict
+    // enforcement opt back in via `allowAsProps: false`.
+    allowAsProps: ruleSettings.allowAsProps ?? true,
     customValidators: ruleSettings.customValidators ?? [],
     propNamePattern: ruleSettings.propNamePattern ?? "render*",
   };
@@ -94,6 +99,40 @@ const expressionContainsJsxOrCreateElement = (root: EsTreeNode): boolean => {
   return found;
 };
 
+// True iff `classNode` extends React.Component / PureComponent (or a
+// bare `Component` / `PureComponent` symbol — matches the import shape
+// most React class components actually use).
+const classExtendsReactComponent = (classNode: EsTreeNode): boolean => {
+  const superClass = (classNode as { superClass?: EsTreeNode | null }).superClass;
+  if (!superClass) return false;
+  if (
+    isNodeOfType(superClass, "Identifier") &&
+    (superClass.name === "Component" || superClass.name === "PureComponent")
+  ) {
+    return true;
+  }
+  if (
+    isNodeOfType(superClass, "MemberExpression") &&
+    isNodeOfType(superClass.object, "Identifier") &&
+    superClass.object.name === "React" &&
+    isNodeOfType(superClass.property, "Identifier") &&
+    (superClass.property.name === "Component" || superClass.property.name === "PureComponent")
+  ) {
+    return true;
+  }
+  return false;
+};
+
+// Returns true when `classNode` is a *React* class — either by
+// explicit `extends React.Component` / `extends Component` lineage, or
+// by containing JSX / `React.createElement(...)` in any method body.
+// Catches both the canonical class-component shape and the rare hybrid
+// case where a class declares JSX in render without `extends`.
+const isReactClassComponent = (classNode: EsTreeNode): boolean => {
+  if (classExtendsReactComponent(classNode)) return true;
+  return expressionContainsJsxOrCreateElement(classNode);
+};
+
 // Walk up to find the FIRST enclosing function/class component.
 const findEnclosingComponent = (
   node: EsTreeNode,
@@ -124,7 +163,7 @@ const findEnclosingComponent = (
       }
     }
     if (isNodeOfType(walker, "ClassDeclaration") || isNodeOfType(walker, "ClassExpression")) {
-      if (walker.id && isReactComponentName(walker.id.name)) {
+      if (walker.id && isReactComponentName(walker.id.name) && isReactClassComponent(walker)) {
         return { component: walker, name: walker.id.name };
       }
     }
@@ -359,11 +398,18 @@ export const noUnstableNestedComponents = defineRule<Rule>({
       ClassDeclaration(node: EsTreeNodeOfType<"ClassDeclaration">) {
         if (!node.id) return;
         if (!isReactComponentName(node.id.name)) return;
+        // Only flag classes that are actually React components — the
+        // PascalCase-only check otherwise misidentifies any
+        // PascalCase-named class (`class NewRoot extends RootState` in
+        // tldraw, `class Tool extends BaseTool`, etc.) as a nested React
+        // component candidate.
+        if (!isReactClassComponent(node as EsTreeNode)) return;
         reportCandidate(node as EsTreeNode, node as EsTreeNode, node.id.name);
       },
       ClassExpression(node: EsTreeNodeOfType<"ClassExpression">) {
         const inferredName = node.id?.name ?? inferFunctionLikeName(node as EsTreeNode);
         if (!inferredName || !isReactComponentName(inferredName)) return;
+        if (!isReactClassComponent(node as EsTreeNode)) return;
         reportCandidate(node as EsTreeNode, node as EsTreeNode, inferredName);
       },
       CallExpression(node: EsTreeNodeOfType<"CallExpression">) {

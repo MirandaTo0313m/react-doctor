@@ -38,6 +38,9 @@ const isLowercaseIdentifier = (name: EsTreeNode): boolean => {
 export const selfClosingComp = defineRule<Rule>({
   id: "self-closing-comp",
   severity: "warn",
+  // Pure stylistic rule — `<X></X>` vs `<X/>` is a formatter concern,
+  // not a bug class. Default off.
+  defaultEnabled: false,
   recommendation: "Use the self-closing form `<X />` for elements with no children.",
   category: "Architecture",
   create: (context) => {

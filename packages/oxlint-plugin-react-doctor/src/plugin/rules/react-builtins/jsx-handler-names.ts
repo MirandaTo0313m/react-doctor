@@ -168,6 +168,12 @@ const isMemberExpressionCallee = (
 export const jsxHandlerNames = defineRule<Rule>({
   id: "jsx-handler-names",
   severity: "warn",
+  // Stylistic naming convention rule — the upstream pattern
+  // (`onClick={handleClick}`) is widely-followed but not universal.
+  // The rule also fires on solid-js `<Show when={props.onFoo}>` and
+  // similar conditional-render APIs where the `on`-named prop value
+  // isn't an event handler. Default off.
+  defaultEnabled: false,
   recommendation: "Use the `on…` prefix for event-handler props and `handle…` for handlers.",
   category: "Architecture",
   create: (context) => {
