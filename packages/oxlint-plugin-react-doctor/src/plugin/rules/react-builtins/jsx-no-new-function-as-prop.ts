@@ -12,6 +12,39 @@ import type { Rule } from "../../utils/rule.js";
 const MESSAGE =
   "JSX prop receives a new Function on every render — extract it or memoize (`useCallback`) to avoid re-renders.";
 
+// Handler prop names that conventionally fire at most once per
+// component lifecycle (mount / unmount / ready / error / load /
+// destroy / completion). For these, a new function reference per
+// render has zero measurable perf impact — the handler isn't called
+// in a hot path, and even if the surrounding component is memoized
+// and re-renders, the handler still fires the same number of times.
+// Common across React itself, tldraw, Excalidraw, Tldraw editors,
+// query libraries, etc.
+const ONE_SHOT_LIFECYCLE_HANDLER_NAMES: ReadonlySet<string> = new Set([
+  "onMount",
+  "onUnmount",
+  "onReady",
+  "onInit",
+  "onLoad",
+  "onDestroy",
+  "onBeforeMount",
+  "onAfterMount",
+  "onBeforeUnmount",
+  "onAfterUnmount",
+  "onError",
+  "onComplete",
+  "onCompleted",
+  "onFinish",
+  "onFinished",
+  "onSuccess",
+  "onAbort",
+  "onOpen",
+  "onClose",
+  "onDismiss",
+  "onCancel",
+  "onConfirm",
+]);
+
 const isFunctionProducingExpression = (expression: EsTreeNode): boolean => {
   const stripped = stripParenExpression(expression);
   if (
@@ -94,6 +127,17 @@ export const jsxNoNewFunctionAsProp = defineRule<Rule>({
         // fires on custom-component props where downstream `React.memo`
         // bails on the new reference.
         if (isJsxAttributeOnIntrinsicHtmlElement(node)) return;
+        // One-shot lifecycle handlers (onMount / onError / onClose /
+        // etc.) fire at most once per component lifecycle, so a new
+        // function reference per render has zero measurable perf
+        // impact — even if the parent re-renders, the handler still
+        // fires the same number of times.
+        if (
+          isNodeOfType(node.name, "JSXIdentifier") &&
+          ONE_SHOT_LIFECYCLE_HANDLER_NAMES.has(node.name.name)
+        ) {
+          return;
+        }
         if (!isInsideFunctionScope(node)) return;
         const value = node.value;
         if (!value || !isNodeOfType(value, "JSXExpressionContainer")) return;
