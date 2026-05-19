@@ -44,6 +44,7 @@ const KNOWN_SLOT_PROP_NAMES: ReadonlySet<string> = new Set([
   "description",
   "caption",
   "label",
+  "labelExtra",
   "tooltip",
   "trigger",
   "triggerContent",
@@ -60,6 +61,8 @@ const KNOWN_SLOT_PROP_NAMES: ReadonlySet<string> = new Set([
   "addonBefore",
   "addonAfter",
   "selectButton",
+  "badge",
+  "message",
   // Fallback / error slots
   "fallback",
   "fallbackRender",
@@ -84,6 +87,43 @@ const KNOWN_SLOT_PROP_NAMES: ReadonlySet<string> = new Set([
   "renderTrigger",
   "renderOption",
 ]);
+
+// Suffix patterns that mark a prop as a "slot" — `*Button`, `*Icon`,
+// `*Component`, `*Element`, `*Slot`, `*Content`, `*Renderer`, `*Item`,
+// `*Trigger`, `*Header`, `*Footer`. Captures the long tail of design
+// system slot names (commentsButton / customButton / menuButton /
+// iconButton / activeShape / leftComponent / customButton / etc.)
+// without enumerating every variation. The receiving prop is by
+// convention a single JSX node, not a perf-critical handler.
+const SLOT_PROP_SUFFIXES: ReadonlyArray<string> = [
+  "Button",
+  "Icon",
+  "Component",
+  "Element",
+  "Slot",
+  "Content",
+  "Renderer",
+  "Trigger",
+  "Header",
+  "Footer",
+  "Badge",
+  "Label",
+  "Tooltip",
+  "Indicator",
+  "Adornment",
+  "Section",
+  "Panel",
+  "Overlay",
+  "Shape",
+];
+
+const isSlotPropName = (propName: string): boolean => {
+  if (KNOWN_SLOT_PROP_NAMES.has(propName)) return true;
+  for (const suffix of SLOT_PROP_SUFFIXES) {
+    if (propName.length > suffix.length && propName.endsWith(suffix)) return true;
+  }
+  return false;
+};
 
 const isJsxProducingExpression = (expression: EsTreeNode): boolean => {
   const stripped = stripParenExpression(expression);
@@ -142,11 +182,9 @@ export const jsxNoJsxAsProp = defineRule<Rule>({
         // `jsx-no-new-function-as-prop` for the full rationale.
         if (isJsxAttributeOnIntrinsicHtmlElement(node)) return;
         // Known slot prop names (icon, tooltip, fallback, header, etc.)
+        // and slot suffixes (*Button, *Icon, *Component, *Element, ...)
         // are designed to receive JSX. Flagging them is unactionable.
-        if (
-          isNodeOfType(node.name, "JSXIdentifier") &&
-          KNOWN_SLOT_PROP_NAMES.has(node.name.name)
-        ) {
+        if (isNodeOfType(node.name, "JSXIdentifier") && isSlotPropName(node.name.name)) {
           return;
         }
         if (!isInsideFunctionScope(node)) return;
