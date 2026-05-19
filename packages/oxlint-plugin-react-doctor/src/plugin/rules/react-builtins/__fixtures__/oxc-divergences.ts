@@ -76,4 +76,14 @@ export const DIVERGENCES: Record<string, OxcDivergence> = {
     failSkips: [9, 10, 11, 12],
     reason: "Intentional: skip intrinsic HTML elements (no memo concern).",
   },
+  "style-prop-object": {
+    // OXC flags `style="..."` on any JSX element. We only flag it on
+    // intrinsic HTML/SVG elements because custom components own their
+    // `style` prop contract — Expo's `<StatusBar style="auto"/>`,
+    // React Native chart libs, and many design systems accept strings
+    // or enums. The fixtures fail[1], fail[5], fail[7] all exercise
+    // `<Hello style="..."/>` / `<MyComponent style={...}/>` shapes.
+    failSkips: [1, 5, 7],
+    reason: "Intentional: skip custom components (they own their style-prop contract).",
+  },
 };

@@ -148,6 +148,17 @@ export const stylePropObject = defineRule<Rule>({
       JSXOpeningElement(node: EsTreeNodeOfType<"JSXOpeningElement">) {
         const elementName = getJsxOpeningElementName(node);
         if (elementName && allowSet.has(elementName)) return;
+        // Custom components define their own `style` prop type — many
+        // libraries (Expo's `<StatusBar style="auto"/>`, React Native
+        // chart libs, etc.) accept strings or enums. Only flag the
+        // React-DOM-style contract on intrinsic HTML / SVG elements
+        // (lowercase tag names) where the prop is React's reserved
+        // CSS-properties object.
+        if (elementName) {
+          const firstCharCode = elementName.charCodeAt(0);
+          const isIntrinsic = firstCharCode >= 97 && firstCharCode <= 122;
+          if (!isIntrinsic) return;
+        }
         for (const attribute of node.attributes) {
           if (!isNodeOfType(attribute, "JSXAttribute")) continue;
           if (!isNodeOfType(attribute.name, "JSXIdentifier")) continue;

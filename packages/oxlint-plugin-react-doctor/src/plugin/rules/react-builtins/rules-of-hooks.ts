@@ -170,6 +170,7 @@ const isHookCall = (
     isReactHookName(callee.property.name)
   ) {
     const callObject = callee.object;
+    const propertyName = callee.property.name;
     // Upstream's heuristic: a use-prefixed member call IS a hook iff
     // the object reads like a "namespace" — PascalCase identifier
     // (`Hook` / `This` / `Super` / `React` / `FooStore` / `Namespace`)
@@ -179,11 +180,17 @@ const isHookCall = (
     if (isNodeOfType(callObject, "Identifier")) {
       if (settings.allowedPascalCaseHookNamespaces.includes(callObject.name)) return null;
       if (!isPascalCaseIdentifier(callObject)) return null;
-      return { hookName: callee.property.name };
+      return { hookName: propertyName };
     }
-    if (isNodeOfType(callObject, "CallExpression")) {
-      return { hookName: callee.property.name };
-    }
+    // Chained-call hooks (`<callExpr>.useFoo(...)`) are vanishingly
+    // rare in real React code — and frequent in library APIs whose
+    // method names happen to start with `use`: NestJS's
+    // `Test.createTestingModule(...).overrideGuard(...).useValue(...)`,
+    // `unified().use(rehypeParse)`, `chai.expect(x).use(...)`, RxJS's
+    // `pipe().use(...)`, etc. Zero upstream fixtures exercise this
+    // chain shape for an actual hook, so we don't flag it. Bare
+    // `useState(...)` and namespace-qualified `Hook.useState(...)`
+    // patterns continue to fire correctly via the other branches.
     return null;
   }
   return null;
