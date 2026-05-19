@@ -59,12 +59,26 @@ const DATA_ARRAY_PROP_NAMES: ReadonlySet<string> = new Set([
   "customCommandPaletteItems",
   "renderingShapes",
   "calendarEvents",
+  // Chart / visualization series
+  "bars",
+  "trails",
+  "lines",
+  "areas",
+  "marks",
+  "points",
+  "labels",
+  // Filter / selection collections
+  "filters",
+  "selectedValues",
+  "resources",
+  "propertyFilters",
+  "dayTimes",
 ]);
 
 // Suffix patterns: `*Items`, `*Options`, `*Tabs`, `*Columns`, `*Rows`,
 // `*List`, `*Series`, `*Categories`, `*Events`, `*Entries`, `*Elements`,
 // `*Shapes`, `*Children`, `*Nodes`, `*Edges`, `*Data`, `*Collection`,
-// `*Models`, `*Records`.
+// `*Models`, `*Records`, `*Filters`, `*Values`, `*Times`, `*Resources`.
 const DATA_ARRAY_PROP_SUFFIXES: ReadonlyArray<string> = [
   "Items",
   "Options",
@@ -85,6 +99,10 @@ const DATA_ARRAY_PROP_SUFFIXES: ReadonlyArray<string> = [
   "Collection",
   "Models",
   "Records",
+  "Filters",
+  "Values",
+  "Times",
+  "Resources",
 ];
 
 const isDataArrayPropName = (propName: string): boolean => {

@@ -77,11 +77,24 @@ const CONFIG_OBJECT_PROP_NAMES: ReadonlySet<string> = new Set([
   "shapes",
   "user",
   "users",
+  // Common object-shape slot/feature props
+  "args",
+  "avatar",
+  "dot",
+  "action",
+  "expandable",
+  "defaultSort",
+  "resourceType",
+  "truncateText",
+  "formatters",
+  "label",
 ]);
 
 // Suffixes that mark a prop as a "config object" by convention —
 // `*Props` (Radix / MUI / shadcn pass-through props), `*Config`,
-// `*Configuration`, `*Options`, `*Settings`, `*Style`, `*ClassName`.
+// `*Configuration`, `*Options`, `*Settings`, `*Style`, `*ClassName`,
+// `*Sort`, `*Filter`, `*Pagination`, `*Format`, `*Locale`,
+// `*Validator`, `*Args`.
 const CONFIG_OBJECT_PROP_SUFFIXES: ReadonlyArray<string> = [
   "Props",
   "Config",
@@ -93,6 +106,14 @@ const CONFIG_OBJECT_PROP_SUFFIXES: ReadonlyArray<string> = [
   "ClassName",
   "ClassNames",
   "Theme",
+  "Sort",
+  "Filter",
+  "Pagination",
+  "Format",
+  "Locale",
+  "Validator",
+  "Args",
+  "Type",
 ];
 
 const isConfigObjectPropName = (propName: string): boolean => {

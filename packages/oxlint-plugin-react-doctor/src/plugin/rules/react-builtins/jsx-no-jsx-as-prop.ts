@@ -63,6 +63,21 @@ const KNOWN_SLOT_PROP_NAMES: ReadonlySet<string> = new Set([
   "selectButton",
   "badge",
   "message",
+  // Directional / positional slots (`left`, `right`, `top`, `bottom`,
+  // `aside`, `details`, `extra`) — flexbox-aware design systems use
+  // these to control layout of slot children.
+  "left",
+  "right",
+  "top",
+  "bottom",
+  "start",
+  "end",
+  "aside",
+  "details",
+  "extra",
+  "overlay",
+  "emptyState",
+  "element",
   // Fallback / error slots
   "fallback",
   "fallbackRender",
