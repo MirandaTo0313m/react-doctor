@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { Cause, Effect, Exit, Layer, Ref, Stream } from "effect";
 
 import { Config } from "../src/config.js";
+import { DeadCode } from "../src/dead-code.js";
 import type { Diagnostic } from "../src/diagnostic-schema.js";
 import { OxlintTimedOut, ReactDoctorError } from "../src/errors.js";
 import { Files } from "../src/files.js";
@@ -53,6 +54,7 @@ const baseInput = {
   adoptExistingLintConfig: true,
   ignoredTags: new Set<string>(),
   outputSurface: "cli" as const,
+  runDeadCode: false,
 };
 
 describe("runInspect (full orchestration)", () => {
@@ -71,6 +73,7 @@ describe("runInspect (full orchestration)", () => {
           Layer.mergeAll(
             Project.layerOf(stubProject),
             Config.layerOf({ config: null, resolvedDirectory: "/repo" }),
+            DeadCode.layerOf([]),
             Files.layerInMemory(new Map()),
             Linter.layerOf([diagnostic]),
             LintPartialFailures.layerLive,
@@ -104,6 +107,7 @@ describe("runInspect (full orchestration)", () => {
           Layer.mergeAll(
             Project.layerOf(stubProject),
             Config.layerOf({ config: null, resolvedDirectory: "/repo" }),
+            DeadCode.layerOf([]),
             Files.layerInMemory(new Map()),
             Layer.succeed(Linter, failingLinter),
             LintPartialFailures.layerLive,
@@ -129,6 +133,7 @@ describe("runInspect (full orchestration)", () => {
           Layer.mergeAll(
             Project.layerOf(noReactProject),
             Config.layerOf({ config: null, resolvedDirectory: "/repo" }),
+            DeadCode.layerOf([]),
             Files.layerInMemory(new Map()),
             Linter.layerNoop,
             LintPartialFailures.layerLive,
@@ -169,6 +174,7 @@ describe("runInspect (full orchestration)", () => {
           Layer.mergeAll(
             Project.layerOf(stubProject),
             Config.layerOf({ config: null, resolvedDirectory: "/repo" }),
+            DeadCode.layerOf([]),
             Files.layerInMemory(new Map()),
             Linter.layerOf([]),
             LintPartialFailures.layerLive,

@@ -1,24 +1,32 @@
 import { performance } from "node:perf_hooks";
+import { Effect, Layer, Ref } from "effect";
 import {
   OXLINT_NODE_REQUIREMENT,
-  calculateScore,
-  checkDeadCode,
-  combineDiagnostics,
-  computeJsxIncludePaths,
   filterDiagnosticsForSurface,
-  formatErrorChain,
   highlighter,
   isLoggerSilent,
   loadConfigWithSource,
   logger,
-  resolveConfigRootDir,
-  resolveLintIncludePaths,
-  runOxlint,
   setLoggerSilent,
 } from "@react-doctor/core";
-import { discoverProject, NoReactDependencyError } from "@react-doctor/project-info";
+import { NoReactDependencyError } from "@react-doctor/project-info";
+import {
+  Config,
+  DeadCode,
+  Files,
+  formatReactDoctorError,
+  LintPartialFailures,
+  Linter,
+  Project,
+  ReactDoctorError,
+  Reporter,
+  runInspect as runInspectEffect,
+  Score,
+  Spinner,
+  type RunInspectInput,
+  type SpinnerHandle,
+} from "@react-doctor/runtime";
 import type {
-  Diagnostic,
   DiagnosticSurface,
   InspectOptions,
   InspectResult,
@@ -79,26 +87,58 @@ const mergeInspectOptions = (
   outputSurface: inputOptions.outputSurface ?? "cli",
 });
 
+/**
+ * Structural tag check. Empirically, `instanceof ReactDoctorError`
+ * was unreliable here when crossing the runtime → public-API
+ * module boundary in test environments — the imported binding
+ * could read as `undefined` at the catch site even though the
+ * thrown value's `_tag` was correct. Rather than diagnose every
+ * possible cause (ESM live-binding init order, dual class names
+ * in the bundle graph from the legacy project-info
+ * `ReactDoctorError` and the new tagged class, vitest's module
+ * loader, …), we discriminate on the structural `_tag` field the
+ * runtime publishes — the same contract `Effect.catchTag` and
+ * every downstream renderer already use.
+ */
+const isReactDoctorErrorLike = (cause: unknown): cause is ReactDoctorError =>
+  typeof cause === "object" &&
+  cause !== null &&
+  (cause as { _tag?: unknown })._tag === "ReactDoctorError" &&
+  typeof (cause as { reason?: { _tag?: unknown } }).reason === "object" &&
+  (cause as { reason?: { _tag?: unknown } }).reason !== null;
+
+/**
+ * Translates a runtime tagged-error back into the legacy thrown
+ * class the public `inspect()` API has always advertised (and that
+ * existing tests assert via `instanceof` / message substring).
+ *
+ * This is the boundary between the runtime's `ReactDoctorError`
+ * (`reason: Schema.Union(...)`) and the long-standing public errors
+ * exported from `@react-doctor/project-info`. Adding a new public
+ * thrown class — say a future `ConfigParseError` — is one new
+ * `case` here; everything inside the runtime keeps speaking in
+ * tagged reasons.
+ */
+const restoreLegacyThrow = (error: ReactDoctorError): never => {
+  const reason = error.reason;
+  switch (reason._tag) {
+    case "NoReactDependency":
+      throw new NoReactDependencyError(reason.directory);
+    default:
+      throw new Error(formatReactDoctorError(error));
+  }
+};
+
 export const inspect = async (
   directory: string,
   inputOptions: InspectOptions = {},
 ): Promise<InspectResult> => {
   const startTime = performance.now();
 
-  let scanDirectory = directory;
-  let userConfig: ReactDoctorConfig | null;
-  if (inputOptions.configOverride !== undefined) {
-    userConfig = inputOptions.configOverride;
-  } else {
-    const loadedConfig = loadConfigWithSource(directory);
-    const redirectedDirectory = resolveConfigRootDir(
-      loadedConfig?.config ?? null,
-      loadedConfig?.sourceDirectory ?? null,
-    );
-    if (redirectedDirectory) scanDirectory = redirectedDirectory;
-    userConfig = loadedConfig?.config ?? null;
-  }
-
+  const hasConfigOverride = inputOptions.configOverride !== undefined;
+  const userConfig: ReactDoctorConfig | null = hasConfigOverride
+    ? (inputOptions.configOverride ?? null)
+    : (loadConfigWithSource(directory)?.config ?? null);
   const options = mergeInspectOptions(inputOptions, userConfig);
 
   const wasLoggerSilent = isLoggerSilent();
@@ -109,7 +149,13 @@ export const inspect = async (
   }
 
   try {
-    return await runInspect(scanDirectory, options, userConfig, startTime);
+    return await runInspectWithRuntime(
+      directory,
+      options,
+      userConfig,
+      hasConfigOverride,
+      startTime,
+    );
   } finally {
     if (options.silent) {
       setLoggerSilent(wasLoggerSilent);
@@ -118,155 +164,238 @@ export const inspect = async (
   }
 };
 
-const runInspect = async (
+const runInspectWithRuntime = async (
   directory: string,
   options: ResolvedInspectOptions,
-  userConfig: ReactDoctorConfig | null,
+  configOverride: ReactDoctorConfig | null,
+  hasConfigOverride: boolean,
   startTime: number,
 ): Promise<InspectResult> => {
-  const projectInfo = discoverProject(directory);
-  const { includePaths } = options;
-  const isDiffMode = includePaths.length > 0;
+  const isDiffMode = options.includePaths.length > 0;
 
-  if (!projectInfo.reactVersion) {
-    throw new NoReactDependencyError(directory);
-  }
-
-  const jsxIncludePaths = computeJsxIncludePaths(includePaths);
-  const lintIncludePaths = jsxIncludePaths ?? resolveLintIncludePaths(directory, userConfig);
-  const lintSourceFileCount = lintIncludePaths?.length ?? projectInfo.sourceFileCount;
-
-  if (!options.scoreOnly) {
-    printProjectDetection(projectInfo, userConfig, isDiffMode, includePaths, lintSourceFileCount);
-  }
-
-  let didLintFail = false;
-  let lintFailureReason: string | null = null;
-  const lintPartialFailures: string[] = [];
-
-  let didDeadCodeFail = false;
-  let deadCodeFailureReason: string | null = null;
-
-  // Dead-code reachability is a whole-project property — skip in
-  // diff / staged mode, matching how `checkReducedMotion` is gated
-  // in `combineDiagnostics`.
-  const shouldRunDeadCode = options.deadCode && !isDiffMode;
-
+  // Pre-check the oxlint native binding the same way the legacy
+  // entry point did: `resolveOxlintNode` prints its own warnings /
+  // upgrade hints to the user, and returns `null` when the binding
+  // can't be loaded for the current Node. In that mode we run the
+  // pipeline with the noop linter so the rest of the orchestration
+  // (project detection, score, rendering) still happens, with
+  // `skippedChecks: ["lint"]` surfacing the missed coverage.
   const resolvedNodeBinaryPath = await resolveOxlintNode(
     options.lint,
     options.scoreOnly || options.silent,
   );
-  if (options.lint && !resolvedNodeBinaryPath) {
-    didLintFail = true;
-    lintFailureReason = `oxlint native binding not found for Node ${process.version}; expected one matching ${OXLINT_NODE_REQUIREMENT}`;
-  }
+  const lintBindingMissing = options.lint && !resolvedNodeBinaryPath;
 
-  // Kick off dead-code analysis in parallel with lint, but defer its
-  // spinner until the lint spinner finalizes — each `spinner()` call
-  // returns its own ora instance, so two concurrent starts would have
-  // both frame loops writing to stderr and produce garbled output.
-  const deadCodeWork = shouldRunDeadCode
-    ? checkDeadCode({ rootDirectory: directory, userConfig })
-    : Promise.resolve<Diagnostic[]>([]);
-  // HACK: attach a no-op handler synchronously so a rejection during
-  // the lint await window doesn't trigger Node's unhandled-rejection
-  // warning. The deferred await below routes the real error into the
-  // spinner + skippedChecks tracking.
-  deadCodeWork.catch(() => {});
+  // CLI factory that adapts the existing ora-backed `spinner()`
+  // helper to the runtime's `Spinner` service shape (Effect-typed
+  // succeed/fail). Tests provide `Spinner.layerCapture` instead of
+  // `vi.mock("ora")` — same dispatch, no module-level monkey-patch.
+  const oraFactory = (text: string): SpinnerHandle => {
+    const handle = spinner(text).start();
+    return {
+      succeed: (displayText: string) => Effect.sync(() => handle.succeed(displayText)),
+      fail: (displayText: string) => Effect.sync(() => handle.fail(displayText)),
+    };
+  };
 
-  const lintPromise = resolvedNodeBinaryPath
-    ? (async () => {
-        const lintSpinner = options.scoreOnly ? null : spinner("Running lint checks...").start();
-        try {
-          const lintDiagnostics = await runOxlint({
-            rootDirectory: directory,
-            project: projectInfo,
-            includePaths: lintIncludePaths,
-            nodeBinaryPath: resolvedNodeBinaryPath,
-            customRulesOnly: options.customRulesOnly,
-            respectInlineDisables: options.respectInlineDisables,
-            adoptExistingLintConfig: options.adoptExistingLintConfig,
-            ignoredTags: options.ignoredTags,
-            userConfig,
-            onPartialFailure: (reason) => lintPartialFailures.push(reason),
-          });
-          lintSpinner?.succeed("Running lint checks.");
-          return lintDiagnostics;
-        } catch (error) {
-          didLintFail = true;
-          const lintErrorChain = formatErrorChain(error);
-          lintFailureReason = lintErrorChain;
-          if (!options.scoreOnly) {
-            const isNativeBindingError = lintErrorChain.includes("native binding");
-
-            if (isNativeBindingError) {
-              lintSpinner?.fail(
-                `Lint checks failed — oxlint native binding not found (Node ${process.version}).`,
-              );
-              logger.dim(
-                `  Upgrade to Node ${OXLINT_NODE_REQUIREMENT} or run: npx -p oxlint@latest react-doctor@latest`,
-              );
-            } else {
-              lintSpinner?.fail("Lint checks failed (non-fatal, skipping).");
-              logger.error(lintErrorChain);
-            }
-          }
-          return [];
-        }
-      })()
-    : Promise.resolve<Diagnostic[]>([]);
-
-  const lintDiagnostics = await lintPromise;
-
-  const deadCodeDiagnostics = shouldRunDeadCode
-    ? await (async () => {
-        const deadCodeSpinner = options.scoreOnly
-          ? null
-          : spinner("Analyzing dead code...").start();
-        try {
-          const result = await deadCodeWork;
-          deadCodeSpinner?.succeed("Analyzing dead code.");
-          return result;
-        } catch (error) {
-          didDeadCodeFail = true;
-          deadCodeFailureReason = formatErrorChain(error);
-          deadCodeSpinner?.fail("Dead-code analysis failed (non-fatal, skipping).");
-          return [];
-        }
-      })()
-    : [];
-
-  const diagnostics = combineDiagnostics({
-    lintDiagnostics,
+  const runtimeInput: RunInspectInput = {
     directory,
-    isDiffMode,
-    userConfig,
+    includePaths: options.includePaths,
+    customRulesOnly: options.customRulesOnly,
     respectInlineDisables: options.respectInlineDisables,
-    extraDiagnostics: deadCodeDiagnostics,
+    adoptExistingLintConfig: options.adoptExistingLintConfig,
+    ignoredTags: options.ignoredTags,
+    outputSurface: options.outputSurface,
+    nodeBinaryPath: resolvedNodeBinaryPath ?? undefined,
+    runDeadCode: options.deadCode,
+  };
+
+  // Custom layer stack so `--offline` swaps `Score`, the missing
+  // binding case swaps `Linter` to noop, `--no-dead-code` swaps
+  // `DeadCode` to noop, and a caller-supplied `configOverride`
+  // skips the on-disk re-load through `Config.layerOf`.
+  const lintLayer = !options.lint || lintBindingMissing ? Linter.layerNoop : Linter.layerOxlint;
+  const scoreLayer = options.offline ? Score.layerOffline : Score.layerHttp;
+  const deadCodeLayer = options.deadCode ? DeadCode.layerNode : DeadCode.layerNoop;
+  const configLayer = hasConfigOverride
+    ? Config.layerOf({ config: configOverride, resolvedDirectory: directory })
+    : Config.layerNode;
+
+  // Spinner handle is shared between `beforeLint` (which starts it
+  // when lint actually runs) and `afterLint` plus the post-runtime
+  // failure branch below. A `Ref` instead of a closure-mutated
+  // variable keeps the hook scopes pure-Effect.
+  const program = Effect.gen(function* () {
+    const spinnerService = yield* Spinner;
+    const spinnerRef = yield* Ref.make<SpinnerHandle | null>(null);
+
+    const result = yield* runInspectEffect(runtimeInput, {
+      beforeLint: (projectInfo, lintIncludePaths) =>
+        Effect.gen(function* () {
+          const lintSourceFileCount = lintIncludePaths?.length ?? projectInfo.sourceFileCount;
+          if (!options.scoreOnly) {
+            printProjectDetection(
+              projectInfo,
+              configOverride,
+              isDiffMode,
+              options.includePaths,
+              lintSourceFileCount,
+            );
+          }
+          if (options.lint && resolvedNodeBinaryPath && !options.scoreOnly) {
+            const handle = yield* spinnerService.start("Running lint checks...");
+            yield* Ref.set(spinnerRef, handle);
+          }
+        }),
+      afterLint: (didFail) =>
+        Effect.gen(function* () {
+          const handle = yield* Ref.get(spinnerRef);
+          if (!handle) return;
+          if (!didFail) {
+            yield* handle.succeed("Running lint checks.");
+          }
+        }),
+    });
+
+    const spinnerHandle = yield* Ref.get(spinnerRef);
+    return { result, spinnerHandle };
   });
 
+  const layerStack = Layer.mergeAll(
+    Project.layerNode,
+    configLayer,
+    deadCodeLayer,
+    Files.layerNode,
+    lintLayer,
+    LintPartialFailures.layerLive,
+    Reporter.layerCapture,
+    scoreLayer,
+    options.silent ? Spinner.layerNoop : Spinner.layerOra(oraFactory),
+  );
+
+  let result;
+  let spinnerHandleAfterRun: SpinnerHandle | null;
+  try {
+    const programResult = await Effect.runPromise(program.pipe(Effect.provide(layerStack)));
+    result = programResult.result;
+    spinnerHandleAfterRun = programResult.spinnerHandle;
+  } catch (cause) {
+    if (isReactDoctorErrorLike(cause)) restoreLegacyThrow(cause);
+    throw cause;
+  }
+
+  // Surface a stream-level lint failure through the same spinner
+  // and dim-hint UX the legacy entry point produced. The renderer
+  // distinguishes "native binding missing" from generic spawn /
+  // timeout / parse failures because that drives a different next
+  // step for the user (upgrade Node vs. retry with a smaller
+  // include set).
+  const didLintFail = lintBindingMissing || result.didLintFail;
+  const lintFailureReason = lintBindingMissing
+    ? `oxlint native binding not found for Node ${process.version}; expected one matching ${OXLINT_NODE_REQUIREMENT}`
+    : result.lintFailureReason;
+  // Tagged-reason dispatch beats string sniffing on `lintFailureReason`
+  // — the runtime carries `lintFailureReasonTag` exactly so this
+  // renderer doesn't have to know the format strings the runner
+  // produces.
+  const isNativeBindingFailure =
+    result.lintFailureReasonTag === "OxlintNativeBindingFailed" ||
+    result.lintFailureReasonTag === "OxlintBinaryNotFound";
+  if (
+    !options.scoreOnly &&
+    !lintBindingMissing &&
+    result.didLintFail &&
+    spinnerHandleAfterRun !== null &&
+    lintFailureReason !== null
+  ) {
+    if (isNativeBindingFailure) {
+      await Effect.runPromise(
+        spinnerHandleAfterRun.fail(
+          `Lint checks failed — oxlint native binding not found (Node ${process.version}).`,
+        ),
+      );
+      logger.dim(
+        `  Upgrade to Node ${OXLINT_NODE_REQUIREMENT} or run: npx -p oxlint@latest react-doctor@latest`,
+      );
+    } else {
+      await Effect.runPromise(
+        spinnerHandleAfterRun.fail("Lint checks failed (non-fatal, skipping)."),
+      );
+      logger.error(lintFailureReason);
+    }
+  }
+
+  // Dead-code analysis runs inside the runtime stream; surface
+  // its outcome to the user as a separate spinner line. Dead-code
+  // is sequential after lint in the current pipeline, so showing
+  // its line only after lint finalizes keeps two ora frame loops
+  // from competing for stderr.
+  const shouldRenderDeadCodeLine =
+    !options.scoreOnly && !options.silent && options.deadCode && !isDiffMode;
+  if (shouldRenderDeadCodeLine) {
+    const deadCodeHandle = oraFactory("Analyzing dead code...");
+    if (result.didDeadCodeFail) {
+      await Effect.runPromise(
+        deadCodeHandle.fail("Dead-code analysis failed (non-fatal, skipping)."),
+      );
+    } else {
+      await Effect.runPromise(deadCodeHandle.succeed("Analyzing dead code."));
+    }
+  }
+
   const elapsedMilliseconds = performance.now() - startTime;
+  return finalizeAndRender({
+    options,
+    elapsedMilliseconds,
+    diagnostics: [...result.diagnostics],
+    score: didLintFail ? null : result.score,
+    project: result.project,
+    userConfig: result.userConfig,
+    didLintFail,
+    lintFailureReason,
+    lintPartialFailures: [...result.lintPartialFailures],
+    didDeadCodeFail: result.didDeadCodeFail,
+    deadCodeFailureReason: result.deadCodeFailureReason,
+    directory: result.resolvedDirectory,
+  });
+};
+
+interface FinalizeInput {
+  options: ResolvedInspectOptions;
+  elapsedMilliseconds: number;
+  diagnostics: ReadonlyArray<InspectResult["diagnostics"][number]>;
+  score: InspectResult["score"];
+  project: InspectResult["project"];
+  userConfig: ReactDoctorConfig | null;
+  didLintFail: boolean;
+  lintFailureReason: string | null;
+  lintPartialFailures: ReadonlyArray<string>;
+  didDeadCodeFail: boolean;
+  deadCodeFailureReason: string | null;
+  directory: string;
+}
+
+const finalizeAndRender = (input: FinalizeInput): InspectResult => {
+  const {
+    options,
+    elapsedMilliseconds,
+    diagnostics,
+    score,
+    project,
+    userConfig,
+    didLintFail,
+    lintFailureReason,
+    lintPartialFailures,
+    didDeadCodeFail,
+    deadCodeFailureReason,
+    directory,
+  } = input;
 
   const skippedChecks: string[] = [];
   if (didLintFail) skippedChecks.push("lint");
   if (didDeadCodeFail) skippedChecks.push("dead-code");
   const hasSkippedChecks = skippedChecks.length > 0;
 
-  // HACK: --offline opts out of the score API entirely; without a
-  // local fallback (intentional — scoring lives on the server) we
-  // simply skip the score in offline mode and the renderer shows the
-  // "score unavailable" branch. The message distinguishes the two
-  // null sources — `--offline` (user-requested) vs API failure (the
-  // network round-trip didn't return a usable score) — so the
-  // renderer doesn't claim offline mode when the user is online but
-  // the API was unreachable.
-  //
-  // Pre-filter diagnostics through the `score` surface so weak-signal
-  // rule families (e.g. `design`) stay out of scoring by default and
-  // don't dilute the headline number. Surface-included diagnostics
-  // still flow through `result.diagnostics` for CLI/JSON consumers.
-  const scoreDiagnostics = filterDiagnosticsForSurface(diagnostics, "score", userConfig);
-  const scoreResult = options.offline ? null : await calculateScore(scoreDiagnostics);
   const noScoreMessage = options.offline
     ? "Score unavailable in offline mode."
     : "Score unavailable (could not reach the score API).";
@@ -275,9 +404,6 @@ const runInspect = async (
   if (didLintFail && lintFailureReason !== null) {
     skippedCheckReasons.lint = lintFailureReason;
   } else if (lintPartialFailures.length > 0) {
-    // Lint as a whole succeeded (we got diagnostics from at least one
-    // batch) but some batches timed out — surface the partial-failure
-    // notes so JSON consumers see why a few files weren't checked.
     skippedCheckReasons["lint:partial"] = lintPartialFailures.join("; ");
   }
   if (didDeadCodeFail && deadCodeFailureReason !== null) {
@@ -285,37 +411,31 @@ const runInspect = async (
   }
 
   const buildResult = (): InspectResult => ({
-    diagnostics,
-    score: scoreResult,
+    diagnostics: [...diagnostics],
+    score,
     skippedChecks,
     ...(Object.keys(skippedCheckReasons).length > 0 ? { skippedCheckReasons } : {}),
-    project: projectInfo,
+    project,
     elapsedMilliseconds,
   });
 
   if (options.scoreOnly) {
-    if (scoreResult) {
-      logger.log(`${scoreResult.score}`);
+    if (score) {
+      logger.log(`${score.score}`);
     } else {
       logger.dim(noScoreMessage);
     }
     return buildResult();
   }
 
-  // `outputSurface` strips weak-signal rule families (default: `design`
-  // tag) from the printed list when capturing output destined for a PR
-  // comment, so style cleanup can't dilute meaningful React findings.
-  // The full diagnostic list is still returned via `buildResult()` so
-  // JSON consumers and the score path see everything. The filter always
-  // runs (even for the `cli` surface, which ships with no default
-  // exclusions) so user-configured `surfaces.cli.exclude*` overrides
-  // are honored on the printed output too.
   const surfaceDiagnostics = filterDiagnosticsForSurface(
-    diagnostics,
+    [...diagnostics],
     options.outputSurface,
     userConfig,
   );
   const demotedDiagnosticCount = diagnostics.length - surfaceDiagnostics.length;
+  const isDiffMode = options.includePaths.length > 0;
+  const lintSourceFileCount = isDiffMode ? options.includePaths.length : project.sourceFileCount;
 
   if (surfaceDiagnostics.length === 0) {
     if (hasSkippedChecks) {
@@ -334,8 +454,8 @@ const runInspect = async (
     if (hasSkippedChecks) {
       printBrandingOnlyHeader();
       logger.log(highlighter.gray("  Score not shown — some checks could not complete."));
-    } else if (scoreResult) {
-      printScoreHeader(scoreResult);
+    } else if (score) {
+      printScoreHeader(score);
     } else {
       printNoScoreHeader(noScoreMessage);
     }
@@ -354,15 +474,13 @@ const runInspect = async (
     logger.break();
   }
 
-  const displayedSourceFileCount = isDiffMode ? includePaths.length : lintSourceFileCount;
-
   const shouldShowShareLink = !options.offline && options.share;
   printSummary(
     surfaceDiagnostics,
     elapsedMilliseconds,
-    scoreResult,
-    projectInfo.projectName,
-    displayedSourceFileCount,
+    score,
+    project.projectName,
+    lintSourceFileCount,
     noScoreMessage,
     !shouldShowShareLink,
   );

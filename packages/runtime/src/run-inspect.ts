@@ -20,6 +20,7 @@ import type {
   ScoreResult,
 } from "@react-doctor/types";
 import { Config, type ResolvedConfig } from "./config.js";
+import { DeadCode } from "./dead-code.js";
 import type { Diagnostic } from "./diagnostic-schema.js";
 import {
   formatReactDoctorError,
@@ -48,6 +49,14 @@ export interface RunInspectInput {
   readonly ignoredTags: ReadonlySet<string>;
   readonly outputSurface: DiagnosticSurface;
   readonly nodeBinaryPath?: string;
+  /**
+   * Whether the dead-code reachability pass should run. The
+   * orchestrator additionally gates this on `!isDiffMode` since
+   * reachability is a whole-project property. Pass `false`
+   * here (or provide `DeadCode.layerNoop`) for `--no-dead-code` /
+   * `config.deadCode = false`.
+   */
+  readonly runDeadCode: boolean;
 }
 
 /**
@@ -73,6 +82,17 @@ export interface RunInspectOutput {
    */
   readonly lintFailureReasonTag: ReactDoctorErrorReason["_tag"] | null;
   readonly lintPartialFailures: ReadonlyArray<string>;
+  /**
+   * Whether the dead-code analysis pass ran to completion. `false`
+   * when `runDeadCode` was disabled, the directory is in
+   * diff/staged mode (reachability is whole-project), or the
+   * underlying analyzer crashed. The orchestrator surfaces a
+   * non-`null` `deadCodeFailureReason` only in the crash case so
+   * callers can distinguish "skipped on purpose" from "tried and
+   * failed."
+   */
+  readonly didDeadCodeFail: boolean;
+  readonly deadCodeFailureReason: string | null;
 }
 
 /**
@@ -126,7 +146,7 @@ export const runInspect = <HooksR = never>(
 ): Effect.Effect<
   RunInspectOutput,
   ReactDoctorError,
-  Project | Config | Files | Linter | LintPartialFailures | Reporter | Score | HooksR
+  Project | Config | DeadCode | Files | Linter | LintPartialFailures | Reporter | Score | HooksR
 > =>
   Effect.gen(function* () {
     const projectService = yield* Project;
@@ -135,6 +155,7 @@ export const runInspect = <HooksR = never>(
     const linterService = yield* Linter;
     const reporterService = yield* Reporter;
     const scoreService = yield* Score;
+    const deadCodeService = yield* DeadCode;
     const partialFailuresRef = yield* LintPartialFailures;
 
     const resolvedConfig: ResolvedConfig = yield* configService.resolve(input.directory);
@@ -160,6 +181,11 @@ export const runInspect = <HooksR = never>(
       reason: string | null;
       reasonTag: ReactDoctorErrorReason["_tag"] | null;
     }>({ didFail: false, reason: null, reasonTag: null });
+
+    const deadCodeFailure = yield* Ref.make<{
+      didFail: boolean;
+      reason: string | null;
+    }>({ didFail: false, reason: null });
 
     const isDiffMode = input.includePaths.length > 0;
 
@@ -214,15 +240,41 @@ export const runInspect = <HooksR = never>(
         ),
       );
 
-    // Stream stages: prepend env-side diagnostics; apply the
-    // per-element pipeline (drop-on-null); push survivors to the
-    // reporter as they emerge so a streaming reporter (LSP
-    // `publishDiagnostics`, NDJSON cache, SARIF) sees diagnostics
-    // mid-scan instead of after `runCollect`.
+    // Dead-code reachability is gated on `runDeadCode` (CLI/config
+    // toggle) AND `!isDiffMode` (reachability is whole-project).
+    // The dead-code stream is composed at the end of the pipeline;
+    // failures fold into `didDeadCodeFail / deadCodeFailureReason`
+    // exactly the same way the lint stream folds runner errors —
+    // never sinking the whole scan.
+    const shouldRunDeadCode = input.runDeadCode && !isDiffMode;
+    const deadCodeStream: Stream.Stream<LegacyDiagnostic> = shouldRunDeadCode
+      ? Stream.unwrap(
+          Effect.matchEffect(deadCodeService.compute(scanDirectory, resolvedConfig.config), {
+            onSuccess: (diagnostics) =>
+              Effect.succeed(Stream.fromIterable(diagnostics) as Stream.Stream<LegacyDiagnostic>),
+            onFailure: (error: Error) =>
+              Effect.gen(function* () {
+                yield* Ref.set(deadCodeFailure, {
+                  didFail: true,
+                  reason: error.message,
+                });
+                return Stream.empty as Stream.Stream<LegacyDiagnostic>;
+              }),
+          }),
+        )
+      : Stream.empty;
+
+    // Stream stages: prepend env-side diagnostics, then the lint
+    // stream, then dead-code; apply the per-element pipeline
+    // (drop-on-null); push survivors to the reporter as they
+    // emerge so a streaming reporter (LSP `publishDiagnostics`,
+    // NDJSON cache, SARIF) sees diagnostics mid-scan instead of
+    // after `runCollect`.
     const transformedStream: Stream.Stream<LegacyDiagnostic> = Stream.fromIterable(
       environmentDiagnostics,
     ).pipe(
       Stream.concat(rawLintStream as Stream.Stream<LegacyDiagnostic>),
+      Stream.concat(deadCodeStream),
       Stream.filterMap(filterMapNullable<LegacyDiagnostic, LegacyDiagnostic>(transform.apply)),
       Stream.tap((diagnostic) => reporterService.emit(diagnostic as Diagnostic)),
     );
@@ -230,6 +282,7 @@ export const runInspect = <HooksR = never>(
     const survivingDiagnostics = yield* Stream.runCollect(transformedStream);
     yield* reporterService.finalize;
     const lintFailureState = yield* Ref.get(lintFailure);
+    const deadCodeFailureState = yield* Ref.get(deadCodeFailure);
     yield* afterLint(lintFailureState.didFail);
 
     const finalDiagnostics: ReadonlyArray<LegacyDiagnostic> = [...survivingDiagnostics];
@@ -253,6 +306,8 @@ export const runInspect = <HooksR = never>(
       lintFailureReason: lintFailureState.reason,
       lintFailureReasonTag: lintFailureState.reasonTag,
       lintPartialFailures,
+      didDeadCodeFail: deadCodeFailureState.didFail,
+      deadCodeFailureReason: deadCodeFailureState.reason,
     };
   });
 
@@ -269,6 +324,7 @@ export const runInspect = <HooksR = never>(
 export const layerInspectLive = Layer.mergeAll(
   Project.layerNode,
   Config.layerNode,
+  DeadCode.layerNode,
   Files.layerNode,
   Linter.layerOxlint,
   LintPartialFailures.layerLive,

@@ -1,28 +1,38 @@
 import path from "node:path";
+import { Effect, Layer } from "effect";
 import {
   buildJsonReport,
   buildJsonReportError,
-  calculateScore,
-  checkDeadCode,
-  clearAutoSuppressionCaches,
-  clearConfigCache,
-  clearIgnorePatternsCache,
-  combineDiagnostics,
-  computeJsxIncludePaths,
-  createNodeReadFileLinesSync,
   loadConfigWithSource,
   resolveConfigRootDir,
   resolveDiagnoseTarget,
-  resolveLintIncludePaths,
-  runOxlint,
 } from "@react-doctor/core";
 import {
+  AmbiguousProjectError,
   clearPackageJsonCache,
   clearProjectCache,
-  discoverProject,
   NoReactDependencyError,
   ProjectNotFoundError,
 } from "@react-doctor/project-info";
+import {
+  Config,
+  DeadCode,
+  Files,
+  formatReactDoctorError,
+  LintPartialFailures,
+  Linter,
+  Project,
+  ReactDoctorError,
+  Reporter,
+  runInspect as runInspectEffect,
+  Score,
+  type RunInspectInput,
+} from "@react-doctor/runtime";
+import {
+  clearAutoSuppressionCaches,
+  clearConfigCache,
+  clearIgnorePatternsCache,
+} from "@react-doctor/core";
 import type {
   Diagnostic,
   DiagnoseOptions,
@@ -57,13 +67,13 @@ export type {
 export { getDiffInfo, filterSourceFiles, summarizeDiagnostics } from "@react-doctor/core";
 export { buildJsonReport, buildJsonReportError };
 export {
-  ReactDoctorError,
+  ReactDoctorError as ProjectInfoError,
   ProjectNotFoundError,
   NoReactDependencyError,
   PackageJsonNotFoundError,
-  AmbiguousProjectError,
   isReactDoctorError,
 } from "@react-doctor/project-info";
+export { AmbiguousProjectError };
 
 // HACK: programmatic API consumers (watch-mode tools, test runners,
 // agentic CLI flows) call diagnose() repeatedly on the same directory.
@@ -96,10 +106,7 @@ export const toJsonReport = (result: DiagnoseResult, options: ToJsonReportOption
         result: {
           diagnostics: result.diagnostics,
           score: result.score,
-          skippedChecks: result.skippedChecks,
-          ...(result.skippedCheckReasons
-            ? { skippedCheckReasons: result.skippedCheckReasons }
-            : {}),
+          skippedChecks: [],
           project: result.project,
           elapsedMilliseconds: result.elapsedMilliseconds,
         },
@@ -108,8 +115,43 @@ export const toJsonReport = (result: DiagnoseResult, options: ToJsonReportOption
     totalElapsedMilliseconds: result.elapsedMilliseconds,
   });
 
-const EMPTY_DIAGNOSTICS: Diagnostic[] = [];
+/**
+ * Structural tag check (see `inspect.ts` for the full rationale).
+ * The short version: `instanceof ReactDoctorError` is unreliable
+ * across the runtime → public-API module boundary in some test
+ * environments, while the `_tag` field is the structural contract
+ * the runtime publishes and every downstream renderer already
+ * consumes.
+ */
+const isReactDoctorErrorLike = (cause: unknown): cause is ReactDoctorError =>
+  typeof cause === "object" &&
+  cause !== null &&
+  (cause as { _tag?: unknown })._tag === "ReactDoctorError" &&
+  typeof (cause as { reason?: { _tag?: unknown } }).reason === "object" &&
+  (cause as { reason?: { _tag?: unknown } }).reason !== null;
 
+const restoreLegacyThrow = (error: ReactDoctorError, fallbackDirectory: string): never => {
+  const reason = error.reason;
+  switch (reason._tag) {
+    case "NoReactDependency":
+      throw new NoReactDependencyError(reason.directory);
+    case "ProjectNotFound":
+      throw new ProjectNotFoundError(reason.directory);
+    case "AmbiguousProject":
+      throw new AmbiguousProjectError(reason.directory, [...reason.candidates]);
+    default:
+      throw new Error(`${formatReactDoctorError(error)} (at ${fallbackDirectory})`);
+  }
+};
+
+/**
+ * Programmatic API. Reuses the same Effect runtime that powers the
+ * CLI's `inspect()` — both entry points share the Project /
+ * Config / Files / Linter / Score services below this layer.
+ * CLI-only concerns (spinner, project-detection block,
+ * pretty-printed diagnostics) live in `inspect.ts` instead, which
+ * provides its own hooks. Here we just collect the result.
+ */
 export const diagnose = async (
   directory: string,
   options: DiagnoseOptions = {},
@@ -117,100 +159,98 @@ export const diagnose = async (
   const startTime = globalThis.performance.now();
   const requestedDirectory = path.resolve(directory);
 
-  // Load config first against the requested directory so a `rootDir`
-  // redirect applies BEFORE we hunt for nested React subprojects. This
-  // is the documented escape hatch for monorepos that hold the only
-  // react-doctor config at the repo root but want scans to target a
-  // subproject like `apps/web`.
+  // `diagnose()` historically auto-falls-back to a nested React
+  // subproject when the requested directory has no root
+  // package.json. That isn't `inspect()` behavior — `inspect()`
+  // assumes the user pointed at a real project — so we do the walk
+  // here, before handing control to the runtime. Throws
+  // `AmbiguousProjectError` when more than one nested candidate
+  // exists; the runtime never has to know about that case.
   const initialLoadedConfig = loadConfigWithSource(requestedDirectory);
   const redirectedDirectory = resolveConfigRootDir(
     initialLoadedConfig?.config ?? null,
     initialLoadedConfig?.sourceDirectory ?? null,
   );
   const directoryAfterRedirect = redirectedDirectory ?? requestedDirectory;
-
-  const resolvedDirectory = resolveDiagnoseTarget(directoryAfterRedirect);
+  let resolvedDirectory: string | null;
+  try {
+    resolvedDirectory = resolveDiagnoseTarget(directoryAfterRedirect);
+  } catch (error) {
+    if (error instanceof AmbiguousProjectError) throw error;
+    throw error;
+  }
   if (!resolvedDirectory) {
     throw new ProjectNotFoundError(directoryAfterRedirect);
   }
 
   const userConfig =
     initialLoadedConfig?.config ?? loadConfigWithSource(resolvedDirectory)?.config ?? null;
+
   const includePaths = options.includePaths ?? [];
-  const isDiffMode = includePaths.length > 0;
-  const projectInfo = discoverProject(resolvedDirectory);
-
-  if (!projectInfo.reactVersion) {
-    throw new NoReactDependencyError(resolvedDirectory);
-  }
-
-  const lintIncludePaths =
-    computeJsxIncludePaths(includePaths) ?? resolveLintIncludePaths(resolvedDirectory, userConfig);
-  const readFileLinesSync = createNodeReadFileLinesSync(resolvedDirectory);
-
-  const effectiveLint = options.lint ?? userConfig?.lint ?? true;
   const effectiveDeadCode = options.deadCode ?? userConfig?.deadCode ?? true;
-  const effectiveRespectInlineDisables =
-    options.respectInlineDisables ?? userConfig?.respectInlineDisables ?? true;
 
-  const ignoredTags = new Set<string>(userConfig?.ignore?.tags ?? []);
-
-  const lintPromise = effectiveLint
-    ? runOxlint({
-        rootDirectory: resolvedDirectory,
-        project: projectInfo,
-        includePaths: lintIncludePaths,
-        customRulesOnly: userConfig?.customRulesOnly ?? false,
-        respectInlineDisables: effectiveRespectInlineDisables,
-        adoptExistingLintConfig: userConfig?.adoptExistingLintConfig ?? true,
-        ignoredTags,
-        userConfig,
-      }).catch((error: unknown) => {
-        console.error("Lint failed:", error);
-        return EMPTY_DIAGNOSTICS;
-      })
-    : Promise.resolve(EMPTY_DIAGNOSTICS);
-
-  // Skip dead-code in diff mode (reachability is whole-project).
-  // Failure is non-fatal — empty diagnostics fall through and the
-  // failure surfaces via `skippedChecks` so programmatic consumers
-  // can detect that the pass didn't run to completion.
-  const shouldRunDeadCode = effectiveDeadCode && !isDiffMode;
-  let deadCodeFailureReason: string | null = null;
-  const deadCodePromise = shouldRunDeadCode
-    ? checkDeadCode({ rootDirectory: resolvedDirectory, userConfig }).catch((error: unknown) => {
-        deadCodeFailureReason = error instanceof Error ? error.message : String(error);
-        return EMPTY_DIAGNOSTICS;
-      })
-    : Promise.resolve(EMPTY_DIAGNOSTICS);
-
-  const [lintDiagnostics, deadCodeDiagnostics] = await Promise.all([lintPromise, deadCodePromise]);
-
-  const diagnostics = combineDiagnostics({
-    lintDiagnostics,
+  const runtimeInput: RunInspectInput = {
     directory: resolvedDirectory,
-    isDiffMode,
-    userConfig,
-    readFileLinesSync,
-    respectInlineDisables: effectiveRespectInlineDisables,
-    extraDiagnostics: deadCodeDiagnostics,
+    includePaths,
+    customRulesOnly: userConfig?.customRulesOnly ?? false,
+    respectInlineDisables:
+      options.respectInlineDisables ?? userConfig?.respectInlineDisables ?? true,
+    adoptExistingLintConfig: userConfig?.adoptExistingLintConfig ?? true,
+    ignoredTags: new Set<string>(userConfig?.ignore?.tags ?? []),
+    outputSurface: "cli",
+    runDeadCode: effectiveDeadCode,
+  };
+
+  const lintLayer =
+    (options.lint ?? userConfig?.lint ?? true) ? Linter.layerOxlint : Linter.layerNoop;
+  const deadCodeLayer = effectiveDeadCode ? DeadCode.layerNode : DeadCode.layerNoop;
+
+  // `Config.layerOf` short-circuits the on-disk re-resolve we
+  // already performed above, so the runtime sees the same config /
+  // resolved directory the public API just chose. Without this, the
+  // runtime would re-walk and could pick a different nested project
+  // than the one the public-API fallback resolved.
+  const configLayer = Config.layerOf({
+    config: userConfig,
+    resolvedDirectory: resolvedDirectory,
   });
-  const elapsedMilliseconds = globalThis.performance.now() - startTime;
-  const score = await calculateScore(diagnostics);
+
+  const layerStack = Layer.mergeAll(
+    Project.layerNode,
+    configLayer,
+    deadCodeLayer,
+    Files.layerNode,
+    lintLayer,
+    LintPartialFailures.layerLive,
+    Reporter.layerCapture,
+    Score.layerHttp,
+  );
+
+  let result;
+  try {
+    result = await Effect.runPromise(
+      runInspectEffect(runtimeInput).pipe(Effect.provide(layerStack)),
+    );
+  } catch (cause) {
+    if (isReactDoctorErrorLike(cause)) restoreLegacyThrow(cause, requestedDirectory);
+    throw cause;
+  }
 
   const skippedChecks: string[] = [];
   const skippedCheckReasons: Record<string, string> = {};
-  if (deadCodeFailureReason !== null) {
+  if (result.didDeadCodeFail) {
     skippedChecks.push("dead-code");
-    skippedCheckReasons["dead-code"] = deadCodeFailureReason;
+    if (result.deadCodeFailureReason !== null) {
+      skippedCheckReasons["dead-code"] = result.deadCodeFailureReason;
+    }
   }
 
   return {
-    diagnostics,
-    score,
+    diagnostics: [...result.diagnostics],
+    score: result.score,
     skippedChecks,
     ...(Object.keys(skippedCheckReasons).length > 0 ? { skippedCheckReasons } : {}),
-    project: projectInfo,
-    elapsedMilliseconds,
+    project: result.project,
+    elapsedMilliseconds: globalThis.performance.now() - startTime,
   };
 };

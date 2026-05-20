@@ -27,6 +27,7 @@ export type { DiagnosticPipelineCounts, DiagnosticPipelineOptions } from "./pipe
 export { Project } from "./project.js";
 export { Config } from "./config.js";
 export type { ResolvedConfig } from "./config.js";
+export { DeadCode } from "./dead-code.js";
 export { Score } from "./score.js";
 export { Spinner, SpinnerCapture } from "./spinner.js";
 export type { SpinnerEvent, SpinnerHandle } from "./spinner.js";
