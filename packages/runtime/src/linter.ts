@@ -1,9 +1,8 @@
-import { Context, Effect, Layer, Stream } from "effect";
+import { Context, Effect, Layer, Ref, Stream } from "effect";
 import { runOxlint } from "@react-doctor/core";
 import type { ProjectInfo, ReactDoctorConfig } from "@react-doctor/types";
 import {
   OxlintBinaryNotFound,
-  OxlintBatchFileDropped,
   OxlintOutputTooLarge,
   OxlintOutputUnparseable,
   OxlintSpawnFailed,
@@ -11,6 +10,27 @@ import {
   ReactDoctorError,
 } from "./errors.js";
 import { Diagnostic } from "./diagnostic-schema.js";
+
+/**
+ * Captures per-batch soft failures from the linter without
+ * failing the stream. The legacy `runOxlint` already exposed this
+ * via an `onPartialFailure` callback; the runtime equivalent is a
+ * `Ref` exposed as a service so any caller (the CLI's
+ * `skippedCheckReasons["lint:partial"]`, a future LSP host's
+ * "some files were skipped" status bar item, the GitHub Action's
+ * sticky comment) reads from one place. `Layer.succeed` over a
+ * fresh `Ref` is the production wiring; tests provide a
+ * pre-populated `Ref` to exercise downstream rendering.
+ */
+export class LintPartialFailures extends Context.Service<
+  LintPartialFailures,
+  Ref.Ref<ReadonlyArray<string>>
+>()("@react-doctor/runtime/LintPartialFailures") {
+  static readonly layerLive = Layer.effect(
+    LintPartialFailures,
+    Ref.make<ReadonlyArray<string>>([]),
+  );
+}
 
 /**
  * Inputs to a single `Linter.lint` invocation. Mirrors the subset of
@@ -92,24 +112,27 @@ const mapLegacyOxlintError = (cause: unknown): ReactDoctorError => {
 export class Linter extends Context.Service<
   Linter,
   {
-    readonly lint: (input: LintInput) => Stream.Stream<Diagnostic, ReactDoctorError>;
+    readonly lint: (
+      input: LintInput,
+    ) => Stream.Stream<Diagnostic, ReactDoctorError, LintPartialFailures>;
   }
 >()("@react-doctor/runtime/Linter") {
   /**
    * Layer that delegates to the existing `runOxlint` from
-   * `@react-doctor/core`. Soft-failures (a single batch hit the
-   * timeout and was dropped) are surfaced as
-   * `OxlintBatchFileDropped` *log* entries via `Effect.logWarning`
-   * rather than failing the stream, matching the partial-failure
-   * contract the legacy callback already implements.
+   * `@react-doctor/core`. Soft per-batch failures (a single batch
+   * hit the timeout and was dropped, oxlint reported file IDs that
+   * couldn't be linted) are pushed onto the
+   * `LintPartialFailures` Ref so the orchestrator can fold them
+   * into `skippedCheckReasons["lint:partial"]` without the stream
+   * itself becoming a failure channel for non-fatal events.
    */
   static readonly layerOxlint = Layer.succeed(
     Linter,
     Linter.of({
-      lint: (input: LintInput): Stream.Stream<Diagnostic, ReactDoctorError> =>
+      lint: (input: LintInput) =>
         Stream.unwrap(
           Effect.gen(function* () {
-            const droppedFiles: Array<string> = [];
+            const partialFailures = yield* LintPartialFailures;
             const diagnostics = yield* Effect.tryPromise({
               try: () =>
                 runOxlint({
@@ -123,19 +146,13 @@ export class Linter extends Context.Service<
                   ignoredTags: input.ignoredTags,
                   userConfig: input.userConfig ?? null,
                   onPartialFailure: (reason) => {
-                    droppedFiles.push(reason);
+                    Effect.runSync(
+                      Ref.update(partialFailures, (existing) => [...existing, reason]),
+                    );
                   },
                 }),
               catch: mapLegacyOxlintError,
             });
-            if (droppedFiles.length > 0) {
-              yield* Effect.logWarning(
-                new OxlintBatchFileDropped({
-                  files: droppedFiles,
-                  timeoutMilliseconds: OXLINT_TIMEOUT_MILLISECONDS,
-                }),
-              );
-            }
             return Stream.fromIterable(diagnostics as ReadonlyArray<Diagnostic>);
           }),
         ),

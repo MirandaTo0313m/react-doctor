@@ -79,6 +79,14 @@ export class NoReactDependency extends Schema.TaggedErrorClass<NoReactDependency
   },
 ) {}
 
+export class AmbiguousProject extends Schema.TaggedErrorClass<AmbiguousProject>()(
+  "AmbiguousProject",
+  {
+    directory: Schema.String,
+    candidates: Schema.Array(Schema.String),
+  },
+) {}
+
 export const ReactDoctorErrorReason = Schema.Union([
   OxlintBinaryNotFound,
   OxlintSpawnFailed,
@@ -89,6 +97,7 @@ export const ReactDoctorErrorReason = Schema.Union([
   ConfigParseFailed,
   ProjectNotFound,
   NoReactDependency,
+  AmbiguousProject,
 ]);
 export type ReactDoctorErrorReason = typeof ReactDoctorErrorReason.Type;
 
@@ -127,5 +136,7 @@ export const formatReactDoctorError = (error: ReactDoctorError): string => {
       return `No React project found at ${reason.directory}`;
     case "NoReactDependency":
       return `No React dependency in ${reason.directory}/package.json`;
+    case "AmbiguousProject":
+      return `Multiple React projects found under ${reason.directory} (${reason.candidates.length} candidates): ${reason.candidates.join(", ")}`;
   }
 };

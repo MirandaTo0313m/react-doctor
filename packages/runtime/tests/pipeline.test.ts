@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect, Layer, Ref } from "effect";
 
-import { Linter, type LintInput } from "../src/linter.js";
+import { LintPartialFailures, Linter, type LintInput } from "../src/linter.js";
 import { Reporter, ReporterCapture } from "../src/reporter.js";
 import { runDiagnosticPipeline } from "../src/pipeline.js";
 import type { Diagnostic } from "../src/diagnostic-schema.js";
@@ -55,7 +55,13 @@ describe("runDiagnosticPipeline (Stream-based, services swappable via Layer)", (
 
     const result = await Effect.runPromise(
       program.pipe(
-        Effect.provide(Layer.mergeAll(Linter.layerOf(diagnostics), Reporter.layerCapture)),
+        Effect.provide(
+          Layer.mergeAll(
+            Linter.layerOf(diagnostics),
+            LintPartialFailures.layerLive,
+            Reporter.layerCapture,
+          ),
+        ),
       ),
     );
 
@@ -79,7 +85,13 @@ describe("runDiagnosticPipeline (Stream-based, services swappable via Layer)", (
 
     const result = await Effect.runPromise(
       program.pipe(
-        Effect.provide(Layer.mergeAll(Linter.layerOf(diagnostics), Reporter.layerCapture)),
+        Effect.provide(
+          Layer.mergeAll(
+            Linter.layerOf(diagnostics),
+            LintPartialFailures.layerLive,
+            Reporter.layerCapture,
+          ),
+        ),
       ),
     );
 
@@ -95,7 +107,11 @@ describe("runDiagnosticPipeline (Stream-based, services swappable via Layer)", (
     });
 
     const result = await Effect.runPromise(
-      program.pipe(Effect.provide(Layer.mergeAll(Linter.layerNoop, Reporter.layerCapture))),
+      program.pipe(
+        Effect.provide(
+          Layer.mergeAll(Linter.layerNoop, LintPartialFailures.layerLive, Reporter.layerCapture),
+        ),
+      ),
     );
 
     expect(result.counts).toEqual({ errorCount: 0, warningCount: 0, totalCount: 0 });

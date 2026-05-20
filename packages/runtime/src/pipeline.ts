@@ -1,7 +1,7 @@
 import { Effect, Stream } from "effect";
 import type { Diagnostic } from "./diagnostic-schema.js";
 import type { ReactDoctorError } from "./errors.js";
-import { Linter, type LintInput } from "./linter.js";
+import { LintPartialFailures, Linter, type LintInput } from "./linter.js";
 import { Reporter } from "./reporter.js";
 
 /**
@@ -60,7 +60,11 @@ export interface DiagnosticPipelineOptions {
 export const runDiagnosticPipeline = (
   input: LintInput,
   options: DiagnosticPipelineOptions = {},
-): Effect.Effect<DiagnosticPipelineCounts, ReactDoctorError, Linter | Reporter> =>
+): Effect.Effect<
+  DiagnosticPipelineCounts,
+  ReactDoctorError,
+  Linter | LintPartialFailures | Reporter
+> =>
   Effect.gen(function* () {
     const linter = yield* Linter;
     const reporter = yield* Reporter;
