@@ -4,9 +4,9 @@ import { getErrorChainMessages } from "./format-error-chain.js";
 
 /**
  * Structural `_tag` check — see `react-doctor/src/inspect.ts` for
- * the rationale. Vitest module isolation produces a class-identity
- * mismatch at the catch site, so we discriminate on the tag the
- * runtime publishes structurally instead of `instanceof`.
+ * the rationale. Discriminates on the tag the runtime publishes
+ * structurally instead of `instanceof`, which is unreliable
+ * across module boundaries in some test environments.
  */
 const isReactDoctorErrorLike = (cause: unknown): cause is ReactDoctorError =>
   typeof cause === "object" &&

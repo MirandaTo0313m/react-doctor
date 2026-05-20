@@ -41,21 +41,25 @@ export interface DiagnosticPipelineOptions {
 /**
  * Streaming diagnostic pipeline.
  *
- * Replaces the current `runOxlint().then(combineDiagnostics).then(filter…)`
- * array-of-arrays shape with a single `Stream` that emits as
- * diagnostics are produced and folds counters in one pass. Three
- * properties fall out for free, matching the moves in
- * react-doctor-evals' `Runner.run`:
+ * Replaces the array-of-arrays shape with a single `Stream` that
+ * emits as diagnostics are produced and folds counters in one
+ * pass. Two concrete properties fall out today, plus one that the
+ * shape unlocks for future surfaces:
  *
- *  - **TTFB**: a future LSP host or watch mode can flush diagnostics
- *    to the editor as they're discovered, instead of after every
- *    file is parsed.
  *  - **Bounded memory**: counters are per-element folds, never an
- *    intermediate array. A 50k-diagnostic monorepo scan never holds
- *    more than one diagnostic in flight in this layer.
- *  - **Resumable / cancelable**: composes with a `FiberMap` keyed by
- *    project root. A new file change cancels the previous fiber for
- *    the same key without leaking work.
+ *    intermediate array. A 50k-diagnostic monorepo scan never
+ *    holds more than one diagnostic in flight in this layer.
+ *  - **TTFB-friendly**: every diagnostic is reported through
+ *    `Reporter.emit` as it emerges. Today the only `emit` site
+ *    that observes mid-scan is `Reporter.layerCapture` (which
+ *    pushes into a `Ref` for the post-scan render), but the same
+ *    stream shape lets a future LSP host / watch mode publish
+ *    diagnostics to the editor as they're discovered instead of
+ *    after the whole file set is parsed.
+ *  - **Composable cancellation**: `Stream` interrupts cooperatively,
+ *    so a future watch mode can cancel an in-flight scan when the
+ *    file system changes without leaking the underlying linter
+ *    process.
  */
 export const runDiagnosticPipeline = (
   input: LintInput,

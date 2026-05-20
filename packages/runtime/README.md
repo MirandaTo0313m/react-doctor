@@ -1,106 +1,172 @@
 # @react-doctor/runtime
 
-Internal Effect-based runtime layer for React Doctor. **Not published.**
-This package is the place where React Doctor's diagnostic pipeline becomes
+Internal Effect v4 runtime layer for React Doctor. **Not published.**
+
+The runtime is the place where React Doctor's diagnostic pipeline becomes
 schema-decoded at the wire, swappable behind `Context.Service`s, and consumed
-as a `Stream` instead of an array.
+as a `Stream` instead of an array. Both public entry points — the CLI's
+`inspect()` and the programmatic `diagnose()` — are thin shells around the
+runtime's `runInspect` Effect.
 
-It does not (yet) replace `inspect()` or the CLI entry point. It is the
-foundation those will sit on top of, introduced one slice at a time so the
-existing CLI keeps shipping while the migration moves forward.
+## Services
 
-## What's here
+One `Context.Service` per orthogonal axis. Adding a new backend (a second
+linter, a SARIF reporter, an LSP host's diagnostic publisher) is one new
+`Layer` that satisfies the existing service interface — the orchestration
+above doesn't change.
 
-### Schemas (`diagnostic-schema.ts`, `json-report-schema.ts`)
+| Service                                                                                  | Live layer                                                  | Test surface                                |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------- |
+| `Project` — discover the React project at a directory                                    | `layerNode` (wraps `discoverProject`)                       | `layerOf(projectInfo)`                      |
+| `Config` — load `react-doctor.config.json` + `rootDir` redirect, cached via `Cache.make` | `layerNode`                                                 | `layerOf({ config, resolvedDirectory })`    |
+| `Files` — every read / list / stat the pipeline needs                                    | `layerNode`                                                 | `layerInMemory(Map<absolutePath, content>)` |
+| `Linter` — stream diagnostics for an input                                               | `layerOxlint`, `layerComposite([...])`                      | `layerNoop`, `layerOf(diagnostics)`         |
+| `Reporter` — `emit(diagnostic)` + `finalize`                                             | `layerNdjson(path)` (Schema-encoded NDJSON), `layerCapture` | `layerNoop`, `layerCapture`                 |
+| `Score` — compute the score                                                              | `layerHttp`                                                 | `layerOffline`, `layerOf(result)`           |
+| `Spinner` — terminal feedback during long phases                                         | `layerOra(factory)`                                         | `layerNoop`, `layerCapture`                 |
+| `LintPartialFailures` — per-batch soft-failure messages from linters                     | `layerLive` (Ref)                                           | (replaceable in tests)                      |
 
-Wire-level schemas for `Diagnostic` and `JsonReport`, expressed with
-`effect/Schema`. `JsonReport` is exported as a `Schema.Union([JsonReportV1])`
-so adding `schemaVersion: 2` later is one new union member, decoded by every
-downstream consumer (evals, eslint plugin host, GitHub Action, IDE host)
-through one schema instead of trusting fields.
+The only production linter today is `Linter.layerOxlint`, which wraps the
+existing `runOxlint` subprocess runner from `@react-doctor/core`. Per-batch
+soft failures (a single batch hit the timeout and was dropped) flow into the
+`LintPartialFailures` Ref so the orchestrator folds them into
+`skippedCheckReasons["lint:partial"]` without the diagnostic stream itself
+becoming a failure channel for non-fatal events.
 
-`buildDiagnosticIdentity` produces the stable
-`${file}::${line}:${col}::${plugin}/${rule}` identity. Promotion of this
-key into the producer is what unlocks suppression files, baselines, parity
-diffs, IDE "ignore this" actions, and content-hash-keyed caches without
-each consumer re-deriving the key.
+## Schemas — the wire
 
-### Tagged-error facade (`errors.ts`)
+`runtime/diagnostic-schema.ts` exports `Diagnostic` + `Severity` + the
+deterministic `buildDiagnosticIdentity`
+(`${file}::${line}:${col}::${plugin}/${rule}`). The same identity unblocks
+suppression files, baselines, content-hash-keyed caches, and IDE
+"ignore this" actions without each consumer re-deriving the key.
 
-`ReactDoctorError` carries a tagged `reason` union over leaf errors
-(`OxlintBinaryNotFound`, `OxlintTimedOut`, `OxlintOutputTooLarge`,
-`OxlintOutputUnparseable`, `OxlintBatchFileDropped`, `ConfigParseFailed`,
-`ProjectNotFound`, `NoReactDependency`, ...). Callers match on the facade
-tag with `Effect.catchTag`, then fan out over reasons with
-`Effect.catchReason` / `Effect.catchReasons` / `Effect.unwrapReason`.
-`formatReactDoctorError` is the single place CLI/JSON/Action wording lives.
+`runtime/json-report-schema.ts` exports `JsonReport` as
+`Schema.Union([JsonReportV1])`. Adding `schemaVersion: 2` later is one new
+union member; every downstream consumer decodes through the same schema
+instead of trusting fields. Decode failure is a typed
+`Schema.decodeUnknownSync` throw, not an `undefined`-field crash three layers
+in.
 
-This replaces the `format-error-chain.ts` `instanceof Error` walk with an
-exhaustive discriminator: adding a new leaf reason becomes one new case in
-the renderer, and TypeScript enforces exhaustiveness through the `_tag`
-discriminant.
+`Reporter.layerNdjson(filePath)` Schema-encodes every diagnostic at the
+emit boundary, so the wire format is symmetrical: read-side via
+`Schema.decode`, write-side via `Schema.encode`.
 
-### `Linter` service (`linter.ts`)
+## Tagged errors — `ReactDoctorError { reason: Schema.Union([...]) }`
 
-`Linter` is the cross-backend Service for "produce diagnostics for an
-input." `lint(input)` returns a `Stream<Diagnostic, ReactDoctorError>`.
+Lives in `@react-doctor/core` so the runtime can re-export without a
+circular dep. Every leaf failure is a `Schema.TaggedErrorClass`:
 
-- `Linter.layerOxlint` — wraps the existing `runOxlint` from
-  `@react-doctor/core`. Soft-failures (a per-batch timeout drop) surface as
-  `Effect.logWarning(OxlintBatchFileDropped { ... })` rather than failing
-  the stream, matching the existing partial-failure contract.
-- `Linter.layerNoop` — returns `Stream.empty`. Useful for `--no-lint` and
-  for callers that only want to exercise the rest of the pipeline.
-- `Linter.layerOf(diagnostics)` — returns the supplied diagnostics
-  regardless of input. The test surface; equivalent in spirit to
-  react-doctor-evals' `Runner.layerTest`.
+`OxlintBinaryNotFound`, `OxlintNativeBindingFailed`, `OxlintSpawnFailed`,
+`OxlintTimedOut`, `OxlintOutputTooLarge`, `OxlintOutOfMemory`,
+`OxlintKilled`, `OxlintOutputUnparseable`, `ConfigParseFailed`,
+`ProjectNotFound`, `NoReactDependency`, `AmbiguousProject`.
 
-Adding a new backend (an in-process ESLint worker pool, a sandboxed runner) is one
-new layer that satisfies the `Linter` interface — no other code path
-changes.
+`runOxlint` raises tagged errors directly. `formatReactDoctorError` is the
+single place wording lives — CLI's `handle-error.ts` and JSON's
+`build-json-report-error.ts` defer to it for tagged errors.
+`isSplittableReactDoctorError` discriminates "splittable batch failures"
+(timeout, output-too-large, OOM) by `_tag`, not by `error.message.includes(...)`.
 
-### `Reporter` service (`reporter.ts`)
+## Streaming pipeline
 
-`Reporter` consumes the diagnostic stream one element at a time and
-finalizes once. Implementations are "side-effect at the wire" — turn a
-diagnostic into stdout output, an NDJSON line, an LSP
-`publishDiagnostics`, or a SARIF entry.
+`runInspect` flows diagnostics through one `Stream` end to end with no
+intermediate array materialization:
 
-- `Reporter.layerNoop` — drops every diagnostic.
-- `Reporter.layerCapture` — captures into a `Ref` exposed as the second
-  service `ReporterCapture`. Tests `yield* Ref.get(yield* ReporterCapture)`
-  to assert on what the pipeline emitted.
+```
+Stream.fromIterable(checkReducedMotion(scanDirectory))
+  .pipe(
+    Stream.concat(Linter.lint(...)),
+    Stream.catchTag("ReactDoctorError", ...),     // fold mid-stream lint failures
+    Stream.filterMap(transform.apply),            // per-element auto-suppress / severity / ignore / inline
+    Stream.tap(Reporter.emit),                    // mid-stream reporter
+  )
+```
 
-### Streaming pipeline (`pipeline.ts`)
+The per-element transform is `buildDiagnosticPipeline` in
+`@react-doctor/core`. Both this streaming pipeline and the legacy
+array-shaped `mergeAndFilterDiagnostics` route through it — there is no
+second copy of the auto-suppress / severity / ignore / inline-suppression
+chain.
 
-`runDiagnosticPipeline(input, { keep })` composes `Linter.lint` →
-`Stream.filter(keep)` → `Reporter.emit` and folds severity counts in one
-pass. Returns `DiagnosticPipelineCounts`. Callers decide what to do with
-the counts (CLI summary, `--fail-on` exit code, JSON summary).
+`runDiagnosticPipeline` is a smaller helper for callers that just want to
+fold severity counts in a single pass via `Stream.runFoldEffect`; the full
+inspect orchestration uses `runInspect` instead.
 
-The pipeline never materializes an intermediate array. A 50k-diagnostic
-monorepo scan holds at most one diagnostic in flight in this layer.
+## Orchestration — `runInspect`
 
-## Patterns demonstrated
+```ts
+runInspect(input, hooks): Effect<
+  RunInspectOutput,
+  ReactDoctorError,
+  Project | Config | Files | Linter | LintPartialFailures | Reporter | Score | HooksR
+>
+```
 
-These mirror the load-bearing moves in the `react-doctor-evals` codebase
-tour:
+1. `Config.resolve(directory)` → `{ config, resolvedDirectory }`
+2. `Project.discover(resolvedDirectory)` → `ProjectInfo`; raises tagged
+   `NoReactDependency` when `reactVersion === null`
+3. `buildDiagnosticPipeline({ files, ... })` → per-element transform
+4. `Linter.lint(...)` stream → `Stream.tap(Reporter.emit)` →
+   `Stream.catchTag("ReactDoctorError", ...)` folding into
+   `didLintFail / lintFailureReason / lintFailureReasonTag`
+5. `Score.compute(...)` over the surface-filtered subset
+6. Returns `RunInspectOutput`
 
-1. **Schema is the wire.** Every boundary decode goes through one
-   `Schema.decode` call; version evolution is `Schema.Union(V1, V2, ...)`.
-2. **Two orthogonal axes via Layers.** `Linter` (which backend produces
-   diagnostics) is independent of `Reporter` (where they go).
-3. **Streams instead of arrays.** Bounded memory, TTFB-friendly, naturally
-   composes with future incremental / watch / LSP modes.
-4. **Tagged errors with a `reason` union.** Single facade, exhaustive
-   matches, no `instanceof` checks.
+`RunInspectHooks<HooksR>` is parametric on the hook environment so a caller
+can `yield* AnyService` from a hook (the CLI does this for `Spinner`).
 
-## What this package intentionally does **not** do
+## Public API rewires
 
-- It does **not** replace `inspect()`, `diagnose()`, or the CLI today.
-- It does **not** depend on the legacy `format-error-chain` /
-  `combineDiagnostics` stack — those remain in place; this package is the
-  parallel skeleton subsequent slices will adopt incrementally.
-- It does **not** contain Node-only filesystem code. The `Linter`
-  service forwards to `runOxlint`, but the schemas, errors, and pipeline
-  are framework-free.
+`react-doctor/src/inspect.ts` (the CLI's entry point) and
+`react-doctor/src/index.ts` (the programmatic `diagnose()`) are now thin
+shells around `runInspect`. They:
+
+- Resolve config + merge options
+- Build a tailored layer stack (`Linter.layerNoop` for `--no-lint` /
+  missing oxlint native binding, `Linter.layerOxlint` otherwise;
+  `Score.layerOffline` for `--offline`, `Score.layerHttp` otherwise;
+  `Spinner.layerNoop` for `--silent` / `--score` / `--json`,
+  `Spinner.layerOra(oraFactory)` otherwise; `Config.layerOf` when the
+  caller supplied `configOverride`)
+- Run via `Effect.runPromise`
+- Translate runtime tagged errors back into the legacy thrown classes
+  (`NoReactDependencyError`, `ProjectNotFoundError`,
+  `AmbiguousProjectError`) at the public-API boundary so existing
+  contracts hold
+
+## Tests
+
+Runtime tests use `vite-plus/test` (the workspace's vitest wrapper) and
+provide layered services per case rather than mocking modules:
+
+- `diagnostic-schema.test.ts` — decode + identity
+- `json-report-schema.test.ts` — v1 round-trip + missing-discriminator
+  rejection
+- `errors.test.ts` — facade renders, propagates as a tagged failure,
+  recovers via `Effect.catchTag`
+- `pipeline.test.ts` — `Linter.layerOf` + `Reporter.layerCapture` over
+  `runDiagnosticPipeline`
+- `run-inspect.test.ts` — full orchestration with all-`layerOf` services
+  - `Files.layerInMemory`; mid-stream `Stream.fail` folds into
+    `didLintFail`; missing React yields `NoReactDependency`
+- `tagged-errors.test.ts` — `isSplittableReactDoctorError` by tag;
+  `formatReactDoctorError` rendering
+- `files.test.ts` — `layerInMemory` exposes the four primitives
+- `spinner.test.ts` — `layerCapture` / `layerNoop` / `layerOra`
+- `reporter-ndjson.test.ts` — Schema-encoded NDJSON line per emit
+- `linter-composite.test.ts` — backends concatenate; backends share the
+  `LintPartialFailures` Ref via the runtime context
+
+## What this package does **not** do
+
+- It does **not** define rules. Rules live in
+  `oxlint-plugin-react-doctor`; the runtime's `Linter` is the runner-side
+  abstraction over them.
+- It is **not** Node-free. `Files.layerNode` and `Reporter.layerNdjson`
+  call `node:fs` directly (the alternative is duplicating those calls
+  across every consumer). Schemas, errors, the orchestrator, and the
+  per-element pipeline transform stay framework-free.
+- It does **not** ship a second `Linter` backend, an LSP host, a SARIF
+  reporter, or a watch mode. The layer slots for those exist; the
+  implementations are downstream product decisions.

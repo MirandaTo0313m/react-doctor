@@ -75,14 +75,6 @@ export class OxlintOutputUnparseable extends Schema.TaggedErrorClass<OxlintOutpu
   },
 ) {}
 
-export class OxlintBatchFileDropped extends Schema.TaggedErrorClass<OxlintBatchFileDropped>()(
-  "OxlintBatchFileDropped",
-  {
-    files: Schema.Array(Schema.String),
-    timeoutMilliseconds: Schema.Number,
-  },
-) {}
-
 export class ConfigParseFailed extends Schema.TaggedErrorClass<ConfigParseFailed>()(
   "ConfigParseFailed",
   {
@@ -119,7 +111,6 @@ export const ReactDoctorErrorReason = Schema.Union([
   OxlintOutOfMemory,
   OxlintKilled,
   OxlintOutputUnparseable,
-  OxlintBatchFileDropped,
   ConfigParseFailed,
   ProjectNotFound,
   NoReactDependency,
@@ -164,8 +155,6 @@ export const formatReactDoctorError = (error: ReactDoctorError): string => {
     }
     case "OxlintOutputUnparseable":
       return `Failed to parse oxlint output: ${reason.preview}`;
-    case "OxlintBatchFileDropped":
-      return `${reason.files.length} file(s) exceeded the ${reason.timeoutMilliseconds / 1000}s per-batch oxlint budget and were skipped`;
     case "ConfigParseFailed":
       return `Failed to parse react-doctor config at ${reason.configPath}: ${String(reason.cause)}`;
     case "ProjectNotFound":

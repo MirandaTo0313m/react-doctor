@@ -105,14 +105,14 @@ const NO_HOOKS: Required<RunInspectHooks<never>> = {
  * a Service with multiple Layers, so:
  *
  *  - The CLI provides `Project.layerNode + Config.layerNode +
- *    Linter.layerOxlint + Score.layerHttp` (or `Score.layerOffline`
- *    for `--offline`) plus a Reporter.
- *  - A future LSP host provides the same Project/Config layers but
- *    swaps Linter for an in-process ESLint worker pool and Reporter
- *    for an LSP `publishDiagnostics` adapter.
- *  - Tests provide `Project.layerOf + Config.layerOf + Linter.layerOf
- *    + Score.layerOf` and assert against a `Reporter.layerCapture`
- *    Ref.
+ *    Files.layerNode + Linter.layerOxlint + Reporter.layerCapture
+ *    + Score.layerHttp` (or `Score.layerOffline` for `--offline`).
+ *  - Tests provide `Project.layerOf + Config.layerOf +
+ *    Files.layerInMemory + Linter.layerOf + Score.layerOf` and
+ *    assert against a `Reporter.layerCapture` Ref.
+ *  - Future runtime consumers (an LSP host, a watch mode, a
+ *    daemon) would swap whichever layers fit their surface — the
+ *    orchestrator doesn't change.
  *
  * Lint failures are tagged: a `ReactDoctorError` from `Linter.lint`
  * is caught with `Effect.catchTag` and folded into a non-fatal

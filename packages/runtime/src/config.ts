@@ -5,9 +5,10 @@ import type { ReactDoctorConfig } from "@react-doctor/types";
 /**
  * Resolved react-doctor config + the directory it ultimately
  * pointed at (after honoring `rootDir` redirects from monorepo
- * roots). The runtime exposes both because most callers — the CLI,
- * the eslint plugin host, the GitHub Action, a future LSP — care
- * about the redirect target as much as about the config itself.
+ * roots). The runtime exposes both because the CLI's `inspect()`
+ * and the programmatic `diagnose()` both care about the redirect
+ * target as much as about the config itself; future runtime
+ * consumers (LSP host, watch mode) would too.
  */
 export interface ResolvedConfig {
   readonly config: ReactDoctorConfig | null;
@@ -18,20 +19,22 @@ const CONFIG_CACHE_CAPACITY = 16;
 const CONFIG_CACHE_TTL_MILLISECONDS = 5 * 60 * 1_000;
 
 /**
- * `Config` is the load-and-redirect service. The current
- * `loadConfigWithSource` + `resolveConfigRootDir` dance lives at
- * every entry point (`inspect`, `diagnose`, the eslint plugin
- * host, and would have to live at every future entry point too).
- * Promoting it to a service collapses the duplication and gives
- * tests a single seam to provide a layer for.
+ * `Config` is the load-and-redirect service. The
+ * `loadConfigWithSource` + `resolveConfigRootDir` dance used to
+ * live in both `inspect.ts` and `diagnose()` (and would have to
+ * live in every future runtime entry point too). Promoting it to
+ * a service collapses the duplication and gives tests a single
+ * seam to provide a layer for.
  *
  * `layerNode` wraps both calls behind a `Cache.make` keyed on
- * directory so a long-running process (watch mode, the LSP host,
- * the webhook server) only re-reads `react-doctor.config.json` when
- * the cache TTL expires or `Cache.invalidate` is called. Capacity
- * 16 covers a typical monorepo's distinct project roots; TTL 5
- * minutes keeps editing-and-rerunning workflows snappy without
- * holding stale config indefinitely.
+ * directory so a long-running process — a future watch mode, an
+ * LSP host, or any other runtime that keeps the runtime alive
+ * across multiple scans — only re-reads `react-doctor.config.json`
+ * when the cache TTL expires or `Cache.invalidate` is called.
+ * Capacity 16 covers a typical monorepo's distinct project roots;
+ * TTL 5 minutes keeps editing-and-rerunning workflows snappy
+ * without holding stale config indefinitely. One-shot CLI scans
+ * that build a fresh runtime each time pay nothing for the cache.
  */
 export class Config extends Context.Service<
   Config,

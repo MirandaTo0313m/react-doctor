@@ -8,11 +8,11 @@ import {
 import type { HandleErrorOptions } from "@react-doctor/types";
 
 /**
- * Structural tag check — see `inspect.ts` for the full rationale
- * (vitest module isolation can produce different class identities
- * for `ReactDoctorError` at the catch site vs. the throw site, so
- * `instanceof` is unreliable and `_tag` is the structural contract
- * the runtime actually publishes).
+ * Structural tag check — see `inspect.ts` for the full rationale.
+ * Matches on the `_tag` discriminator the runtime publishes
+ * structurally instead of `instanceof`, which is unreliable
+ * across the runtime → public-API module boundary in some test
+ * environments.
  */
 const isReactDoctorErrorLike = (cause: unknown): cause is ReactDoctorError =>
   typeof cause === "object" &&
@@ -24,11 +24,11 @@ const isReactDoctorErrorLike = (cause: unknown): cause is ReactDoctorError =>
 /**
  * Renders any thrown value to the CLI as a one-line error
  * description. Tagged `ReactDoctorError`s defer to
- * `formatReactDoctorError` so the wording stays consistent with
- * what the JSON reporter / GitHub Action / future LSP would
- * produce; legacy `Error` causes (third-party plugin throws,
- * filesystem permission failures, etc.) fall back to the
- * cause-chain walk so users still see the underlying reason.
+ * `formatReactDoctorError` so the wording matches what the JSON
+ * reporter writes (the `--json` path consumes the same formatter);
+ * legacy `Error` causes (third-party plugin throws, filesystem
+ * permission failures, etc.) fall back to the cause-chain walk so
+ * users still see the underlying reason.
  */
 export const handleError = (
   error: unknown,
