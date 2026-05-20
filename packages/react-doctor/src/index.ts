@@ -3,6 +3,7 @@ import {
   buildJsonReport,
   buildJsonReportError,
   calculateScore,
+  checkDeadCode,
   clearAutoSuppressionCaches,
   clearConfigCache,
   clearIgnorePatternsCache,
@@ -95,7 +96,10 @@ export const toJsonReport = (result: DiagnoseResult, options: ToJsonReportOption
         result: {
           diagnostics: result.diagnostics,
           score: result.score,
-          skippedChecks: [],
+          skippedChecks: result.skippedChecks,
+          ...(result.skippedCheckReasons
+            ? { skippedCheckReasons: result.skippedCheckReasons }
+            : {}),
           project: result.project,
           elapsedMilliseconds: result.elapsedMilliseconds,
         },
@@ -145,13 +149,14 @@ export const diagnose = async (
   const readFileLinesSync = createNodeReadFileLinesSync(resolvedDirectory);
 
   const effectiveLint = options.lint ?? userConfig?.lint ?? true;
+  const effectiveDeadCode = options.deadCode ?? userConfig?.deadCode ?? true;
   const effectiveRespectInlineDisables =
     options.respectInlineDisables ?? userConfig?.respectInlineDisables ?? true;
 
   const ignoredTags = new Set<string>(userConfig?.ignore?.tags ?? []);
 
-  const lintDiagnostics = effectiveLint
-    ? await runOxlint({
+  const lintPromise = effectiveLint
+    ? runOxlint({
         rootDirectory: resolvedDirectory,
         project: projectInfo,
         includePaths: lintIncludePaths,
@@ -164,7 +169,22 @@ export const diagnose = async (
         console.error("Lint failed:", error);
         return EMPTY_DIAGNOSTICS;
       })
-    : EMPTY_DIAGNOSTICS;
+    : Promise.resolve(EMPTY_DIAGNOSTICS);
+
+  // Skip dead-code in diff mode (reachability is whole-project).
+  // Failure is non-fatal — empty diagnostics fall through and the
+  // failure surfaces via `skippedChecks` so programmatic consumers
+  // can detect that the pass didn't run to completion.
+  const shouldRunDeadCode = effectiveDeadCode && !isDiffMode;
+  let deadCodeFailureReason: string | null = null;
+  const deadCodePromise = shouldRunDeadCode
+    ? checkDeadCode({ rootDirectory: resolvedDirectory, userConfig }).catch((error: unknown) => {
+        deadCodeFailureReason = error instanceof Error ? error.message : String(error);
+        return EMPTY_DIAGNOSTICS;
+      })
+    : Promise.resolve(EMPTY_DIAGNOSTICS);
+
+  const [lintDiagnostics, deadCodeDiagnostics] = await Promise.all([lintPromise, deadCodePromise]);
 
   const diagnostics = combineDiagnostics({
     lintDiagnostics,
@@ -173,9 +193,24 @@ export const diagnose = async (
     userConfig,
     readFileLinesSync,
     respectInlineDisables: effectiveRespectInlineDisables,
+    extraDiagnostics: deadCodeDiagnostics,
   });
   const elapsedMilliseconds = globalThis.performance.now() - startTime;
   const score = await calculateScore(diagnostics);
 
-  return { diagnostics, score, project: projectInfo, elapsedMilliseconds };
+  const skippedChecks: string[] = [];
+  const skippedCheckReasons: Record<string, string> = {};
+  if (deadCodeFailureReason !== null) {
+    skippedChecks.push("dead-code");
+    skippedCheckReasons["dead-code"] = deadCodeFailureReason;
+  }
+
+  return {
+    diagnostics,
+    score,
+    skippedChecks,
+    ...(Object.keys(skippedCheckReasons).length > 0 ? { skippedCheckReasons } : {}),
+    project: projectInfo,
+    elapsedMilliseconds,
+  };
 };
