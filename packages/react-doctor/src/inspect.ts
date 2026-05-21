@@ -41,6 +41,7 @@ interface ResolvedInspectOptions {
   verbose: boolean;
   scoreOnly: boolean;
   offline: boolean;
+  isCi: boolean;
   silent: boolean;
   includePaths: string[];
   customRulesOnly: boolean;
@@ -68,6 +69,7 @@ const mergeInspectOptions = (
   verbose: inputOptions.verbose ?? userConfig?.verbose ?? false,
   scoreOnly: inputOptions.scoreOnly ?? false,
   offline: inputOptions.offline ?? false,
+  isCi: inputOptions.isCi ?? false,
   silent: inputOptions.silent ?? false,
   includePaths: inputOptions.includePaths ?? [],
   customRulesOnly: userConfig?.customRulesOnly ?? false,
@@ -259,14 +261,19 @@ const runInspect = async (
   // null sources — `--offline` (user-requested) vs API failure (the
   // network round-trip didn't return a usable score) — so the
   // renderer doesn't claim offline mode when the user is online but
-  // the API was unreachable.
+  // the API was unreachable. CI runs are NOT auto-offline: they reach
+  // the score API with a `?ci=1` marker (see `options.isCi`) so the
+  // GitHub Action's `score` output stays populated, and only the share
+  // URL is suppressed downstream.
   //
   // Pre-filter diagnostics through the `score` surface so weak-signal
   // rule families (e.g. `design`) stay out of scoring by default and
   // don't dilute the headline number. Surface-included diagnostics
   // still flow through `result.diagnostics` for CLI/JSON consumers.
   const scoreDiagnostics = filterDiagnosticsForSurface(diagnostics, "score", userConfig);
-  const scoreResult = options.offline ? null : await calculateScore(scoreDiagnostics);
+  const scoreResult = options.offline
+    ? null
+    : await calculateScore(scoreDiagnostics, { isCi: options.isCi });
   const noScoreMessage = options.offline
     ? "Score unavailable in offline mode."
     : "Score unavailable (could not reach the score API).";
@@ -356,7 +363,10 @@ const runInspect = async (
 
   const displayedSourceFileCount = isDiffMode ? includePaths.length : lintSourceFileCount;
 
-  const shouldShowShareLink = !options.offline && options.share;
+  // Share links are noise in CI logs (the score itself is what useful
+  // there — see the GitHub Action's `score` output). Suppress the
+  // share URL on CI runs even though the score API still runs.
+  const shouldShowShareLink = !options.offline && options.share && !options.isCi;
   printSummary(
     surfaceDiagnostics,
     elapsedMilliseconds,

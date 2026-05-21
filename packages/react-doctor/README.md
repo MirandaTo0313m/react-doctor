@@ -70,9 +70,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-When `github-token` is set on `pull_request` events, findings are posted (and updated) as a sticky PR comment.
-
-The composite action does **not** expose a `score` output. CI runs imply `--offline` (see [Scoring](#scoring)), and offline mode skips the score API entirely — there is no score to read in a follow-up step. Diagnostic-level gating via `--fail-on` (optionally combined with `--diff`) is the supported way to block PRs from CI; see [PR blocking and exit codes](#pr-blocking-and-exit-codes).
+When `github-token` is set on `pull_request` events, findings are posted (and updated) as a sticky PR comment. The action also exposes a `score` output (0–100) you can read in subsequent steps — see [PR blocking and exit codes](#pr-blocking-and-exit-codes) for a working score-floor recipe. The score API is reached even on CI runs (the request is tagged with `?ci=1` so server-side metrics can separate CI traffic from interactive local runs); pass `offline: true` to opt out and leave `score` empty.
 
 **Inputs:** `directory`, `verbose`, `project`, `diff`, `github-token`, `fail-on` (`error` / `warning` / `none`), `offline`, `annotations`, `node-version`. See [`action.yml`](https://github.com/millionco/react-doctor/blob/main/action.yml) for full descriptions.
 
@@ -100,13 +98,14 @@ Prefer not to add a marketplace action? The bare `npx` form works too:
 
 ## PR blocking and exit codes
 
-PRs are gated on individual diagnostics, not on the score. Use **`--fail-on <level>`** to control the exit code: `error` (default, any error-severity rule fires), `warning` (any diagnostic fires), or `none` (never). It runs against the `ciFailure` surface, so the default `design`-tag exclusion still applies.
+Two independent gates can block a PR — pick one or both:
+
+- **`--fail-on <level>`** exits non-zero on diagnostics: `error` (default, any error-severity rule fires), `warning` (any diagnostic fires), or `none` (never). Runs against the `ciFailure` surface, so the default `design`-tag exclusion still applies.
+- **Score floor** — a follow-up step that reads the action's `score` output and `exit 1`s when it's below your threshold.
 
 Combine `--fail-on` with `--diff <base>` to scope the gate to the PR's changed files only — that's the built-in way to fail on **new** regressions without dragging in baseline backlog. There is no separate `--fail-on-new` flag.
 
 `--annotations` (bare `npx` only) and `github-token` (sticky PR comment) are visualization layers and never change the exit code.
-
-Score-floor gating (failing when the absolute health score drops below a threshold) is **not supported in the GitHub Action**: CI runs imply `--offline`, which skips the score API entirely (see [Scoring](#scoring)). Track the score from a non-CI run instead — for example, with `npx react-doctor --score` in a local pre-push hook or on a developer machine.
 
 ### Examples
 
@@ -131,6 +130,34 @@ Score-floor gating (failing when the absolute health score drops below a thresho
     fail-on: warning
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+**Strict threshold mode** — fail when the baseline score drops below a floor:
+
+```yaml
+- id: doctor
+  uses: millionco/react-doctor@main
+  with:
+    fail-on: error
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+- env:
+    SCORE: ${{ steps.doctor.outputs.score }}
+    FLOOR: "80"
+  run: |
+    # The `score` output is best-effort: it stays empty when the score
+    # API is unreachable, returns a non-2xx, or `offline: true` is set.
+    # Skip the floor when it's empty so a transient API hiccup doesn't
+    # block unrelated PRs.
+    if [ -z "$SCORE" ]; then
+      echo "::notice::React Doctor score unavailable — skipping floor check"
+      exit 0
+    fi
+    if [ "$SCORE" -lt "$FLOOR" ]; then
+      echo "::error::React Doctor score $SCORE is below floor $FLOOR"
+      exit 1
+    fi
+```
+
+Pin a specific `react-doctor` version when using a score floor — new rule releases can lower the score even when your code hasn't changed (see [Scoring](#scoring)).
 
 ## Configuration
 
@@ -336,7 +363,7 @@ When a suppression isn't working, `--explain <file:line>` (or its alias `--why <
 
 `ignore.tags` suppresses entire categories of rules by tag. For example, `"tags": ["design"]` disables all opinionated design rules (gradient text, pure black backgrounds, side tab borders, default Tailwind palettes). Available tags: `"design"`.
 
-`offline` skips the score API entirely — no score is shown and no share URL is generated. Automatically enabled in CI environments (GitHub Actions, GitLab CI, CircleCI) so CI runs don't depend on the network.
+`offline` skips the score API entirely — no score is shown and no share URL is generated. CI runs (GitHub Actions, GitLab CI, CircleCI, or any environment that sets `CI=true`) are NOT auto-offline: the score request is sent with a `?ci=1` marker so server-side metrics can separate CI traffic from interactive runs, and only the share URL is suppressed in the printed summary. Set `offline: true` (or `--offline`) explicitly when you want zero network from CI.
 
 ### React Native rules in mixed monorepos
 
@@ -364,7 +391,7 @@ The walker stops at function and `Program` boundaries — JSX defined inside a c
 
 The health score formula: `100 - (unique_error_rules x 1.5) - (unique_warning_rules x 0.75)`.
 
-Scoring runs on react.doctor's API and is **network-dependent**: without a successful API round-trip (or under `--offline`) the score is omitted and the rest of the report still renders normally. Because `--offline` is automatically enabled in CI environments (GitHub Actions, GitLab CI, CircleCI, or any environment that sets `CI=true`), the score is **not available from the GitHub Action** — score-based gating has to run outside CI. Key details:
+Scoring runs on react.doctor's API and is **network-dependent**: without a successful API round-trip (or under `--offline`) the score is omitted and the rest of the report still renders normally. CI runs reach the score API too — the request is tagged with `?ci=1` so server-side metrics can separate CI traffic — but the score is always best-effort: any score-based automation must treat an empty value as a no-op (see the strict-threshold example above). Key details:
 
 - The score counts **unique rules triggered**, not total instances. Fixing 49 of 50 `no-barrel-import` violations does not change the score; fixing all 50 removes the 0.75 penalty for that rule.
 - Error-severity rules cost 1.5 points each. Warning-severity rules cost 0.75 points each.
@@ -397,7 +424,7 @@ React Doctor detects 50+ coding agents (Claude Code, Cursor, Codex, OpenCode, Wi
 - **Exit codes**: `--fail-on error` (default) exits non-zero when error-severity diagnostics are found. Use `--fail-on warning` or `--fail-on none` to tune CI gating. See [PR blocking and exit codes](#pr-blocking-and-exit-codes) for the full model — including how to fail only on new regressions vs. fail on the baseline score.
 - **Programmatic API**: `import { diagnose } from "react-doctor/api"` for direct integration in scripts and automation.
 
-In CI environments, prompts are automatically skipped and `--offline` is implied (no network round-trip; score is omitted from the output).
+In CI environments, prompts are automatically skipped. The score API still runs (the request is tagged with `?ci=1` so server-side metrics can separate CI traffic from interactive runs); pass `--offline` explicitly when you need zero network.
 
 ## Node.js API
 

@@ -28,17 +28,31 @@ const extractStep = (actionYaml: string, marker: string): string => {
 };
 
 describe("GitHub Action contract", () => {
-  it("issue #302: does not advertise a score output (CI implies --offline, score API is skipped)", () => {
-    const actionYaml = readActionYaml();
+  it("issue #190: score collection cannot fail the job on Needs work scores", () => {
+    const scoreStep = normalizeWhitespace(extractStep(readActionYaml(), "- id: score"));
 
-    expect(actionYaml).not.toMatch(/^outputs:/m);
-    expect(actionYaml).not.toContain("- id: score");
-    expect(actionYaml).not.toContain("REACT_DOCTOR_SCORE");
+    expect(scoreStep).toContain("--score");
+    expect(scoreStep).toContain('"--fail-on" "none"');
+    expect(scoreStep).toContain("SCORE=$(npx react-doctor@latest");
+    expect(scoreStep).toContain("|| true");
+  });
+
+  it("issue #302: action exposes a `score` output and threads the offline input into the score step", () => {
+    const actionYaml = readActionYaml();
+    const outputsBlock = extractBlock(actionYaml, "outputs:", "\nruns:");
+    const scoreStep = normalizeWhitespace(extractStep(actionYaml, "- id: score"));
+
+    expect(outputsBlock).toContain("  score:");
+    expect(outputsBlock).toContain("${{ steps.score.outputs.score }}");
+    expect(scoreStep).toContain("INPUT_OFFLINE: ${{ inputs.offline }}");
+    expect(scoreStep).toContain(
+      'if [ "$INPUT_OFFLINE" = "true" ]; then SCORE_ARGS+=("--offline"); fi',
+    );
   });
 
   it("issue #188 + #61: action exposes CI inputs used by the scan step", () => {
     const actionYaml = readActionYaml();
-    const inputsBlock = extractBlock(actionYaml, "inputs:", "\nruns:");
+    const inputsBlock = extractBlock(actionYaml, "inputs:", "\noutputs:");
     const scanStep = normalizeWhitespace(
       extractStep(actionYaml, "INPUT_FAIL_ON: ${{ inputs.fail-on }}"),
     );
@@ -93,7 +107,7 @@ describe("GitHub Action contract", () => {
 
   it("forwards --annotations to the CLI when the annotations input is true", () => {
     const actionYaml = readActionYaml();
-    const inputsBlock = extractBlock(actionYaml, "inputs:", "\nruns:");
+    const inputsBlock = extractBlock(actionYaml, "inputs:", "\noutputs:");
     const scanStep = normalizeWhitespace(
       extractStep(actionYaml, "INPUT_FAIL_ON: ${{ inputs.fail-on }}"),
     );

@@ -23,15 +23,31 @@ const describeFailure = (error: unknown): string => {
   return String(error);
 };
 
-export const calculateScore = async (diagnostics: Diagnostic[]): Promise<ScoreResult | null> => {
+export interface CalculateScoreOptions {
+  /**
+   * Tags the request as originating from a CI run by appending `?ci=1`
+   * to the score API URL. The CLI sets this when running under
+   * `GITHUB_ACTIONS` / `GITLAB_CI` / `CIRCLECI` / `CI=true` so the
+   * server can distinguish CI traffic from interactive local runs
+   * (rate-limit envelope, billing attribution, share-link generation,
+   * …) without changing the request body shape.
+   */
+  isCi?: boolean;
+}
+
+export const calculateScore = async (
+  diagnostics: Diagnostic[],
+  options: CalculateScoreOptions = {},
+): Promise<ScoreResult | null> => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const requestUrl = options.isCi ? `${SCORE_API_URL}?ci=1` : SCORE_API_URL;
 
   try {
     const requestBody = JSON.stringify({ diagnostics: stripFilePaths(diagnostics) });
     const compressedBody = gzipSync(requestBody);
 
-    const response = await fetch(SCORE_API_URL, {
+    const response = await fetch(requestUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

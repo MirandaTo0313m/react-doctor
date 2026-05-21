@@ -84,6 +84,41 @@ describe("calculateScore", () => {
     });
   });
 
+  it("hits the bare score API URL when isCi is not set", async () => {
+    const capturedUrls: Array<string | URL | Request> = [];
+    stubFetch(async (url) => {
+      capturedUrls.push(url);
+      return new Response(JSON.stringify(apiScoreResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    await calculateScore(sampleDiagnostics);
+
+    expect(capturedUrls).toHaveLength(1);
+    const requestUrl = String(capturedUrls[0]);
+    expect(requestUrl).toMatch(/\/api\/score$/);
+    expect(requestUrl).not.toContain("ci=1");
+  });
+
+  it("issue #302: tags the score request with ?ci=1 when isCi is true", async () => {
+    const capturedUrls: Array<string | URL | Request> = [];
+    stubFetch(async (url) => {
+      capturedUrls.push(url);
+      return new Response(JSON.stringify(apiScoreResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    await calculateScore(sampleDiagnostics, { isCi: true });
+
+    expect(capturedUrls).toHaveLength(1);
+    const requestUrl = String(capturedUrls[0]);
+    expect(requestUrl).toContain("?ci=1");
+  });
+
   it("returns null when the API response shape is invalid", async () => {
     stubFetch(
       async () =>

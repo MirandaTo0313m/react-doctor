@@ -21,10 +21,10 @@ inputs:
     description: "GitHub token for posting PR comments. When set on pull_request events, findings are posted as a PR comment."
     required: false
   fail-on:
-    description: "Exit non-zero when diagnostics fire (error, warning, none). Gates on individual diagnostics in the scanned files, not on the score (the score API is skipped in CI — see the `offline` input). Combine with `diff` for regression-only gating."
+    description: "Exit non-zero when diagnostics fire (error, warning, none). Gates on individual diagnostics in the scanned files, not on the score. Combine with `diff` for regression-only gating, or read the `score` output in a follow-up step to enforce an absolute score floor."
     default: "error"
   offline:
-    description: "Skip sending diagnostics to the react.doctor API. The score is computed by that API, so offline runs print no score. CI environments imply `--offline` automatically — see the README's Scoring section."
+    description: "Skip sending diagnostics to the react.doctor score API. The score is computed by that API, so offline runs print no score and the action's `score` output stays empty. CI runs are NOT offline by default — they tag the score request with `ci=1` so the server can separate CI traffic, and only the share URL is suppressed."
     default: "false"
   annotations:
     description: "Emit diagnostics as GitHub Actions annotations so findings show inline in the PR's Files changed view. Combine with `github-token` for both annotations and a sticky comment."
@@ -32,6 +32,11 @@ inputs:
   node-version:
     description: "Node.js version to use"
     default: "22"
+
+outputs:
+  score:
+    description: "Health score (0-100). Empty when the `offline` input is true (the score API is skipped) or when the score API was unreachable."
+    value: ${{ steps.score.outputs.score }}
 
 runs:
   using: "composite"
@@ -96,10 +101,30 @@ runs:
           npx react-doctor@latest "$INPUT_DIRECTORY" "${FLAGS[@]}"
         fi
 
+    - id: score
+      if: always()
+      shell: bash
+      env:
+        INPUT_DIRECTORY: ${{ inputs.directory }}
+        INPUT_OFFLINE: ${{ inputs.offline }}
+      run: |
+        # HACK: --score is an output-collection step, not a gate. Force
+        # --fail-on none so older react-doctor releases (which exit
+        # non-zero when the score lands in the "Needs work" band, even
+        # though the value itself is the only meaningful signal here)
+        # don't fail the composite action under `set -e -o pipefail`.
+        SCORE_ARGS=("$INPUT_DIRECTORY" "--score" "--fail-on" "none")
+        if [ "$INPUT_OFFLINE" = "true" ]; then SCORE_ARGS+=("--offline"); fi
+        SCORE=$(npx react-doctor@latest "${SCORE_ARGS[@]}" 2>/dev/null | tail -1 | tr -d '[:space:]') || true
+        if [[ -n "$SCORE" && "$SCORE" =~ ^[0-9]+$ ]]; then
+          echo "score=$SCORE" >> "$GITHUB_OUTPUT"
+        fi
+
     - if: ${{ inputs.github-token != '' && github.event_name == 'pull_request' }}
       uses: actions/github-script@v7
       env:
         REACT_DOCTOR_OUTPUT_FILE: ${{ env.REACT_DOCTOR_OUTPUT_FILE }}
+        REACT_DOCTOR_SCORE: ${{ steps.score.outputs.score }}
       with:
         github-token: ${{ inputs.github-token }}
         script: |
@@ -109,9 +134,15 @@ runs:
           const output = fs.readFileSync(path, "utf8").trim();
           if (!output) return;
 
+          const score = process.env.REACT_DOCTOR_SCORE;
+          const scoreLine =
+            score && /^[0-9]+$/.test(score)
+              ? `**Score:** \`${score}\` / 100\n\n`
+              : "";
+
           const marker = "<!-- react-doctor -->";
           const fence = "````";
-          const body = `${marker}\n## React Doctor\n\n${fence}\n${output}\n${fence}`;
+          const body = `${marker}\n## React Doctor\n\n${scoreLine}${fence}\n${output}\n${fence}`;
 
           const { data: comments } = await github.rest.issues.listComments({
             ...context.repo,
