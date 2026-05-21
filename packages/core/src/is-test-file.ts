@@ -19,10 +19,21 @@ const TEST_FILE_SUFFIX_PATTERN =
 // fixture projects (`tests/fixtures/<proj>/src/...`) so the FIXTURE
 // source files don't get auto-suppressed just because the outer wrap
 // happens to have `/tests/` or `/fixtures/` in the path.
+//
+// We only strip when a `/fixtures/` (or `/__fixtures__/`) segment is
+// present, because that's the unambiguous signal of "fixture project —
+// the inner source root is the real production code under lint".
+// For regular layouts like `tests/app/setup.ts` or `e2e/components/
+// helpers.ts`, the `app` / `components` segment is just a sub-folder
+// of the test directory, NOT a real source root, so stripping would
+// incorrectly drop the `tests/` / `e2e/` prefix and the file would
+// no longer be detected as a test.
+const FIXTURE_PROJECT_PATTERN = /\/(?:fixtures|__fixtures__)\//;
 const SOURCE_ROOT_PATTERN =
   /\/(?:src|app|lib|components|pages|features|modules|packages|apps|frontend|client)\//g;
 
 const stripAboveSourceRoot = (relativePath: string): string => {
+  if (!FIXTURE_PROJECT_PATTERN.test(relativePath)) return relativePath;
   let lastIdx = -1;
   for (const match of relativePath.matchAll(SOURCE_ROOT_PATTERN)) {
     if (match.index !== undefined && match.index > lastIdx) lastIdx = match.index;
