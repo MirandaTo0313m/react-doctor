@@ -28,18 +28,17 @@ const extractStep = (actionYaml: string, marker: string): string => {
 };
 
 describe("GitHub Action contract", () => {
-  it("issue #190: score collection cannot fail the job on Needs work scores", () => {
-    const scoreStep = normalizeWhitespace(extractStep(readActionYaml(), "- id: score"));
+  it("issue #302: does not advertise a score output (CI implies --offline, score API is skipped)", () => {
+    const actionYaml = readActionYaml();
 
-    expect(scoreStep).toContain("--score");
-    expect(scoreStep).toContain('"--fail-on" "none"');
-    expect(scoreStep).toContain("SCORE=$(npx react-doctor@latest");
-    expect(scoreStep).toContain("|| true");
+    expect(actionYaml).not.toMatch(/^outputs:/m);
+    expect(actionYaml).not.toContain("- id: score");
+    expect(actionYaml).not.toContain("REACT_DOCTOR_SCORE");
   });
 
   it("issue #188 + #61: action exposes CI inputs used by the scan step", () => {
     const actionYaml = readActionYaml();
-    const inputsBlock = extractBlock(actionYaml, "inputs:", "\noutputs:");
+    const inputsBlock = extractBlock(actionYaml, "inputs:", "\nruns:");
     const scanStep = normalizeWhitespace(
       extractStep(actionYaml, "INPUT_FAIL_ON: ${{ inputs.fail-on }}"),
     );
@@ -94,7 +93,7 @@ describe("GitHub Action contract", () => {
 
   it("forwards --annotations to the CLI when the annotations input is true", () => {
     const actionYaml = readActionYaml();
-    const inputsBlock = extractBlock(actionYaml, "inputs:", "\noutputs:");
+    const inputsBlock = extractBlock(actionYaml, "inputs:", "\nruns:");
     const scanStep = normalizeWhitespace(
       extractStep(actionYaml, "INPUT_FAIL_ON: ${{ inputs.fail-on }}"),
     );
