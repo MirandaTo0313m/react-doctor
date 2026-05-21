@@ -398,7 +398,10 @@ export const jsxNoNewObjectAsProp = defineRule<Rule>({
           parentJsxOpening && isNodeOfType(parentJsxOpening, "JSXOpeningElement")
             ? (parentJsxOpening.name as EsTreeNode)
             : null;
-        if (memoStatusForJsxOpeningName(memoRegistry, openingName) === "not-memoised") return;
+        // Only fire when same-file analysis PROVES the consumer is
+        // memoised. "unknown" and "not-memoised" both short-circuit —
+        // see jsx-no-new-function-as-prop for the audit data.
+        if (memoStatusForJsxOpeningName(memoRegistry, openingName) !== "memoised") return;
         if (!isInsideFunctionScope(node)) return;
         if (!isNodeOfType(node.name, "JSXIdentifier")) return;
         if (ALWAYS_FRESH_OBJECT_PROPS.has(node.name.name)) return;

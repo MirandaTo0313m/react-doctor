@@ -217,6 +217,14 @@ const classifyExport = (
     }
   }
   if (state.allowExportNames.has(name)) return { kind: "allowed" };
+  // Custom hook exports — `useFoo`, `useBar`. Modern Vite Fast
+  // Refresh (>= 4.x via @vitejs/plugin-react-swc + react-refresh)
+  // already handles `use[A-Z]*` exports alongside components: the
+  // hook is treated as a refresh boundary and the consuming
+  // component re-renders cleanly. Flagging these is unactionable
+  // noise in current toolchains. The user can still opt out by
+  // listing the hook in `allowExportNames` if their setup is older.
+  if (/^use[A-Z]/.test(name)) return { kind: "allowed" };
   if (state.allowConstantExport && initializer) {
     const expression = skipTsExpression(initializer);
     if (

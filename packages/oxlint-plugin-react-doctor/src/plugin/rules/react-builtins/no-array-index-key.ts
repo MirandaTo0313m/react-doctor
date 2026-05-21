@@ -402,6 +402,51 @@ export const noArrayIndexKey = defineRule<Rule>({
       if (isNodeOfType(expression, "TemplateLiteral")) {
         const itemName = findIteratorItemName(node as EsTreeNode);
         if (itemName && templateHasIteratorMember(expression, itemName)) return;
+        // Even when we can't resolve the iterator binding (nested
+        // helper closures hide it from `findIteratorItemName`), a
+        // template that interpolates something other than the bare
+        // index — `${path}-${change.name}-${i}` — is composing
+        // identity from an outer-scope value the user picked
+        // explicitly. The hash collision risk that the rule guards
+        // against (two siblings with the same key) requires the
+        // OTHER interpolations to be stable per render, which the
+        // user almost always arranges (route, route segment, parent
+        // record id). False-positive cost dominates here — skip.
+        const interpolations = expression.expressions ?? [];
+        let interpolationsBeyondIndex = 0;
+        for (const interpolation of interpolations) {
+          if (isIndexReference(interpolation as EsTreeNode, indexBinding.name)) continue;
+          interpolationsBeyondIndex += 1;
+          if (interpolationsBeyondIndex >= 1) break;
+        }
+        if (interpolationsBeyondIndex >= 1) return;
+      }
+      // String-concatenation composite: `"prefix-" + i` is just a
+      // namespaced bare index (no extra uniqueness signal) — keep
+      // flagging. `outerVar + "-" + i` is composite — skip. The
+      // template-literal branch above already covers the modern
+      // shape; this catches the legacy concat form.
+      if (isNodeOfType(expression, "BinaryExpression") && expression.operator === "+") {
+        let interpolationsBeyondIndex = 0;
+        const walkOperand = (operand: EsTreeNode): void => {
+          if (isNodeOfType(operand, "BinaryExpression") && operand.operator === "+") {
+            walkOperand(operand.left as EsTreeNode);
+            walkOperand(operand.right as EsTreeNode);
+            return;
+          }
+          if (isIndexReference(operand, indexBinding.name)) return;
+          // String literal segments (`'prefix-'`) carry no identity —
+          // skip so `'foo-' + i` still flags.
+          if (
+            isNodeOfType(operand, "Literal") &&
+            typeof (operand as { value: unknown }).value === "string"
+          ) {
+            return;
+          }
+          interpolationsBeyondIndex += 1;
+        };
+        walkOperand(expression);
+        if (interpolationsBeyondIndex >= 1) return;
       }
       // Stateless HTML leaf (`<div>`, `<li>`, `<span>`, etc.) whose
       // descendants are ALL pure-content (no `<input>`, `<button>`,

@@ -607,6 +607,15 @@ export const noMultiComp = defineRule<Rule>({
         const flagged = settings.ignoreStateless
           ? visitContext.components.filter((component) => !component.isStateless)
           : visitContext.components;
+        // Co-located helper pattern: a file with at most 2 detected
+        // components is the canonical "1 main + 1 sub-component" shape
+        // (e.g. `ErrorBoundary` + `OptionalErrorBoundary`, `FPSMeter` +
+        // `FpsMeterInner`, `ArrowShapeUtil` + `ArrowClipPath`,
+        // `getSvgJsx.tsx`'s `SvgExport` + `ForeignObjectShape`). Forcing
+        // a second file for the helper fragments tightly-coupled UI
+        // without any maintenance benefit — the helper is a private
+        // implementation detail of the main component, not a sibling.
+        if (flagged.length <= 2) return;
         // Two exemption shapes, both informed by the corpus:
         //
         //   1. BARREL: 4+ components, 75%+ exported — icon barrels, menu
