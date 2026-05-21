@@ -10,6 +10,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const tanstackStartNoDirectFetchInLoader = defineRule<Rule>({
   id: "tanstack-start-no-direct-fetch-in-loader",
+  tags: ["test-noise"],
   requires: ["tanstack-start"],
   severity: "warn",
   recommendation:

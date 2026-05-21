@@ -13,6 +13,7 @@ const MESSAGE =
 // `tabIndex={N}` where N > 0.
 export const tabindexNoPositive = defineRule<Rule>({
   id: "tabindex-no-positive",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation:
     "Use `tabIndex={0}` (focusable in source order) or `tabIndex={-1}` (programmatic only).",

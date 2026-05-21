@@ -48,6 +48,7 @@ const resolveSettings = (
 // Port of `oxc_linter::rules::jsx_a11y::no_noninteractive_element_to_interactive_role`.
 export const noNoninteractiveElementToInteractiveRole = defineRule<Rule>({
   id: "no-noninteractive-element-to-interactive-role",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation:
     "Use a semantic interactive element instead of role-promoting a non-interactive one.",

@@ -30,6 +30,7 @@ const resolveSettings = (
 // `<marquee>` and `<blink>` (or any tag in `elements`).
 export const noDistractingElements = defineRule<Rule>({
   id: "no-distracting-elements",
+  tags: ["react-jsx-only"],
   severity: "error",
   recommendation: "Replace `<marquee>` / `<blink>` with semantic, accessible markup.",
   category: "Accessibility",

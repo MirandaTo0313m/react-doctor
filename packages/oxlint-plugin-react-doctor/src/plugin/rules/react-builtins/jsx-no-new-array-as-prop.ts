@@ -1,3 +1,8 @@
+import {
+  buildSameFileMemoRegistry,
+  memoStatusForJsxOpeningName,
+  type MemoStatus,
+} from "../../utils/build-same-file-memo-registry.js";
 import { defineRule } from "../../utils/define-rule.js";
 import type { EsTreeNode } from "../../utils/es-tree-node.js";
 import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
@@ -73,6 +78,117 @@ const DATA_ARRAY_PROP_NAMES: ReadonlySet<string> = new Set([
   "resources",
   "propertyFilters",
   "dayTimes",
+  // UI: nav / menu / shortcut / keybind / hotkey collections
+  "links",
+  "panels",
+  "shortcuts",
+  "hotkeys",
+  "keybind",
+  "keybinds",
+  "modifiers",
+  // Generic-but-conventional data sources
+  "dataSource",
+  "suggestions",
+  "people",
+  "tasks",
+  "colors",
+  // Domain / taxonomy
+  "nouns",
+  "verbs",
+  "iconButtons",
+  // Layout / breadcrumb
+  "breadcrumbs",
+  "fallbackPlacements",
+  // Generic value-as-collection (multi-select, multi-tag controls)
+  "value",
+  "currentValue",
+  // Common domain collections (corpus-derived)
+  "listParts",
+  "objectNameSingulars",
+  "tagsAvailable",
+  "properties",
+  "middleware",
+  "middlewares",
+  "variants",
+  "surveys",
+  "choices",
+  "layers",
+  "models",
+  "roles",
+  "metrics",
+  "teams",
+  "additionalActions",
+  "additionalRefs",
+  "addonFeatures",
+  "operatorAllowlist",
+  "goalLines",
+  "selectedProperties",
+  "panelActions",
+  "operandsForFilterType",
+  "dataWarehousePopoverFields",
+  // Additional common patterns
+  "avatars",
+  "participants",
+  "members",
+  "accounts",
+  "workspaces",
+  "projects",
+  "folders",
+  "notes",
+  "comments",
+  "notifications",
+  "posts",
+  "threads",
+  "authors",
+  "recipients",
+  "subscribers",
+  "selections",
+  "versions",
+  "branches",
+  "commits",
+  "releases",
+  "builds",
+  "deployments",
+  "jobs",
+  "stages",
+  "phases",
+  "milestones",
+  "cards",
+  "tiles",
+  "slides",
+  "routes",
+  "permissions",
+  "capabilities",
+  "settings",
+  "attributes",
+  "aspects",
+  "stats",
+  "statistics",
+  "insights",
+  "findings",
+  "issues",
+  "tickets",
+  "bugs",
+  "defects",
+  "annotations",
+  "markers",
+  "pins",
+  "stickers",
+  "tools",
+  "plugins",
+  "extensions",
+  "modules",
+  "services",
+  "providers",
+  "adapters",
+  "helpers",
+  "validators",
+  "transformers",
+  "formatters",
+  "serializers",
+  "parsers",
+  "vehicles",
+  "devices",
 ]);
 
 // Suffix patterns: `*Items`, `*Options`, `*Tabs`, `*Columns`, `*Rows`,
@@ -97,12 +213,111 @@ const DATA_ARRAY_PROP_SUFFIXES: ReadonlyArray<string> = [
   "Edges",
   "Data",
   "Collection",
+  "Collections",
   "Models",
   "Records",
   "Filters",
   "Values",
   "Times",
   "Resources",
+  // More plural collection suffixes
+  "Types",
+  "Ids",
+  "IdArray",
+  "IDs",
+  "Names",
+  "Tags",
+  "Keys",
+  "Labels",
+  "Groups",
+  "Buttons",
+  "Icons",
+  "Links",
+  "Steps",
+  "Stages",
+  "Sources",
+  "Targets",
+  "Suggestions",
+  "Operations",
+  "Contexts",
+  "Placements",
+  "Breadcrumbs",
+  "Hotkeys",
+  "Shortcuts",
+  "Panels",
+  "Actions",
+  "Activities",
+  "Avatars",
+  "Participants",
+  "Members",
+  "Users",
+  "Accounts",
+  "Workspaces",
+  "Projects",
+  "Files",
+  "Folders",
+  "Notes",
+  "Comments",
+  "Messages",
+  "Notifications",
+  "Posts",
+  "Threads",
+  "Authors",
+  "Recipients",
+  "Subscribers",
+  "Choices",
+  "Selections",
+  "Variants",
+  "Versions",
+  "Branches",
+  "Commits",
+  "Releases",
+  "Builds",
+  "Deployments",
+  "Jobs",
+  "Tasks",
+  "Phases",
+  "Milestones",
+  "Cards",
+  "Tiles",
+  "Slides",
+  "Pages",
+  "Routes",
+  "Roles",
+  "Permissions",
+  "Capabilities",
+  "Settings",
+  "Properties",
+  "Attributes",
+  "Aspects",
+  "Metrics",
+  "Stats",
+  "Statistics",
+  "Insights",
+  "Findings",
+  "Issues",
+  "Tickets",
+  "Bugs",
+  "Defects",
+  "Annotations",
+  "Markers",
+  "Pins",
+  "Stickers",
+  "Tools",
+  "Plugins",
+  "Extensions",
+  "Modules",
+  "Services",
+  "Providers",
+  "Adapters",
+  "Helpers",
+  "Validators",
+  "Transformers",
+  "Formatters",
+  "Serializers",
+  "Parsers",
+  "Vehicles",
+  "Devices",
 ];
 
 const isDataArrayPropName = (propName: string): boolean => {
@@ -122,6 +337,11 @@ const ARRAY_CONSTRUCTOR_NAMES = new Set(["Array"]);
 // allocate a new array, so we don't restrict by arity for it.
 const SINGLE_ARG_ARRAY_METHODS = new Set(["map", "filter"]);
 const ANY_ARG_ARRAY_METHODS = new Set(["concat"]);
+
+const isEmptyArrayLiteralExpression = (expression: EsTreeNode): boolean => {
+  const stripped = stripParenExpression(expression);
+  return isNodeOfType(stripped, "ArrayExpression") && (stripped.elements ?? []).length === 0;
+};
 
 const isArrayProducingExpression = (expression: EsTreeNode): boolean => {
   const stripped = stripParenExpression(expression);
@@ -152,6 +372,20 @@ const isArrayProducingExpression = (expression: EsTreeNode): boolean => {
     return false;
   }
   if (isNodeOfType(stripped, "LogicalExpression")) {
+    // `value ?? []` / `value || []` — an empty array literal on
+    // either side is a fallback that only allocates on the rare
+    // null/undefined path. Short-circuit semantics mean `[]` isn't
+    // evaluated when the other side is defined. Skip the empty side
+    // and check the other; if NEITHER side is an empty fallback, the
+    // expression always allocates an array somewhere (e.g.
+    // `items={data ?? buildList()}` where `buildList()` is itself
+    // array-producing), so check both sides.
+    if (stripped.operator === "??" || stripped.operator === "||") {
+      const leftIsEmptyFallback = isEmptyArrayLiteralExpression(stripped.left);
+      const rightIsEmptyFallback = isEmptyArrayLiteralExpression(stripped.right);
+      if (leftIsEmptyFallback) return isArrayProducingExpression(stripped.right);
+      if (rightIsEmptyFallback) return isArrayProducingExpression(stripped.left);
+    }
     return isArrayProducingExpression(stripped.left) || isArrayProducingExpression(stripped.right);
   }
   if (isNodeOfType(stripped, "ConditionalExpression")) {
@@ -200,6 +434,7 @@ const followsRenderLocalArrayBinding = (
 // document and skip those tests.
 export const jsxNoNewArrayAsProp = defineRule<Rule>({
   id: "jsx-no-new-array-as-prop",
+  tags: ["react-jsx-only"],
   severity: "warn",
   // React Compiler auto-memoizes prop allocations. The perf footgun this
   // rule guards against doesn't exist in compiler-enabled projects.
@@ -208,13 +443,28 @@ export const jsxNoNewArrayAsProp = defineRule<Rule>({
   category: "Performance",
   create: (context) => {
     const isTestlikeFile = isTestlikeFilename(context.getFilename?.());
+    let memoRegistry: Map<string, MemoStatus> | null = null;
     return {
+      Program(node: EsTreeNodeOfType<"Program">) {
+        memoRegistry = buildSameFileMemoRegistry(node as EsTreeNode);
+      },
       JSXAttribute(node: EsTreeNodeOfType<"JSXAttribute">) {
         if (isTestlikeFile) return;
         // Intrinsic HTML elements aren't memoized; flagging inline
         // arrays on them is unactionable. See `jsx-no-new-function-as-prop`
         // for the full rationale.
         if (isJsxAttributeOnIntrinsicHtmlElement(node)) return;
+        // Consumer-component memo-status: if the parent JSX element
+        // is a plain function/arrow defined in this same file (no
+        // memo/forwardRef/observer wrapper), the rule's "React.memo
+        // bails" rationale doesn't apply — the parent re-renders
+        // unconditionally on every prop change.
+        const parentJsxOpening = node.parent;
+        const openingName =
+          parentJsxOpening && isNodeOfType(parentJsxOpening, "JSXOpeningElement")
+            ? (parentJsxOpening.name as EsTreeNode)
+            : null;
+        if (memoStatusForJsxOpeningName(memoRegistry, openingName) === "not-memoised") return;
         // Data-collection slot props (`items`, `data`, `options`,
         // `tabs`, `*Items`, `*Options`, etc.) receive inline array
         // literals by convention — every list/table/menu/chart

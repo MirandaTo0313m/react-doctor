@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const rerenderLazyStateInit = defineRule<Rule>({
   id: "rerender-lazy-state-init",
+  tags: ["test-noise"],
   severity: "warn",
   category: "Performance",
   recommendation:

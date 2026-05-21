@@ -31,6 +31,7 @@ const resolveSettings = (
 // `role` attribute that matches the element's implicit role.
 export const noRedundantRoles = defineRule<Rule>({
   id: "no-redundant-roles",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Remove `role` attributes that match the element's implicit role.",
   category: "Accessibility",

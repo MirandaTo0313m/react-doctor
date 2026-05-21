@@ -25,6 +25,7 @@ import {
 export const noAdjustStateOnPropChange = defineRule<Rule>({
   id: "no-adjust-state-on-prop-change",
   severity: "warn",
+  tags: ["test-noise"],
   recommendation:
     "Adjust the state inline during render instead of via a useEffect, or refactor the state to avoid the need entirely. See https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes",
   create: (context: RuleContext) => ({

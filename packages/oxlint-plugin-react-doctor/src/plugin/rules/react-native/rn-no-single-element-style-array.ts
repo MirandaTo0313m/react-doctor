@@ -6,6 +6,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const rnNoSingleElementStyleArray = defineRule<Rule>({
   id: "rn-no-single-element-style-array",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

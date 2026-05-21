@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const rnNoInlineFlatlistRenderitem = defineRule<Rule>({
   id: "rn-no-inline-flatlist-renderitem",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

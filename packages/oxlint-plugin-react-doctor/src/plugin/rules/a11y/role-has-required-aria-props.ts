@@ -25,6 +25,7 @@ const ROLE_REQUIRED_PROPS: ReadonlyMap<string, ReadonlyArray<string>> = new Map(
 // Port of `oxc_linter::rules::jsx_a11y::role_has_required_aria_props`.
 export const roleHasRequiredAriaProps = defineRule<Rule>({
   id: "role-has-required-aria-props",
+  tags: ["react-jsx-only"],
   severity: "error",
   recommendation: "Add every required `aria-*` property when assigning an interactive role.",
   category: "Accessibility",

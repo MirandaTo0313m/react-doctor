@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const renderingAnimateSvgWrapper = defineRule<Rule>({
   id: "rendering-animate-svg-wrapper",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation: "Wrap the SVG: `<motion.div animate={...}><svg>...</svg></motion.div>`",
   create: (context: RuleContext) => ({

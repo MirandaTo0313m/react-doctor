@@ -88,6 +88,7 @@ const resolveSettings = (
 // `autoComplete` against the known HTML autofill token list.
 export const autocompleteValid = defineRule<Rule>({
   id: "autocomplete-valid",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Use a valid HTML autofill token in `autoComplete`.",
   category: "Accessibility",

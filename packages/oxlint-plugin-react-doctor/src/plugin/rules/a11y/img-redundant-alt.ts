@@ -83,6 +83,7 @@ const altValueRedundant = (
 // Port of `oxc_linter::rules::jsx_a11y::img_redundant_alt`.
 export const imgRedundantAlt = defineRule<Rule>({
   id: "img-redundant-alt",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Drop redundant words like 'image' / 'photo' from alt text — describe content.",
   category: "Accessibility",

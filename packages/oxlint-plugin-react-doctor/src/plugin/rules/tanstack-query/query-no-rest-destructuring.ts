@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const queryNoRestDestructuring = defineRule<Rule>({
   id: "query-no-rest-destructuring",
+  tags: ["test-noise"],
   requires: ["tanstack-query"],
   severity: "warn",
   recommendation:

@@ -56,6 +56,7 @@ const findReturnedObject = (callback: EsTreeNode): EsTreeNodeOfType<"ObjectExpre
 // `opacity` instead.
 export const rnAnimateLayoutProperty = defineRule<Rule>({
   id: "rn-animate-layout-property",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "error",
   recommendation:

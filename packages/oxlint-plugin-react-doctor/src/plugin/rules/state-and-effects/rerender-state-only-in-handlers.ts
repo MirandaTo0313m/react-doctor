@@ -17,6 +17,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 export const rerenderStateOnlyInHandlers = defineRule<Rule>({
   id: "rerender-state-only-in-handlers",
   severity: "warn",
+  tags: ["test-noise"],
   category: "Performance",
   recommendation:
     "Replace useState with useRef when the value is only mutated and never read in render — `ref.current = ...` updates without re-rendering the component",
@@ -39,6 +40,26 @@ export const rerenderStateOnlyInHandlers = defineRule<Rule>({
 
       for (const binding of bindings) {
         if (renderReachableNames.has(binding.valueName)) continue;
+        // Underscore-only or underscore-prefixed value names signal
+        // the user is intentionally using useState to FORCE a re-
+        // render and doesn't care about the value (`const [_, force]
+        // = useState(0)`, `const [_force, setForce] = useState(false)`).
+        // This is the canonical "trigger a re-render imperatively"
+        // pattern — useRef wouldn't work because ref updates don't
+        // re-render. Skip.
+        if (binding.valueName === "_" || binding.valueName.startsWith("_")) continue;
+        // Setter names that match force-rerender conventions
+        // (`triggerRender`, `forceUpdate`, `rerender`, `forceRender`,
+        // `tick`, `bump`, `bumpVersion`) — these names literally
+        // declare the user's intent: re-render on demand. Skip.
+        const setterSuffix = binding.setterName.slice(3); // 'set' + suffix
+        if (
+          /^(TriggerRender|ForceUpdate|Rerender|ForceRender|Tick|Bump|BumpVersion|InvalidateRender|Refresh|Repaint)$/i.test(
+            setterSuffix,
+          )
+        ) {
+          continue;
+        }
 
         let setterCalled = false;
         walkAst(componentBody, (child: EsTreeNode) => {

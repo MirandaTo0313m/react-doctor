@@ -29,6 +29,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 // browser `addEventListener`, EventEmitter `on`, etc.).
 export const advancedEventHandlerRefs = defineRule<Rule>({
   id: "advanced-event-handler-refs",
+  tags: ["test-noise"],
   severity: "warn",
   category: "Performance",
   recommendation:

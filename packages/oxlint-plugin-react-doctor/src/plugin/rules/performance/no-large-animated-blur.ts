@@ -11,6 +11,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const noLargeAnimatedBlur = defineRule<Rule>({
   id: "no-large-animated-blur",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Keep blur radius under 10px, or apply blur to a smaller element. Large blurs multiply GPU memory usage with layer size",

@@ -12,6 +12,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 // or hero image.
 export const rnPreferExpoImage = defineRule<Rule>({
   id: "rn-prefer-expo-image",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

@@ -23,6 +23,7 @@ const RECYCLABLE_LIST_NAMES = new Set(["FlashList", "LegendList"]);
 
 export const rnListRecyclableWithoutTypes = defineRule<Rule>({
   id: "rn-list-recyclable-without-types",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

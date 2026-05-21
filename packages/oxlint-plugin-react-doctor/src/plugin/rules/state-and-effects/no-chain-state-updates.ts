@@ -26,6 +26,7 @@ import {
 export const noChainStateUpdates = defineRule<Rule>({
   id: "no-chain-state-updates",
   severity: "warn",
+  tags: ["test-noise"],
   recommendation:
     "Update all related state simultaneously inside the event handler that originally fires, instead of reacting to one state update in a useEffect that writes another state. See https://react.dev/learn/you-might-not-need-an-effect#chains-of-computations",
   create: (context: RuleContext) => ({

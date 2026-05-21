@@ -13,6 +13,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 // reactions like calling runOnJS, not value derivation).
 export const rnAnimationReactionAsDerived = defineRule<Rule>({
   id: "rn-animation-reaction-as-derived",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

@@ -157,6 +157,7 @@ const getImplicitRole = (
 // effective ARIA role (explicit > implicit).
 export const roleSupportsAriaProps = defineRule<Rule>({
   id: "role-supports-aria-props",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Use `aria-*` props supported by the element's role.",
   category: "Accessibility",

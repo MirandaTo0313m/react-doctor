@@ -48,6 +48,7 @@ const describeClientSideNavigation = (
 
 export const nextjsNoClientSideRedirect = defineRule<Rule>({
   id: "nextjs-no-client-side-redirect",
+  tags: ["test-noise"],
   requires: ["nextjs"],
   severity: "warn",
   recommendation:

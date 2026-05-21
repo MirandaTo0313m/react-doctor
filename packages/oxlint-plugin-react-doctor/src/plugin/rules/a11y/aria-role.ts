@@ -33,6 +33,7 @@ const resolveSettings = (
 // Port of `oxc_linter::rules::jsx_a11y::aria_role`.
 export const ariaRole = defineRule<Rule>({
   id: "aria-role",
+  tags: ["react-jsx-only"],
   severity: "error",
   recommendation: "Use a documented non-abstract WAI-ARIA role.",
   category: "Accessibility",

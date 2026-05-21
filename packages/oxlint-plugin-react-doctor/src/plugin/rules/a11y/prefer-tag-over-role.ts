@@ -14,6 +14,7 @@ const buildMessage = (role: string, tag: string): string =>
 // element's semantics, suggest using the built-in directly.
 export const preferTagOverRole = defineRule<Rule>({
   id: "prefer-tag-over-role",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Replace `role` with the semantic HTML element when one exists.",
   category: "Accessibility",

@@ -14,6 +14,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 // titles, and keyboard avoidance for free.
 export const rnPreferContentInsetAdjustment = defineRule<Rule>({
   id: "rn-prefer-content-inset-adjustment",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

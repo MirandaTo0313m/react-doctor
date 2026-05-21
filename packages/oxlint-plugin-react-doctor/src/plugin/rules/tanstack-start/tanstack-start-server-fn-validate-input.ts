@@ -9,6 +9,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const tanstackStartServerFnValidateInput = defineRule<Rule>({
   id: "tanstack-start-server-fn-validate-input",
+  tags: ["test-noise"],
   requires: ["tanstack-start"],
   severity: "warn",
   recommendation:

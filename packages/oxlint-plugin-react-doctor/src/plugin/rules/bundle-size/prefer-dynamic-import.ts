@@ -6,18 +6,34 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const preferDynamicImport = defineRule<Rule>({
   id: "prefer-dynamic-import",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Use `const Component = dynamic(() => import('library'), { ssr: false })` from next/dynamic or React.lazy()",
   create: (context: RuleContext) => ({
     ImportDeclaration(node: EsTreeNodeOfType<"ImportDeclaration">) {
       const source = node.source?.value;
-      if (typeof source === "string" && HEAVY_LIBRARIES.has(source)) {
-        context.report({
-          node,
-          message: `"${source}" is a heavy library — use React.lazy() or next/dynamic for code splitting`,
+      if (typeof source !== "string" || !HEAVY_LIBRARIES.has(source)) return;
+      // `import type { … } from 'foo'` — TypeScript erases this at
+      // emit time, no runtime cost. `import { type X, type Y }
+      // from 'foo'` — same when every specifier is type-only.
+      const declarationKind = (node as unknown as { importKind?: string }).importKind;
+      if (declarationKind === "type") return;
+      const specifiers = node.specifiers ?? [];
+      if (specifiers.length === 0) {
+        // Bare side-effect import (`import 'foo'`) — runtime cost
+        // is real, flag.
+      } else {
+        const allTypeOnly = specifiers.every((specifier) => {
+          const specifierKind = (specifier as unknown as { importKind?: string }).importKind;
+          return specifierKind === "type";
         });
+        if (allTypeOnly) return;
       }
+      context.report({
+        node,
+        message: `"${source}" is a heavy library — use React.lazy() or next/dynamic for code splitting`,
+      });
     },
   }),
 });

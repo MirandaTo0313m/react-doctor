@@ -4,6 +4,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 import { hasJsxPropIgnoreCase } from "../../utils/has-jsx-prop-ignore-case.js";
 import { isCreateElementCall } from "../../utils/is-create-element-call.js";
 import { isNodeOfType } from "../../utils/is-node-of-type.js";
+import { isTestlikeFilename } from "../../utils/is-testlike-filename.js";
 import type { Rule } from "../../utils/rule.js";
 
 const MISSING_MESSAGE = "`<button>` elements must have an explicit `type` attribute.";
@@ -76,6 +77,34 @@ const isProvenValidExpression = (
   return false;
 };
 
+// `<button type={type}>` (or `<button type={props.type}>`) is a
+// wrapper component forwarding the consumer's chosen type — the rule
+// should fire at the CONSUMER's call site (where the literal value
+// lives), not at the trampoline. Without this every styled-button
+// wrapper that exposes `type` to its caller eats a diagnostic.
+const isConsumerPropForward = (expression: EsTreeNode): boolean => {
+  if (isNodeOfType(expression, "Identifier") && expression.name === "type") {
+    return true;
+  }
+  if (
+    isNodeOfType(expression, "MemberExpression") &&
+    !expression.computed &&
+    isNodeOfType(expression.property, "Identifier") &&
+    expression.property.name === "type"
+  ) {
+    return true;
+  }
+  // `type={type ?? 'button'}` / `type={type || 'submit'}` — defaulted
+  // forward where the fallback is itself valid.
+  if (
+    isNodeOfType(expression, "LogicalExpression") &&
+    (expression.operator === "??" || expression.operator === "||")
+  ) {
+    return isConsumerPropForward(expression.left as EsTreeNode);
+  }
+  return false;
+};
+
 const reportInvalid = (
   context: Parameters<Rule["create"]>[0],
   reportNode: EsTreeNode,
@@ -96,9 +125,14 @@ export const buttonHasType = defineRule<Rule>({
   recommendation: 'Set `type="button"` (or `"submit"` / `"reset"`) explicitly on every `<button>`.',
   create: (context) => {
     const settings = resolveSettings(context.settings);
+    // Storybook stories and tests routinely render bare `<button>` without
+    // a `type` attribute — the buttons aren't inside a real form so the
+    // implicit `submit` behaviour is irrelevant. Skip these.
+    const isTestlikeFile = isTestlikeFilename(context.getFilename?.());
 
     return {
       JSXOpeningElement(node: EsTreeNodeOfType<"JSXOpeningElement">) {
+        if (isTestlikeFile) return;
         if (!isNodeOfType(node.name, "JSXIdentifier") || node.name.name !== "button") return;
         const typeAttr = hasJsxPropIgnoreCase(node.attributes, "type");
         if (!typeAttr) {
@@ -119,12 +153,14 @@ export const buttonHasType = defineRule<Rule>({
         if (isNodeOfType(value, "JSXExpressionContainer")) {
           const expression = value.expression;
           if (!expression || expression.type === "JSXEmptyExpression") return;
+          if (isConsumerPropForward(expression as EsTreeNode)) return;
           if (!isProvenValidExpression(expression as EsTreeNode, settings)) {
             reportInvalid(context, typeAttr, settings);
           }
         }
       },
       CallExpression(node: EsTreeNodeOfType<"CallExpression">) {
+        if (isTestlikeFile) return;
         if (!isCreateElementCall(node)) return;
         const firstArgument = node.arguments[0];
         if (
@@ -155,6 +191,11 @@ export const buttonHasType = defineRule<Rule>({
           context.report({ node: propsArgument, message: MISSING_MESSAGE });
           return;
         }
+        // Mirror the JSX branch: consumer-forwarded `type` (`{ type: type }`
+        // / `{ type: props.type }` / defaulted forwards) is a wrapper
+        // re-exporting the prop, so the diagnostic should fire at the
+        // caller's literal, not at the trampoline.
+        if (isConsumerPropForward(typeProp)) return;
         if (!isProvenValidExpression(typeProp, settings)) {
           reportInvalid(context, typeProp, settings);
         }

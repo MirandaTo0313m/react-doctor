@@ -20,6 +20,11 @@ const shouldAutoSuppress = (diagnostic: Diagnostic): boolean => {
   const rule =
     diagnostic.plugin === "react-doctor" ? reactDoctorPlugin.rules[diagnostic.rule] : null;
   if (rule?.tags?.includes("test-noise")) {
+    // `migration-hint` wins over `test-noise` — deprecated API usage
+    // in test code is the very surface that needs migration (e.g.
+    // `react-dom/test-utils` imports in `.test.tsx` files). Keep the
+    // diagnostic regardless of the file's test-iness.
+    if (rule.tags.includes("migration-hint")) return false;
     let isTest = testFileResultCache.get(filePath);
     if (isTest === undefined) {
       isTest = isTestFilePath(filePath);

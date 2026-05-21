@@ -301,6 +301,7 @@ const isValidValueForType = (propType: AriaPropType, value: EsTreeNode): boolean
 // Port of `oxc_linter::rules::jsx_a11y::aria_proptypes`.
 export const ariaProptypes = defineRule<Rule>({
   id: "aria-proptypes",
+  tags: ["react-jsx-only"],
   severity: "error",
   recommendation: "Match each `aria-*` value to its WAI-ARIA-defined type.",
   category: "Accessibility",

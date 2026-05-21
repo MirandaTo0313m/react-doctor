@@ -81,6 +81,7 @@ const getAccessibleText = (
 // Port of `oxc_linter::rules::jsx_a11y::anchor_ambiguous_text`.
 export const anchorAmbiguousText = defineRule<Rule>({
   id: "anchor-ambiguous-text",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Describe a link's destination — avoid 'click here' / 'learn more' / 'link'.",
   category: "Accessibility",

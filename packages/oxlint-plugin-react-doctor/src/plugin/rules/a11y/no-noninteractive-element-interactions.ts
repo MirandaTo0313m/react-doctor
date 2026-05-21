@@ -25,6 +25,7 @@ const INTERACTIVE_HANDLERS: ReadonlyArray<string> = [
 // elements without an interactive role.
 export const noNoninteractiveElementInteractions = defineRule<Rule>({
   id: "no-noninteractive-element-interactions",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Move interactions to a semantic interactive element / add an interactive role.",
   category: "Accessibility",

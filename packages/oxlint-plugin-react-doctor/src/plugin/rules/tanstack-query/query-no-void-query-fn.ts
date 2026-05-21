@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const queryNoVoidQueryFn = defineRule<Rule>({
   id: "query-no-void-query-fn",
+  tags: ["test-noise"],
   requires: ["tanstack-query"],
   severity: "warn",
   recommendation:

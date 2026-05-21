@@ -155,6 +155,7 @@ const doesAnyEventLikeCallReferenceAnyRoot = (
 
 export const noEffectEventHandler = defineRule<Rule>({
   id: "no-effect-event-handler",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Move the conditional logic into onClick, onChange, or onSubmit handlers directly",

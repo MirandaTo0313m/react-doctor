@@ -38,6 +38,7 @@ const resolveSettings = (
 // Port of `oxc_linter::rules::jsx_a11y::no_noninteractive_tabindex`.
 export const noNoninteractiveTabindex = defineRule<Rule>({
   id: "no-noninteractive-tabindex",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Reserve `tabIndex` for interactive elements / interactive roles.",
   category: "Accessibility",

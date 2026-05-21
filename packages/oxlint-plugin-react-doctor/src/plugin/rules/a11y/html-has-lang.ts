@@ -71,6 +71,7 @@ const evaluateLang = (attributeValue: EsTreeNode | null | undefined): LangVerdic
 // "missing lang".
 export const htmlHasLang = defineRule<Rule>({
   id: "html-has-lang",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation:
     'Set `<html lang="…">` so assistive technology can announce the document language.',

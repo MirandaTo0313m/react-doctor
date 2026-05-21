@@ -97,19 +97,50 @@ const symbolMapsToHoc = (symbol: SymbolDescriptor): boolean => {
   return false;
 };
 
-// A simple JSX passthrough: <PascalCaseComponent {...spread} ?one-other-attr />
-// Used by `is_passthrough_*` to recognize `(props, ref) =>
-// <Foo {...props} ref={ref} />` style "trampoline" wrappers — OXC's
-// no-multi-comp doesn't count those as a separate component because
-// they only forward props.
+// A child is "trivial" — doesn't compose another React component into the
+// passthrough wrapper. Intrinsic HTML (`<path>`, `<svg>`), JSX text, and
+// expression containers (`{children}`, conditionals, etc.) all count.
+// PascalCase JSX children would mean the wrapper is actually composing
+// structure, not just forwarding — those disqualify the passthrough.
+const isTrivialPassthroughChild = (child: EsTreeNode): boolean => {
+  if (child.type === "JSXText") return true;
+  if (child.type === "JSXExpressionContainer") return true;
+  if (child.type === "JSXFragment") return true;
+  if (isNodeOfType(child, "JSXElement")) {
+    const open = child.openingElement;
+    if (isNodeOfType(open.name, "JSXIdentifier")) {
+      const first = open.name.name.charCodeAt(0);
+      // Lowercase first char = intrinsic HTML — OK.
+      return first < 65 || first > 90;
+    }
+    return false;
+  }
+  return false;
+};
+
+// A simple JSX passthrough: `<PascalCaseComponent {...spread} default1
+// default2 …/>` with no composed React-component children. Used by
+// `is_passthrough_*` to recognize `(props, ref) => <Foo {...props} ref={ref} />`
+// style trampolines AND shadcn / icon-barrel re-exports that wrap a single
+// element with a few default props + a spread. The attrs cap (6) is tuned
+// for the typical shadcn shape: data-slot + className with `cn()` + 1-3
+// default values + spread. OXC's no-multi-comp doesn't count these as
+// separate components because they only forward.
+const MAX_PASSTHROUGH_ATTRS = 6;
+
 const isSimpleJsxPassthrough = (expression: EsTreeNode): boolean => {
   if (!isNodeOfType(expression, "JSXElement")) return false;
   const opening = expression.openingElement;
   if (!isNodeOfType(opening.name, "JSXIdentifier")) return false;
   if (!isReactComponentName(opening.name.name)) return false;
   const attrs = opening.attributes;
-  if (attrs.length > 2) return false;
-  return attrs.some((attr) => isNodeOfType(attr as EsTreeNode, "JSXSpreadAttribute"));
+  if (attrs.length > MAX_PASSTHROUGH_ATTRS) return false;
+  const hasSpread = attrs.some((attr) => isNodeOfType(attr as EsTreeNode, "JSXSpreadAttribute"));
+  if (!hasSpread) return false;
+  for (const child of expression.children ?? []) {
+    if (!isTrivialPassthroughChild(child as EsTreeNode)) return false;
+  }
+  return true;
 };
 
 const isSingleReturnPassthrough = (statements: ReadonlyArray<EsTreeNode>): boolean => {
@@ -242,6 +273,99 @@ interface DetectedComponent {
   isStateless: boolean;
 }
 
+// True if the node is in a top-level `export …` declaration. Walks
+// parents looking for an ExportNamedDeclaration / ExportDefaultDeclaration
+// before crossing any non-trivial scope boundary.
+// Collects names re-exported at the bottom of a file via the
+// specifier-form `export { Foo, Bar, Baz }`. shadcn-style primitive
+// files use this almost exclusively: declarations live at module
+// scope, then ONE export block at the end. Without this, every such
+// barrel had `exportedCount === 0` and slipped past both the barrel
+// and the feature-module exemption.
+//
+// Also collects names from namespace-style exports:
+//   export const DefinitionPopover = { Wrapper, Header, Description, … }
+// The user is exporting all the private functions under a single
+// namespace value — they're still part of the public API surface.
+const collectReExportedNames = (program: EsTreeNode): Set<string> => {
+  const names = new Set<string>();
+  if (!isNodeOfType(program, "Program")) return names;
+  for (const statement of program.body) {
+    // `export default Foo` where `Foo` is an Identifier referencing a
+    // separately-declared component. Walking up from `Foo`'s binding
+    // node never reaches the ExportDefaultDeclaration, so we record
+    // the name here for `isExportedDeclaration` to pick up.
+    if (isNodeOfType(statement, "ExportDefaultDeclaration")) {
+      if (isNodeOfType(statement.declaration, "Identifier")) {
+        names.add(statement.declaration.name);
+      }
+      continue;
+    }
+    if (!isNodeOfType(statement, "ExportNamedDeclaration")) continue;
+    // Specifier form: `export { Foo, Bar }`
+    if (!statement.declaration) {
+      for (const specifier of statement.specifiers ?? []) {
+        if (!isNodeOfType(specifier, "ExportSpecifier")) continue;
+        const local = specifier.local as EsTreeNode;
+        if (isNodeOfType(local, "Identifier")) names.add(local.name);
+      }
+      continue;
+    }
+    // Inline form: `export const X = ObjectExpression` — namespace
+    // pattern where the user re-groups private functions under a
+    // single exported value (`DefinitionPopover.Wrapper` etc.).
+    if (!isNodeOfType(statement.declaration, "VariableDeclaration")) continue;
+    for (const declarator of statement.declaration.declarations ?? []) {
+      if (!isNodeOfType(declarator, "VariableDeclarator")) continue;
+      if (!isNodeOfType(declarator.init, "ObjectExpression")) continue;
+      for (const property of declarator.init.properties ?? []) {
+        if (!isNodeOfType(property, "Property")) continue;
+        if (property.computed) continue;
+        // `{ Wrapper, Header }` (shorthand) and `{ Wrapper: Wrapper, ... }`
+        // both end up with Identifier values that name the binding.
+        const value = property.value as EsTreeNode;
+        if (isNodeOfType(value, "Identifier")) names.add(value.name);
+      }
+    }
+  }
+  return names;
+};
+
+const isExportedDeclaration = (node: EsTreeNode, reExportedNames: Set<string>): boolean => {
+  // The component's reportNode is the binding identifier (e.g.
+  // `Foo` inside `export function Foo()`). To detect export-ness we
+  // walk up through AT MOST one function/class layer (the binding
+  // node itself) so `export function Foo()` and `export const Foo =`
+  // both resolve correctly, while a function nested INSIDE another
+  // function still bails before climbing out of its host.
+  if (isNodeOfType(node, "Identifier") && reExportedNames.has(node.name)) {
+    return true;
+  }
+  let current: EsTreeNode | null | undefined = node.parent;
+  let didCrossOneBindingLayer = false;
+  while (current) {
+    if (
+      isNodeOfType(current, "ExportNamedDeclaration") ||
+      isNodeOfType(current, "ExportDefaultDeclaration")
+    ) {
+      return true;
+    }
+    if (isNodeOfType(current, "Program")) return false;
+    if (
+      isNodeOfType(current, "FunctionDeclaration") ||
+      isNodeOfType(current, "FunctionExpression") ||
+      isNodeOfType(current, "ArrowFunctionExpression") ||
+      isNodeOfType(current, "ClassDeclaration") ||
+      isNodeOfType(current, "ClassExpression")
+    ) {
+      if (didCrossOneBindingLayer) return false;
+      didCrossOneBindingLayer = true;
+    }
+    current = current.parent ?? null;
+  }
+  return false;
+};
+
 // Recognizes `const Foo = <something>` shapes that look like a
 // component declaration: arrow/function returning JSX, HoC call, or
 // a function expression returning null.
@@ -258,6 +382,12 @@ const detectVariableComponent = (
   // Strip parens / TS wrappers so `(0, arrow)` and similar shapes
   // expose their SequenceExpression / arrow inner.
   init = stripParenExpression(init);
+  // Passthrough arrow / function (`const Foo = (props) => <X {...props} />`)
+  // is a thin wrapper, not a separate component — skip for the same
+  // reason HoC passthroughs are skipped (shadcn / Radix barrels).
+  if (isPassthroughArrow(init) || isPassthroughFunction(init)) {
+    return null;
+  }
   // `expressionContainsJsx` walks into an arrow/function body — used
   // for shapes like `const Foo = () => <div/>` (init IS the arrow).
   if (expressionContainsJsx(init) || isFunctionReturningNull(init)) {
@@ -324,9 +454,17 @@ const walkComponentSearch = (node: EsTreeNode, context: VisitContext): void => {
   }
 
   // Named function declaration / expression with JSX (matches OXC's
-  // visit_function which handles BOTH).
+  // visit_function which handles BOTH). Passthrough wrappers — a single
+  // return of `<X {...props} />` — aren't real components for the
+  // "multiple components per file" purpose; they're thin re-exports,
+  // common in shadcn / Radix-style barrel files and icon barrels.
   if (isNodeOfType(node, "FunctionDeclaration") || isNodeOfType(node, "FunctionExpression")) {
-    if (node.id && isReactComponentName(node.id.name) && containsJsx(node as EsTreeNode)) {
+    if (
+      node.id &&
+      isReactComponentName(node.id.name) &&
+      containsJsx(node as EsTreeNode) &&
+      !isPassthroughFunction(node as EsTreeNode)
+    ) {
       recordComponent(context, node.id.name, node.id as EsTreeNode, true);
       context.componentDepth += 1;
       walkChildren(node, context);
@@ -469,6 +607,70 @@ export const noMultiComp = defineRule<Rule>({
         const flagged = settings.ignoreStateless
           ? visitContext.components.filter((component) => !component.isStateless)
           : visitContext.components;
+        // Two exemption shapes, both informed by the corpus:
+        //
+        //   1. BARREL: 4+ components, 75%+ exported — icon barrels, menu
+        //      groups, shadcn re-export files. Splitting would be churn.
+        //
+        //   2. PAGE-WITH-HELPERS: exactly ONE exported component plus N
+        //      private helpers (`function FooHelper() { ... }` only used
+        //      by the exported page). This is the canonical "feature
+        //      module" shape — `<SettingsAdminNewAiProvider>` with a
+        //      couple internal subcomponents — and forcing the user to
+        //      split each helper into its own file would only fragment
+        //      tightly-coupled UI.
+        const reExportedNames = collectReExportedNames(node as EsTreeNode);
+        const exportedCount = flagged.filter((component) =>
+          isExportedDeclaration(component.reportNode, reExportedNames),
+        ).length;
+        // BARREL: many components, most exported. Two band-tightnesses
+        // (tuned against the corpus):
+        //   - 4+ components, 70 %+ exported  → tight shadcn-style barrel
+        //     (uses `Math.floor` so 11/15 = 73 % counts; the strictly-
+        //     ceil version excluded `WebAnalyticsTile.tsx`-style files
+        //     that are clearly a tile module by structure)
+        //   - 8+ components, 50 %+ exported  → bigger feature module
+        //     where a handful of private helpers (`PreferencesToggle*`
+        //     / `Cell` / `SortableCell` style) sit alongside the
+        //     public exports
+        const isBarrelLikeFile =
+          (flagged.length >= 4 && exportedCount >= Math.floor(flagged.length * 0.7)) ||
+          (flagged.length >= 8 && exportedCount >= Math.floor(flagged.length * 0.5));
+        if (isBarrelLikeFile) return;
+        // Feature module: small exported surface + N private helpers
+        // making up the bulk of the file. Two band-tightnesses:
+        //   - 1–2 exported (any flagged.length) — the canonical
+        //     `<FeatureScene />` + `<FeatureSceneHeader />` two-piece
+        //     public API shape with a couple of internal helpers.
+        //   - 1–4 exported AND flagged.length >= 8 AND the private
+        //     helpers are the majority (exportedCount * 2 <
+        //     flagged.length) — `PlayerSummaryViews.tsx`-style coherent
+        //     feature module where one public surface like
+        //     `<SessionSummary />` is implemented via a handful of
+        //     internal exports plus many private subcomponents.
+        const isSmallFeatureModule =
+          exportedCount > 0 && exportedCount <= 2 && exportedCount < flagged.length;
+        const isLargeFeatureModule =
+          exportedCount > 0 &&
+          exportedCount <= 4 &&
+          flagged.length >= 8 &&
+          exportedCount * 2 < flagged.length;
+        // Very-large feature module: 8+ exports, 12+ total, private
+        // helpers still 30 %+ of the file. PostHog's
+        // `WebAnalyticsFilters.tsx` / `WebAnalyticsDashboard.tsx` shape
+        // — feature modules with a public surface of 5–8 named
+        // components plus a handful of private subcomponents
+        // (`<HeaderRow>`, `<MaybeWrapInTooltip>`, etc.). Splitting each
+        // public component into its own file would fragment a tightly-
+        // coupled UI without any maintenance benefit; the file already
+        // names the feature.
+        const isVeryLargeFeatureModule =
+          exportedCount >= 5 &&
+          flagged.length >= 12 &&
+          // Private helpers ≥ 25 % of the file (so we're not just
+          // exempting a barrel that mostly re-exports).
+          (flagged.length - exportedCount) * 4 >= flagged.length;
+        if (isSmallFeatureModule || isLargeFeatureModule || isVeryLargeFeatureModule) return;
         for (const component of flagged.slice(1)) {
           context.report({ node: component.reportNode, message: buildMessage(component.name) });
         }

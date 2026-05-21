@@ -13,6 +13,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 // of switching is tiny (same prop API) and the perf win is huge.
 export const rnNoScrollviewMappedList = defineRule<Rule>({
   id: "rn-no-scrollview-mapped-list",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

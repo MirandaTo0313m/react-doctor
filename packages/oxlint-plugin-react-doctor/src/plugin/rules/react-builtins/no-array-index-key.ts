@@ -3,6 +3,11 @@ import type { EsTreeNode } from "../../utils/es-tree-node.js";
 import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 import { hasJsxPropIgnoreCase } from "../../utils/has-jsx-prop-ignore-case.js";
 import { isNodeOfType } from "../../utils/is-node-of-type.js";
+import {
+  containsStatefulDescendant,
+  PURE_SVG_PRIMITIVE_TAGS,
+  STATELESS_HTML_LEAF_TAGS,
+} from "../../utils/jsx-stateless-leaf.js";
 import type { Rule } from "../../utils/rule.js";
 
 const MESSAGE =
@@ -31,7 +36,32 @@ const THIRD_INDEX_METHODS: ReadonlySet<string> = new Set(["reduce", "reduceRight
 // In each of these the array's identity-vs-position is fixed by the
 // source string/length — reordering can't happen, so using the index
 // as the key is semantically right.
+const isAllLiteralArrayExpression = (node: EsTreeNode): boolean => {
+  if (!isNodeOfType(node, "ArrayExpression")) return false;
+  const elements = node.elements ?? [];
+  if (elements.length < 1) return false;
+  for (const element of elements) {
+    if (!element) return false;
+    if (!isNodeOfType(element, "Literal")) return false;
+    const value = (element as { value: unknown }).value;
+    if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean")
+      return false;
+  }
+  return true;
+};
+
 const isPositionallyStableIterationReceiver = (receiver: EsTreeNode): boolean => {
+  // `[lit, lit, lit].map(...)` — fixed-shape literal array, order is stable.
+  if (isAllLiteralArrayExpression(receiver)) return true;
+  // `[...Array(N)].map(...)` or `[...Array.from(...)].map(...)` — spread
+  // of an array constructor; the result has a fixed positional shape.
+  if (isNodeOfType(receiver, "ArrayExpression") && receiver.elements?.length === 1) {
+    const only = receiver.elements[0];
+    if (only && isNodeOfType(only, "SpreadElement")) {
+      const arg = only.argument as EsTreeNode | null;
+      if (arg && isPositionallyStableIterationReceiver(arg)) return true;
+    }
+  }
   if (!isNodeOfType(receiver, "CallExpression")) return false;
   const callee = receiver.callee;
   // Array.from({ length: N })  /  Array.from({ length: N }, ...)
@@ -69,6 +99,129 @@ const isPositionallyStableIterationReceiver = (receiver: EsTreeNode): boolean =>
   return false;
 };
 
+// True when a key template literal mixes the index with a member of the
+// iteration variable (`${item.id}-${index}`). The user is defensively
+// composing identity + index — the composite key IS stable for that
+// iteration, even though it mentions the index.
+const templateHasIteratorMember = (
+  templateLiteral: EsTreeNodeOfType<"TemplateLiteral">,
+  iteratorName: string,
+): boolean => {
+  for (const expression of templateLiteral.expressions ?? []) {
+    if (isNodeOfType(expression, "Identifier") && expression.name === iteratorName) return true;
+    if (
+      isNodeOfType(expression, "MemberExpression") &&
+      isNodeOfType(expression.object, "Identifier") &&
+      expression.object.name === iteratorName
+    )
+      return true;
+  }
+  return false;
+};
+
+// True for `Array.from(arr, (item, index) => …)`. The mapping callback
+// is the SECOND argument, so the regular "callback is parent.arguments[0]"
+// shape doesn't catch it.
+const isArrayFromMapperCallback = (
+  parentCall: EsTreeNodeOfType<"CallExpression">,
+  callback: EsTreeNode,
+): boolean => {
+  if (parentCall.arguments[1] !== callback) return false;
+  const callee = parentCall.callee;
+  return (
+    isNodeOfType(callee, "MemberExpression") &&
+    isNodeOfType(callee.object, "Identifier") &&
+    callee.object.name === "Array" &&
+    isNodeOfType(callee.property, "Identifier") &&
+    callee.property.name === "from"
+  );
+};
+
+// `Array.from(source, mapper)` — the positional stability of the
+// produced array depends on `source`. `{length: N}` is the placeholder
+// shape (fixed-length blank slots, index IS stable); anything else
+// inherits source's own stability.
+const isArrayFromSourcePositionallyStable = (source: EsTreeNode): boolean => {
+  if (isNodeOfType(source, "ObjectExpression")) {
+    for (const property of source.properties ?? []) {
+      if (!isNodeOfType(property, "Property")) continue;
+      const key = property.key;
+      const isLengthKey =
+        (isNodeOfType(key, "Identifier") && key.name === "length") ||
+        (isNodeOfType(key, "Literal") && key.value === "length");
+      if (isLengthKey) return true;
+    }
+    return false;
+  }
+  return isPositionallyStableIterationReceiver(source);
+};
+
+// Walk up from the JSX opening element to find the iteration callback's
+// per-item parameter (`item` in `arr.map((item, i) => …)` — that's
+// params[0]; for `reduce`/`reduceRight` it's params[1] because params[0]
+// is the accumulator). Composite keys like `` `${item.id}-${index}` ``
+// stay stable across reorders, so we don't want to flag them.
+//
+// Walk through inner ZERO-parameter helper callbacks — the keyed JSX
+// may be inside a nested `() => <X/>` lazy/render-prop arrow that
+// closes over the outer iterator's `item`. A 1-or-more-param inner
+// callback is its own (possibly-unknown) iteration boundary, so we
+// stop there.
+const findIteratorItemName = (node: EsTreeNode): string | null => {
+  let current: EsTreeNode | null | undefined = node;
+  while (current) {
+    if (
+      isNodeOfType(current, "ArrowFunctionExpression") ||
+      isNodeOfType(current, "FunctionExpression")
+    ) {
+      const parent = current.parent;
+      const callbackItemName = readIteratorItemFromCallback(current, parent);
+      if (callbackItemName !== undefined) return callbackItemName;
+      // Only treat zero-param arrows as pass-through helpers; any
+      // function with parameters could bind a per-item name we'd
+      // shadow by walking past.
+      if (current.params.length > 0) return null;
+    }
+    current = current.parent ?? null;
+  }
+  return null;
+};
+
+// Returns the per-item name when `callback` is a recognised iterator
+// callback (.map/.filter/.forEach/etc. → params[0]; .reduce/.reduceRight
+// → params[1]; Array.from(_, cb) → params[0]). Returns undefined when
+// `callback` isn't an iterator callback, and null when it IS one but
+// the param shape (rest/destructure/missing) isn't a plain Identifier.
+const readIteratorItemFromCallback = (
+  callback: EsTreeNodeOfType<"ArrowFunctionExpression"> | EsTreeNodeOfType<"FunctionExpression">,
+  parent: EsTreeNode | null | undefined,
+): string | null | undefined => {
+  if (!parent || !isNodeOfType(parent, "CallExpression")) return undefined;
+  const callee = parent.callee;
+  const isFirstArg = parent.arguments[0] === callback;
+  if (
+    isFirstArg &&
+    isNodeOfType(callee, "MemberExpression") &&
+    isNodeOfType(callee.property, "Identifier")
+  ) {
+    const methodName = callee.property.name;
+    if (SECOND_INDEX_METHODS.has(methodName)) {
+      const item = callback.params[0];
+      return item && isNodeOfType(item, "Identifier") ? item.name : null;
+    }
+    if (THIRD_INDEX_METHODS.has(methodName)) {
+      // params[0] is the accumulator, params[1] is the per-item value.
+      const item = callback.params[1];
+      return item && isNodeOfType(item, "Identifier") ? item.name : null;
+    }
+  }
+  if (isArrayFromMapperCallback(parent, callback)) {
+    const item = callback.params[0];
+    return item && isNodeOfType(item, "Identifier") ? item.name : null;
+  }
+  return undefined;
+};
+
 // Find the iteration callback's index parameter binding (Identifier
 // node) by walking up from a JSXOpeningElement / CallExpression until
 // we find an enclosing array-iteration call.
@@ -77,45 +230,60 @@ const isPositionallyStableIterationReceiver = (receiver: EsTreeNode): boolean =>
 // `isPositionallyStableIterationReceiver` above) — `index` keys ARE
 // correct in those cases.
 const findIndexParameterBinding = (node: EsTreeNode): EsTreeNodeOfType<"Identifier"> | null => {
-  let walker: EsTreeNode | null | undefined = node.parent;
-  while (walker) {
+  let current: EsTreeNode | null | undefined = node.parent;
+  while (current) {
     if (
-      isNodeOfType(walker, "ArrowFunctionExpression") ||
-      isNodeOfType(walker, "FunctionExpression")
+      isNodeOfType(current, "ArrowFunctionExpression") ||
+      isNodeOfType(current, "FunctionExpression")
     ) {
-      const callbackParent = walker.parent;
-      if (callbackParent && isNodeOfType(callbackParent, "CallExpression")) {
-        const callee = callbackParent.callee;
-        const isFirstArg = callbackParent.arguments[0] === walker;
-        if (
-          isFirstArg &&
-          isNodeOfType(callee, "MemberExpression") &&
-          isNodeOfType(callee.property, "Identifier")
-        ) {
-          const methodName = callee.property.name;
-          let position: number | null = null;
-          if (SECOND_INDEX_METHODS.has(methodName)) position = 1;
-          else if (THIRD_INDEX_METHODS.has(methodName)) position = 2;
-          if (position !== null) {
-            // Iteration source — `<receiver>.map((_, i) => ...)`.
-            // Skip the entire rule if the receiver is positionally
-            // stable.
-            const receiver = callee.object as EsTreeNode;
-            if (isPositionallyStableIterationReceiver(receiver)) return null;
-            const params = walker.params;
-            const param = params[position] as EsTreeNode | undefined;
-            if (param && isNodeOfType(param, "Identifier")) {
-              return param;
-            }
-          }
-        }
-      }
-      // Don't cross a function boundary.
-      return null;
+      const indexParam = readIteratorIndexFromCallback(current, current.parent);
+      if (indexParam !== undefined) return indexParam;
+      // Same zero-param pass-through rule as findIteratorItemName: a
+      // helper arrow can't bind an index, so walk past it; anything
+      // with params is its own iteration boundary.
+      if (current.params.length > 0) return null;
     }
-    walker = walker.parent ?? null;
+    current = current.parent ?? null;
   }
   return null;
+};
+
+// Returns the index Identifier when `callback` is an iterator callback
+// (and the source isn't positionally stable). Returns undefined when
+// `callback` isn't an iterator at all; returns null when we recognise
+// the iterator but the receiver/source is positionally stable, OR the
+// index param isn't a plain Identifier — both cases mean the rule
+// should NOT fire for this node, so the caller treats null as "stop".
+const readIteratorIndexFromCallback = (
+  callback: EsTreeNodeOfType<"ArrowFunctionExpression"> | EsTreeNodeOfType<"FunctionExpression">,
+  parent: EsTreeNode | null | undefined,
+): EsTreeNodeOfType<"Identifier"> | null | undefined => {
+  if (!parent || !isNodeOfType(parent, "CallExpression")) return undefined;
+  const callee = parent.callee;
+  const isFirstArg = parent.arguments[0] === callback;
+  if (
+    isFirstArg &&
+    isNodeOfType(callee, "MemberExpression") &&
+    isNodeOfType(callee.property, "Identifier")
+  ) {
+    const methodName = callee.property.name;
+    let indexParamPosition: number | null = null;
+    if (SECOND_INDEX_METHODS.has(methodName)) indexParamPosition = 1;
+    else if (THIRD_INDEX_METHODS.has(methodName)) indexParamPosition = 2;
+    if (indexParamPosition !== null) {
+      const receiver = callee.object as EsTreeNode;
+      if (isPositionallyStableIterationReceiver(receiver)) return null;
+      const indexParam = callback.params[indexParamPosition] as EsTreeNode | undefined;
+      return indexParam && isNodeOfType(indexParam, "Identifier") ? indexParam : null;
+    }
+  }
+  if (isArrayFromMapperCallback(parent, callback)) {
+    const source = parent.arguments[0] as EsTreeNode | undefined;
+    if (source && isArrayFromSourcePositionallyStable(source)) return null;
+    const indexParam = callback.params[1] as EsTreeNode | undefined;
+    return indexParam && isNodeOfType(indexParam, "Identifier") ? indexParam : null;
+  }
+  return undefined;
 };
 
 const isIndexReference = (expression: EsTreeNode, paramName: string): boolean =>
@@ -175,6 +343,33 @@ const isReactCloneElement = (callExpression: EsTreeNodeOfType<"CallExpression">)
   return isNodeOfType(callee.object, "Identifier") && callee.object.name === "React";
 };
 
+const isPureSvgPrimitiveJsxName = (jsxOpeningName: EsTreeNode): boolean =>
+  isNodeOfType(jsxOpeningName, "JSXIdentifier") && PURE_SVG_PRIMITIVE_TAGS.has(jsxOpeningName.name);
+
+const isStatelessLeafJsxName = (jsxOpeningName: EsTreeNode): boolean =>
+  isNodeOfType(jsxOpeningName, "JSXIdentifier") &&
+  STATELESS_HTML_LEAF_TAGS.has(jsxOpeningName.name);
+
+// Recognises `<React.Fragment>` / `<Fragment>` / shorthand `<>` —
+// fragments carry no DOM identity and no internal state, so an index
+// key has no reordering hazard. (React would warn loudly if a key
+// mismatch corrupted hooks, but fragments themselves can't hold any.)
+const isFragmentJsxName = (jsxOpeningName: EsTreeNode): boolean => {
+  if (isNodeOfType(jsxOpeningName, "JSXIdentifier")) {
+    return jsxOpeningName.name === "Fragment";
+  }
+  if (
+    isNodeOfType(jsxOpeningName, "JSXMemberExpression") &&
+    isNodeOfType(jsxOpeningName.object, "JSXIdentifier") &&
+    isNodeOfType(jsxOpeningName.property, "JSXIdentifier") &&
+    jsxOpeningName.object.name === "React" &&
+    jsxOpeningName.property.name === "Fragment"
+  ) {
+    return true;
+  }
+  return false;
+};
+
 // Port of `oxc_linter::rules::react::no_array_index_key`.
 export const noArrayIndexKey = defineRule<Rule>({
   id: "no-array-index-key",
@@ -190,11 +385,37 @@ export const noArrayIndexKey = defineRule<Rule>({
       }
       const expression = keyAttribute.value.expression as EsTreeNode;
       if (expression.type === "JSXEmptyExpression") return;
+      // Fragments don't hold state or DOM identity — even if the key
+      // is the index, React's reconciler only uses it to match
+      // children at the same position, and a fragment misidentification
+      // has no observable consequence.
+      if (isFragmentJsxName(node.name as EsTreeNode)) return;
+      // SVG primitives (`<g>`, `<path>`, `<line>`, …) have no DOM
+      // state to corrupt; reorders just re-diff attributes.
+      if (isPureSvgPrimitiveJsxName(node.name as EsTreeNode)) return;
       const indexBinding = findIndexParameterBinding(node as EsTreeNode);
       if (!indexBinding) return;
-      if (expressionUsesIndex(expression, indexBinding.name)) {
-        context.report({ node: keyAttribute, message: MESSAGE });
+      if (!expressionUsesIndex(expression, indexBinding.name)) return;
+      // Composite key with iterator member identity: `${item.id}-${index}`
+      // — the index is just a defensive uniqueness fallback, the real
+      // identity is `item.id`. Skip.
+      if (isNodeOfType(expression, "TemplateLiteral")) {
+        const itemName = findIteratorItemName(node as EsTreeNode);
+        if (itemName && templateHasIteratorMember(expression, itemName)) return;
       }
+      // Stateless HTML leaf (`<div>`, `<li>`, `<span>`, etc.) whose
+      // descendants are ALL pure-content (no `<input>`, `<button>`,
+      // `<select>`, `<video>`, no custom PascalCase components, no
+      // function-call expressions returning unknown JSX). Reordering
+      // can't corrupt any DOM-managed state because there isn't any.
+      if (isStatelessLeafJsxName(node.name as EsTreeNode)) {
+        // node.parent should be the JSXElement; if not, fall through.
+        const jsxElement = node.parent;
+        if (jsxElement && isNodeOfType(jsxElement, "JSXElement")) {
+          if (!containsStatefulDescendant(jsxElement as EsTreeNode)) return;
+        }
+      }
+      context.report({ node: keyAttribute, message: MESSAGE });
     },
     CallExpression(node: EsTreeNodeOfType<"CallExpression">) {
       if (!isReactCloneElement(node)) return;

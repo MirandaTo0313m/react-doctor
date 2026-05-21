@@ -78,6 +78,10 @@ const reportTestUtilsImports = (
 export const noReactDomDeprecatedApis = defineRule<Rule>({
   id: "no-react-dom-deprecated-apis",
   requires: ["react:18"],
+  // BOTH tags — the `defineRule` wrapper recognises that
+  // "migration-hint" wins over "test-noise", so the rule still fires
+  // on test files (where deprecated-API migration is the primary
+  // surface) while keeping the rule self-documenting as test-noisy.
   tags: ["test-noise", "migration-hint"],
   severity: "warn",
   recommendation:

@@ -214,6 +214,7 @@ const isValidLangTag = (value: string): boolean => {
 // attribute on `<html>` and similar elements.
 export const lang = defineRule<Rule>({
   id: "lang",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Use a valid BCP-47 language tag (e.g. `en` / `en-US`).",
   category: "Accessibility",

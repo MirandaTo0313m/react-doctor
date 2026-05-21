@@ -7,6 +7,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const nextjsNoAElement = defineRule<Rule>({
   id: "nextjs-no-a-element",
+  tags: ["test-noise"],
   requires: ["nextjs"],
   severity: "warn",
   recommendation:

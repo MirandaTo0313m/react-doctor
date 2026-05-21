@@ -15,6 +15,7 @@ const MESSAGE =
 // implicitly tabbable AND lack a non-`<-1` `tabIndex`.
 export const ariaActivedescendantHasTabindex = defineRule<Rule>({
   id: "aria-activedescendant-has-tabindex",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation:
     "Add `tabIndex` to elements with `aria-activedescendant` so they're keyboard-focusable.",

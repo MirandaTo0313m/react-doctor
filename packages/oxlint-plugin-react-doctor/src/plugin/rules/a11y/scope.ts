@@ -11,6 +11,7 @@ const MESSAGE = "`scope` attribute is only valid on `<th>` elements — remove i
 // non-`<th>` elements.
 export const scope = defineRule<Rule>({
   id: "scope",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Use `scope` only on `<th>` elements.",
   category: "Accessibility",

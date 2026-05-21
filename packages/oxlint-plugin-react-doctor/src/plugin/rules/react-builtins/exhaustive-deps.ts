@@ -906,6 +906,7 @@ const addAggregatePropsDependency = (
 export const exhaustiveDeps = defineRule<Rule>({
   id: "exhaustive-deps",
   severity: "warn",
+  tags: ["test-noise"],
   recommendation: "List every value the hook callback captures in its dependency array.",
   category: "Correctness",
   create: (context) => {

@@ -9,6 +9,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const rerenderMemoWithDefaultValue = defineRule<Rule>({
   id: "rerender-memo-with-default-value",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Move to module scope: `const EMPTY_ITEMS: Item[] = []` then use as the default value",

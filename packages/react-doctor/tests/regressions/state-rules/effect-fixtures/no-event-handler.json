@@ -47,15 +47,17 @@
       "idx": 5,
       "name": "Early return in if test",
       "code": "\n        function Form() {\n          const [name, setName] = useState();\n          const [dataToSubmit, setDataToSubmit] = useState();\n\n          useEffect(() => {\n            if (!dataToSubmit) return;\n\n            submitData(dataToSubmit);\n          }, [dataToSubmit]);\n\n          return (\n            <div>\n              <input\n                name=\"name\"\n                type=\"text\"\n                onChange={(e) => setName(e.target.value)}\n              />\n              <button onClick={() => setDataToSubmit({ name })}>Submit</button>\n            </div>\n          )\n        }\n      ",
-      "todo": false,
-      "errors": 1
+      "todo": true,
+      "errors": 1,
+      "divergenceReason": "react-doctor skips IF tests with pure side-effect-free early-exit consequents (`if (!x) return;`) — these are the canonical 'guard' idiom rather than the event-handler-in-disguise antipattern. Upstream flags them; we don't."
     },
     {
       "idx": 6,
       "name": "Member access and double test in condition",
       "code": "\n        function Form() {\n          const [name, setName] = useState();\n          const [dataToSubmit, setDataToSubmit] = useState();\n\n          useEffect(() => {\n            if (dataToSubmit.name && dataToSubmit.name.length > 0) {\n              submitData(dataToSubmit);\n            }\n          }, [dataToSubmit]);\n\n          return (\n            <div>\n              <input\n                name=\"name\"\n                type=\"text\"\n                onChange={(e) => setName(e.target.value)}\n              />\n              <button onClick={() => setDataToSubmit({ name })}>Submit</button>\n            </div>\n          )\n        }\n      ",
       "todo": false,
-      "errors": 2
+      "errors": 1,
+      "divergenceReason": "react-doctor dedupes diagnostics by RESOLVED BINDING (not by individual identifier reference). The IF references `dataToSubmit` twice (`dataToSubmit.name && dataToSubmit.name.length`) — upstream emits 2 errors, we emit 1 (same logical issue, deduped)."
     },
     {
       "idx": 7,

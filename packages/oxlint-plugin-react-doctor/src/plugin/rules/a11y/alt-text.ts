@@ -177,6 +177,7 @@ const inputTypeImageRule = (
 // Port of `oxc_linter::rules::jsx_a11y::alt_text`.
 export const altText = defineRule<Rule>({
   id: "alt-text",
+  tags: ["react-jsx-only"],
   severity: "error",
   recommendation: "Provide `alt` (or aria-label / aria-labelledby) for non-decorative images.",
   category: "Accessibility",

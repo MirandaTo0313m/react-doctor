@@ -15,7 +15,11 @@ const NONDETERMINISTIC_RENDER_PATTERNS: Array<{
     matches: (node) =>
       isNodeOfType(node, "NewExpression") &&
       isNodeOfType(node.callee, "Identifier") &&
-      node.callee.name === "Date",
+      node.callee.name === "Date" &&
+      // `new Date(timestamp)` / `new Date(year, month, …)` are
+      // deterministic conversions; only the no-arg form reads the
+      // current wall clock and so differs server-vs-client.
+      (node.arguments?.length ?? 0) === 0,
   },
   {
     display: "Date.now()",

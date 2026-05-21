@@ -44,6 +44,7 @@ const isExplicitUndefinedExpression = (value: EsTreeNode): boolean => {
 // Port of `oxc_linter::rules::jsx_a11y::mouse_events_have_key_events`.
 export const mouseEventsHaveKeyEvents = defineRule<Rule>({
   id: "mouse-events-have-key-events",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Pair mouse events with their keyboard equivalents.",
   category: "Accessibility",

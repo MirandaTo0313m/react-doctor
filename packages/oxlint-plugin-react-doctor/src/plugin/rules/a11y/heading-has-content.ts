@@ -34,6 +34,7 @@ const resolveSettings = (
 // content (visible text / aria-label / dangerouslySetInnerHTML).
 export const headingHasContent = defineRule<Rule>({
   id: "heading-has-content",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Provide visible or aria-labelled text in every heading.",
   category: "Accessibility",

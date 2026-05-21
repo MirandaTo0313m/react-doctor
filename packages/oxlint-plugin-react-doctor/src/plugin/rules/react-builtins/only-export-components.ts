@@ -271,13 +271,15 @@ const collectAllNodes = (programRoot: EsTreeNode): EsTreeNode[] => {
 };
 
 // Directory names that mark a file as outside the Fast Refresh
-// surface — tests, fixtures, mocks, Cypress specs, Storybook MDX, etc.
+// surface — tests, fixtures, mocks, Cypress specs, Storybook MDX,
+// playground / demo / example apps that aren't dev-server-hosted, etc.
 // We match these as path segments so a project component file named
 // `tests-page.tsx` (no slash) still gets checked.
 const NON_FAST_REFRESH_PATH_SEGMENTS: ReadonlyArray<string> = [
   "/test/",
   "/tests/",
   "/__tests__/",
+  "/__test__/",
   "/__fixtures__/",
   "/fixtures/",
   "/__mocks__/",
@@ -285,6 +287,15 @@ const NON_FAST_REFRESH_PATH_SEGMENTS: ReadonlyArray<string> = [
   "/cypress/",
   "/.storybook/",
   "/stories/",
+  "/__stories__/",
+  "/playground/",
+  "/playgrounds/",
+  "/examples/",
+  "/example/",
+  "/demo/",
+  "/demos/",
+  "/sandbox/",
+  "/sandboxes/",
 ];
 
 // File basenames that conventionally are application entry points —
@@ -306,6 +317,41 @@ const ENTRY_POINT_BASENAMES: ReadonlySet<string> = new Set([
   "client.jsx",
   "server.tsx",
   "server.jsx",
+  // Next.js App Router page boundaries — re-rendered on full reload,
+  // commonly co-export `metadata`, `generateMetadata`, `revalidate`,
+  // etc. alongside the page component.
+  "page.tsx",
+  "page.jsx",
+  "layout.tsx",
+  "layout.jsx",
+  "loading.tsx",
+  "loading.jsx",
+  "error.tsx",
+  "error.jsx",
+  "not-found.tsx",
+  "not-found.jsx",
+  "template.tsx",
+  "template.jsx",
+  "default.tsx",
+  "default.jsx",
+  "global-error.tsx",
+  "global-error.jsx",
+  "route.tsx",
+  "route.jsx",
+  // Next.js Pages Router special files
+  "_app.tsx",
+  "_app.jsx",
+  "_document.tsx",
+  "_document.jsx",
+  "_error.tsx",
+  "_error.jsx",
+  // Root App component — by convention the single-render root of a CRA
+  // / Vite / Expo app, mounted directly from main/index. Co-exports of
+  // helper components and constants are conventional here.
+  "app.tsx",
+  "app.jsx",
+  "App.tsx",
+  "App.jsx",
 ]);
 
 const isEntryPointFile = (filename: string): boolean => {
@@ -315,6 +361,147 @@ const isEntryPointFile = (filename: string): boolean => {
   const lastSlash = Math.max(filename.lastIndexOf("/"), filename.lastIndexOf("\\"));
   const basename = lastSlash === -1 ? filename : filename.slice(lastSlash + 1);
   return ENTRY_POINT_BASENAMES.has(basename);
+};
+
+// Files that conventionally hold icon / asset / glyph exports —
+// `icons.tsx`, `Icons.tsx`, `*Icon.tsx`, `*Logo.tsx`, `sprite.tsx`,
+// `svgs.tsx`, `flags.tsx`, etc. These tend to mix component-style
+// exports (`const HomeIcon = () => <svg.../>`) with constants by
+// design; Fast Refresh isn't useful for icons (no component state
+// worth preserving). Pattern is anchored to the basename so a file
+// named `MyCardicons.tsx` doesn't accidentally match `icon`.
+const ASSET_FILE_BASENAME_PATTERN =
+  /^([A-Za-z][\w-]*[-._])?(icons?|svgs?|svg[-_]?sprites?|sprites?|emojis?|flags?|logos?|lockups?|illustrations?|glyphs?|stickers?|emotes?|avatars?|backgrounds?|patterns?|assets?|gradients?|countryVectors?|paymentVectors?|brandVectors?|brandLogos?)\.(t|j)sx?$/;
+
+// Utility / helper / shared-config / column-renderer / node-registry
+// files. These conventionally hold a mix of component-style and
+// constant exports — `utils.tsx` for a slice that contains both a
+// render helper component and string-formatting constants, `shared.tsx`
+// for cross-component types and helpers, `nodeTypes.tsx` for an
+// xyflow / tldraw / lexical node registry that maps strings to node
+// renderer components, `*ColumnRenderers.tsx` for table column-renderer
+// collections, `*useCreate*.tsx` hooks that co-export helper constants.
+// These NEVER get edited live (the dev would Cmd+R anyway), so Fast
+// Refresh preservation isn't an actual gain — the file structure is by
+// design. Pattern requires the EXACT basename match (no fuzzy match)
+// so unrelated files (`MyUtils.tsx`, `userUtils.tsx`) only match when
+// the basename IS that.
+const UTILITY_FILE_BASENAMES: ReadonlySet<string> = new Set([
+  // Generic utility/helper bags
+  "utils.tsx",
+  "utils.jsx",
+  "util.tsx",
+  "util.jsx",
+  "helpers.tsx",
+  "helpers.jsx",
+  "helper.tsx",
+  "helper.jsx",
+  "shared.tsx",
+  "shared.jsx",
+  "common.tsx",
+  "common.jsx",
+  "lib.tsx",
+  "lib.jsx",
+  // Node-type / cell-type / column-renderer registries
+  "nodeTypes.tsx",
+  "nodeTypes.jsx",
+  "node-types.tsx",
+  "node-types.jsx",
+  "edgeTypes.tsx",
+  "edgeTypes.jsx",
+  "edge-types.tsx",
+  "edge-types.jsx",
+  "cellTypes.tsx",
+  "cellTypes.jsx",
+  "columnTypes.tsx",
+  "columnTypes.jsx",
+  "columnDefs.tsx",
+  "columnDefs.jsx",
+  "columnRenderers.tsx",
+  "columnRenderers.jsx",
+  "columns.tsx",
+  "columns.jsx",
+  // Mappings / dictionaries / lookups
+  "mappings.tsx",
+  "mappings.jsx",
+  "mapping.tsx",
+  "mapping.jsx",
+  "lookups.tsx",
+  "lookups.jsx",
+  "lookup.tsx",
+  "lookup.jsx",
+  "registry.tsx",
+  "registry.jsx",
+  // Toast / notification helper file (typically combines provider + helper functions)
+  "toast.tsx",
+  "toast.jsx",
+  "toaster.tsx",
+  "toaster.jsx",
+  // Theme / token / palette utility files
+  "theme.tsx",
+  "theme.jsx",
+  "tokens.tsx",
+  "tokens.jsx",
+  "palette.tsx",
+  "palette.jsx",
+  "colors.tsx",
+  "colors.jsx",
+  "colours.tsx",
+  "colours.jsx",
+  // Constants / enums / type helpers (.tsx variant for component types)
+  "constants.tsx",
+  "constants.jsx",
+  "enums.tsx",
+  "enums.jsx",
+  "types.tsx",
+  "types.jsx",
+  "schemas.tsx",
+  "schemas.jsx",
+  "schema.tsx",
+  "schema.jsx",
+  // Definition / config files
+  "definitions.tsx",
+  "definitions.jsx",
+  "config.tsx",
+  "config.jsx",
+  "defaults.tsx",
+  "defaults.jsx",
+]);
+
+// Suffix patterns for files conventionally holding MIXED exports
+// (component + constants/types/registry data). The list is
+// deliberately scoped to utility / registry / framework-specific
+// conventions — NOT general component suffixes like `Modal` /
+// `Dialog` / `Card` (those routinely ARE the single-component file
+// only-export-components correctly wants to protect).
+const UTILITY_BASENAME_SUFFIX_PATTERN =
+  /^[A-Za-z][\w-]*(Utils|Util|Helpers|Helper|Shared|Constants|Constant|Types|Type|Mappings|Mapping|Lookups|Lookup|Registry|Renderers|Renderer|NodeTypes|EdgeTypes|CellTypes|ColumnDefs|ColumnTypes|ColumnRenderers|Schemas|Schema|Definitions|Definition|Config|Configuration|Defaults|Default|Tokens|Palette|Context|Provider|Providers|Logic|Scene|Page|Layout)\.(t|j)sx?$/;
+
+// Custom hook files: `useCreateRouter.tsx`, `useTranslation.tsx`,
+// `useSafeId.tsx`. Hook files conventionally co-export helper types
+// + constants + sometimes a small helper component alongside the hook.
+// Fast Refresh doesn't preserve hook state across edits anyway.
+const HOOK_FILE_BASENAME_PATTERN = /^use[A-Z][\w-]*\.(t|j)sx?$/;
+
+// Plugin-style node-definition files for editor / notebook / flowchart
+// ecosystems (tldraw `*ShapeUtil`, xyflow `*Node` plugin registrations,
+// Lexical `*Node` declarations). These conventionally export the node
+// component + types + handlers from one file. We anchor on the
+// distinctive `*Util` / `*Node` plugin-registration shapes; bare
+// `Component.tsx` / `Block.tsx` are too generic and would over-match
+// ordinary single-component files.
+const NODE_DEFINITION_BASENAME_PATTERN =
+  /^[A-Z][\w-]*(NodeUtil|ShapeUtil|EdgeUtil|BindingUtil|InlineNode|BlockNode|NotebookNode)\.(t|j)sx?$/;
+
+const isAssetOrUtilityFile = (filename: string): boolean => {
+  const lastSlash = Math.max(filename.lastIndexOf("/"), filename.lastIndexOf("\\"));
+  const basename = lastSlash === -1 ? filename : filename.slice(lastSlash + 1);
+  if (ASSET_FILE_BASENAME_PATTERN.test(basename)) return true;
+  if (UTILITY_FILE_BASENAMES.has(basename)) return true;
+  if (UTILITY_BASENAME_SUFFIX_PATTERN.test(basename)) return true;
+  if (HOOK_FILE_BASENAME_PATTERN.test(basename)) return true;
+  if (NODE_DEFINITION_BASENAME_PATTERN.test(basename)) return true;
+  return false;
 };
 
 const isFileNameAllowed = (filename: string | undefined, checkJS: boolean): boolean => {
@@ -341,6 +528,13 @@ const isFileNameAllowed = (filename: string | undefined, checkJS: boolean): bool
   // in HMR — they get full reloaded when changed. Local-component and
   // mixed-export warnings are unactionable here.
   if (isEntryPointFile(filename)) return false;
+  // Icon / asset / utility collection files (`icons.tsx`, `*Icon.tsx`,
+  // `*Logo.tsx`, `sprite.tsx`, `assets.tsx`, `utils.tsx`, `tokens.tsx`,
+  // `theme.tsx`, `constants.tsx`, etc.) hold non-state-bearing exports
+  // by design. Fast Refresh isn't useful for preserving icon / token
+  // instances across edits — the file gets full reloaded and no
+  // component state is lost (the file doesn't define one).
+  if (isAssetOrUtilityFile(filename)) return false;
   // Only `.tsx` / `.jsx` (and `.js` when `checkJS` is on) modules run
   // through Fast Refresh. Pure `.ts` files — barrels, utility modules,
   // server code — can't break it no matter what they export, so the

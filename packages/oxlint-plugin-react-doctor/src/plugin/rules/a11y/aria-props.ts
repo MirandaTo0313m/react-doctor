@@ -13,6 +13,7 @@ const buildMessage = (name: string): string =>
 // property.
 export const ariaProps = defineRule<Rule>({
   id: "aria-props",
+  tags: ["react-jsx-only"],
   severity: "error",
   recommendation: "Use only documented `aria-*` attributes.",
   category: "Accessibility",

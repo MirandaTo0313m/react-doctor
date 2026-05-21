@@ -9,6 +9,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const queryMutationMissingInvalidation = defineRule<Rule>({
   id: "query-mutation-missing-invalidation",
+  tags: ["test-noise"],
   requires: ["tanstack-query"],
   severity: "warn",
   recommendation:

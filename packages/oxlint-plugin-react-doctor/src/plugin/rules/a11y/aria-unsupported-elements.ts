@@ -14,6 +14,7 @@ const buildMessage = (tag: string, attribute: string): string =>
 // `<head>`, `<meta>`).
 export const ariaUnsupportedElements = defineRule<Rule>({
   id: "aria-unsupported-elements",
+  tags: ["react-jsx-only"],
   severity: "error",
   recommendation: "Don't use `role` / `aria-*` on reserved HTML elements.",
   category: "Accessibility",

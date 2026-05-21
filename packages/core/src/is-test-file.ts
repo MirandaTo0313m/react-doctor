@@ -8,11 +8,38 @@
 //
 // We use a single combined regex against the forward-slash relative
 // path so the match is allocation-free per diagnostic.
-const TEST_FILE_PATH_PATTERN =
-  /(?:^|\/)(?:__tests__|__test__|tests|test|__mocks__|cypress|e2e|playwright)\/|\.(?:test|spec|stories|story|fixture|fixtures)\.(?:[cm]?[jt]sx?)$/;
+const TEST_FILE_DIRECTORY_PATTERN =
+  /(?:^|\/)(?:__tests__|__test__|tests|test|__mocks__|cypress|e2e|playwright)\//;
+const TEST_FILE_SUFFIX_PATTERN =
+  /\.(?:test|spec|stories|story|fixture|fixtures)\.(?:[cm]?[jt]sx?)$/;
+
+// "Source root" markers — once a path contains `/src/`, `/app/`,
+// `/lib/`, `/pages/`, etc., everything BELOW that is production code
+// regardless of how the project is laid out above. Critical for test
+// fixture projects (`tests/fixtures/<proj>/src/...`) so the FIXTURE
+// source files don't get auto-suppressed just because the outer wrap
+// happens to have `/tests/` or `/fixtures/` in the path.
+const SOURCE_ROOT_PATTERN =
+  /\/(?:src|app|lib|components|pages|features|modules|packages|apps|frontend|client)\//g;
+
+const stripAboveSourceRoot = (relativePath: string): string => {
+  let lastIdx = -1;
+  for (const match of relativePath.matchAll(SOURCE_ROOT_PATTERN)) {
+    if (match.index !== undefined && match.index > lastIdx) lastIdx = match.index;
+  }
+  if (lastIdx < 0) return relativePath;
+  return relativePath.slice(lastIdx);
+};
 
 export const isTestFilePath = (relativePath: string): boolean => {
   if (relativePath.length === 0) return false;
   const forwardSlashed = relativePath.replaceAll("\\", "/");
-  return TEST_FILE_PATH_PATTERN.test(forwardSlashed);
+  // The SUFFIX check (.test/.spec/.stories etc.) is on the FULL path —
+  // unambiguous regardless of context.
+  if (TEST_FILE_SUFFIX_PATTERN.test(forwardSlashed)) return true;
+  // The DIRECTORY check (`tests/`, `__tests__/`, `cypress/`, etc.)
+  // scopes to the source-root-below path so that fixture-project
+  // source files don't get falsely auto-suppressed.
+  const scoped = stripAboveSourceRoot(forwardSlashed);
+  return TEST_FILE_DIRECTORY_PATTERN.test(scoped);
 };

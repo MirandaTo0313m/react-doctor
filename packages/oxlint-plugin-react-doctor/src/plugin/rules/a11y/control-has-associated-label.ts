@@ -135,6 +135,7 @@ const checkChildForLabel = (
 // Port of `oxc_linter::rules::jsx_a11y::control_has_associated_label`.
 export const controlHasAssociatedLabel = defineRule<Rule>({
   id: "control-has-associated-label",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Every interactive control must have an accessible label.",
   category: "Accessibility",

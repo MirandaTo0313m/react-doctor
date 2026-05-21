@@ -6,6 +6,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const noGrayOnColoredBackground = defineRule<Rule>({
   id: "no-gray-on-colored-background",
+  tags: ["test-noise"],
   severity: "warn",
   category: "Accessibility",
   recommendation:

@@ -12,6 +12,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 // site, which would clutter output for files with several flushSync()s.
 export const noFlushSync = defineRule<Rule>({
   id: "no-flush-sync",
+  tags: ["test-noise"],
   severity: "warn",
   category: "Performance",
   recommendation:

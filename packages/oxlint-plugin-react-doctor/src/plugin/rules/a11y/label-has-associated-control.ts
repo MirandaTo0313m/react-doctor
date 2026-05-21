@@ -1,4 +1,5 @@
 import { defineRule } from "../../utils/define-rule.js";
+import { isTestlikeFilename } from "../../utils/is-testlike-filename.js";
 import type { EsTreeNode } from "../../utils/es-tree-node.js";
 import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 import { getElementType } from "../../utils/get-element-type.js";
@@ -60,7 +61,14 @@ const resolveSettings = (
     labelAttributes,
     controlComponents: ruleSettings.controlComponents ?? [],
     assert: ruleSettings.assert ?? "either",
-    depth: Math.min(ruleSettings.depth ?? 2, 25),
+    // Default depth: 5 (upstream's default is 2, which is too strict
+    // for real React UIs — a routine form-field with semantic
+    // structure (`<label><div><div><span>{t('Name')}</span></div></div><input/></label>`)
+    // has the input/label-text at depth 3-4 from the label, and
+    // design-system inputs frequently wrap the actual <input> in a
+    // styled <div>). 5 catches "label has nothing controllable
+    // anywhere inside" without false-flagging idiomatic forms.
+    depth: Math.min(ruleSettings.depth ?? 5, 25),
     forAttributes,
   };
 };
@@ -191,13 +199,16 @@ const hasNestedControl = (
 // Port of `oxc_linter::rules::jsx_a11y::label_has_associated_control`.
 export const labelHasAssociatedControl = defineRule<Rule>({
   id: "label-has-associated-control",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Associate every label with a control via `htmlFor` or by nesting the input.",
   category: "Accessibility",
   create: (context) => {
     const settings = resolveSettings(context.settings);
+    const isTestlikeFile = isTestlikeFilename(context.getFilename?.());
     return {
       JSXElement(node: EsTreeNodeOfType<"JSXElement">) {
+        if (isTestlikeFile) return;
         const opening = node.openingElement;
         const tagName = getElementType(opening, context.settings);
         if (!settings.labelComponents.includes(tagName)) return;

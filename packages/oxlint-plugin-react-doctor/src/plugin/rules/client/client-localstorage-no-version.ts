@@ -31,6 +31,7 @@ const isJsonStringifyCall = (node: EsTreeNode): boolean => {
 
 export const clientLocalstorageNoVersion = defineRule<Rule>({
   id: "client-localstorage-no-version",
+  tags: ["test-noise"],
   severity: "warn",
   category: "Correctness",
   recommendation:

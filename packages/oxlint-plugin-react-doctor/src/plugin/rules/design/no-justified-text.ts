@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const noJustifiedText = defineRule<Rule>({
   id: "no-justified-text",
+  tags: ["test-noise"],
   severity: "warn",
   category: "Accessibility",
   recommendation:

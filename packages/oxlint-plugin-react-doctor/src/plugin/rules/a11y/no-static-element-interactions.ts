@@ -12,6 +12,8 @@ import { isNodeOfType } from "../../utils/is-node-of-type.js";
 import { isNonInteractiveElement } from "../../utils/is-non-interactive-element.js";
 import { isNonInteractiveRole } from "../../utils/is-non-interactive-role.js";
 import { isPresentationRole } from "../../utils/is-presentation-role.js";
+import { isPureEventBlockerHandler } from "../../utils/is-pure-event-blocker-handler.js";
+import { isTestlikeFilename } from "../../utils/is-testlike-filename.js";
 import type { Rule } from "../../utils/rule.js";
 
 const MESSAGE =
@@ -58,23 +60,41 @@ const isNullValue = (attribute: EsTreeNodeOfType<"JSXAttribute">): boolean => {
 };
 
 // Port of `oxc_linter::rules::jsx_a11y::no_static_element_interactions`.
+// Non-React JSX dialect skipping is handled by the `react-jsx-only`
+// tag via `defineRule`.
 export const noStaticElementInteractions = defineRule<Rule>({
   id: "no-static-element-interactions",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation:
     "Static HTML elements with event handlers require a role, or use a semantic HTML element instead.",
   category: "Accessibility",
   create: (context) => {
     const settings = resolveSettings(context.settings);
+    const isTestlikeFile = isTestlikeFilename(context.getFilename?.());
     return {
       JSXOpeningElement(node: EsTreeNodeOfType<"JSXOpeningElement">) {
-        // Find any active handler.
-        const hasHandler = settings.handlers.some((handler) => {
+        if (isTestlikeFile) return;
+        // Find any active handler — but pure event-blocker handlers
+        // (`onClick={(e) => e.stopPropagation()}`) don't count as
+        // "interactive": the element isn't a user-interaction target,
+        // it's stopping a bubble. If EVERY active handler is a pure
+        // blocker, the element is non-interactive and the rule should
+        // pass through.
+        let hasNonBlockerHandler = false;
+        let hasAnyHandler = false;
+        for (const handler of settings.handlers) {
           const attribute = hasJsxPropIgnoreCase(node.attributes, handler);
-          if (!attribute) return false;
-          return !isNullValue(attribute);
-        });
-        if (!hasHandler) return;
+          if (!attribute) continue;
+          if (isNullValue(attribute)) continue;
+          hasAnyHandler = true;
+          if (!isPureEventBlockerHandler(attribute)) {
+            hasNonBlockerHandler = true;
+            break;
+          }
+        }
+        if (!hasAnyHandler) return;
+        if (!hasNonBlockerHandler) return;
 
         const elementType = getElementType(node, context.settings);
         // Custom JSX elements pass through.

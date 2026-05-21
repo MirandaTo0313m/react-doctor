@@ -12,6 +12,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 // the argument object once at module/route scope).
 export const serverCacheWithObjectLiteral = defineRule<Rule>({
   id: "server-cache-with-object-literal",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Pass primitives to React.cache()-wrapped functions — argument identity (not deep equality) is the dedup key, so a fresh `{}` per render bypasses the cache",

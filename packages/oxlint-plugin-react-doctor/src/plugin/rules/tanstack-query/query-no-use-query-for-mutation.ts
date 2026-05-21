@@ -10,6 +10,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const queryNoUseQueryForMutation = defineRule<Rule>({
   id: "query-no-usequery-for-mutation",
+  tags: ["test-noise"],
   requires: ["tanstack-query"],
   severity: "warn",
   recommendation:

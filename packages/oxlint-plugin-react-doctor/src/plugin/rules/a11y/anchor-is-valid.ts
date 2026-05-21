@@ -70,6 +70,7 @@ const checkValueIsEmptyOrInvalid = (
 // Port of `oxc_linter::rules::jsx_a11y::anchor_is_valid`.
 export const anchorIsValid = defineRule<Rule>({
   id: "anchor-is-valid",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Anchors must have a valid destination — use `<button>` for in-page actions.",
   category: "Accessibility",

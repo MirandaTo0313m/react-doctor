@@ -7,6 +7,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const tanstackStartNoDynamicServerFnImport = defineRule<Rule>({
   id: "tanstack-start-no-dynamic-server-fn-import",
+  tags: ["test-noise"],
   requires: ["tanstack-start"],
   severity: "error",
   recommendation:

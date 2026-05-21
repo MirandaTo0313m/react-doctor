@@ -18,6 +18,7 @@ const TOUCHABLE_COMPONENTS = new Set([
 // same on iOS, Android, and Fabric.
 export const rnPreferPressable = defineRule<Rule>({
   id: "rn-prefer-pressable",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

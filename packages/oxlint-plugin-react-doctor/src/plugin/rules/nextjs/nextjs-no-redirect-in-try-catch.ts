@@ -7,6 +7,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const nextjsNoRedirectInTryCatch = defineRule<Rule>({
   id: "nextjs-no-redirect-in-try-catch",
+  tags: ["test-noise"],
   requires: ["nextjs"],
   severity: "warn",
   recommendation:

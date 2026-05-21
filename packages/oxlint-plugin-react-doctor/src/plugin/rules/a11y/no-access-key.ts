@@ -17,6 +17,7 @@ const isUndefinedIdentifier = (expression: EsTreeNode): boolean =>
 // identifier (matching OXC's `is_undefined` carve-out).
 export const noAccessKey = defineRule<Rule>({
   id: "no-access-key",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Don't use `accessKey` — it conflicts with assistive-technology shortcuts.",
   category: "Accessibility",

@@ -51,6 +51,7 @@ const findHookCallBindings = (
 // expressions that are themselves bound to JSX `on*` attributes.
 export const rerenderDeferReadsHook = defineRule<Rule>({
   id: "rerender-defer-reads-hook",
+  tags: ["test-noise"],
   severity: "warn",
   category: "Performance",
   recommendation:

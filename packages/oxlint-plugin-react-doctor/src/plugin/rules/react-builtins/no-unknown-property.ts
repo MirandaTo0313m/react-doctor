@@ -73,6 +73,46 @@ const UNKNOWN_PROP_GENERIC = "Unknown property — remove it.";
 //   - Tag-restricted attrs (`fetchPriority`, `viewBox`, `download`, …)
 //     are flagged on tags outside their allowed set.
 // Custom elements (`<my-elem>`, anything with `is="..."`) are skipped.
+// Non-React JSX dialects that use raw HTML attribute names (`class`,
+// `for`, `tabindex`, etc.) — flagging them as "use React-cased prop"
+// would be wrong because the file isn't React. Detected by:
+//   1. an import from the dialect's runtime package, OR
+//   2. distinctively-Solid syntax in the file (`classList={…}`, which
+//      only Solid's JSX recognises)
+const NON_REACT_JSX_DIALECT_PACKAGES: ReadonlySet<string> = new Set([
+  "solid-js",
+  "solid-js/web",
+  "solid-js/store",
+  "solid-js/h",
+  "solid-js/html",
+  "@builder.io/qwik",
+  "@builder.io/qwik-city",
+  "@builder.io/qwik-react",
+  "voby",
+  "vidode",
+]);
+
+const startsWithAny = (source: string, prefixes: ReadonlyArray<string>): boolean =>
+  prefixes.some((prefix) => source === prefix || source.startsWith(`${prefix}/`));
+
+const fileImportsNonReactJsxDialect = (program: EsTreeNodeOfType<"Program">): boolean => {
+  for (const statement of program.body) {
+    if (!isNodeOfType(statement as EsTreeNodeOfType<"ImportDeclaration">, "ImportDeclaration")) {
+      continue;
+    }
+    const source = (statement as EsTreeNodeOfType<"ImportDeclaration">).source;
+    const value =
+      source && typeof (source as { value?: unknown }).value === "string"
+        ? (source as { value: string }).value
+        : null;
+    if (!value) continue;
+    if (NON_REACT_JSX_DIALECT_PACKAGES.has(value)) return true;
+    // Also catch deep imports like `solid-js/web/...`.
+    if (startsWithAny(value, ["solid-js", "@builder.io/qwik"])) return true;
+  }
+  return false;
+};
+
 export const noUnknownProperty = defineRule<Rule>({
   id: "no-unknown-property",
   severity: "warn",
@@ -81,9 +121,32 @@ export const noUnknownProperty = defineRule<Rule>({
   create: (context) => {
     const { ignore = [], requireDataLowercase = false } = resolveSettings(context.settings);
     const ignoreSet = new Set(ignore);
+    let fileIsNonReactJsx = false;
 
     return {
+      Program(node: EsTreeNodeOfType<"Program">) {
+        fileIsNonReactJsx = fileImportsNonReactJsxDialect(node);
+      },
       JSXOpeningElement(node: EsTreeNodeOfType<"JSXOpeningElement">) {
+        // Solid-distinctive `classList={{…}}` attribute — only the
+        // object-value shape (`classList={{foo: true}}`) is unique to
+        // Solid. A plain `classList={...}` in a React file is just a
+        // user mistake we should still flag as an unknown prop, so we
+        // require the ObjectExpression form before promoting the entire
+        // file to a non-React dialect.
+        if (!fileIsNonReactJsx) {
+          for (const attribute of node.attributes) {
+            if (!isNodeOfType(attribute, "JSXAttribute")) continue;
+            if (!isNodeOfType(attribute.name, "JSXIdentifier")) continue;
+            if (attribute.name.name !== "classList") continue;
+            const value = attribute.value;
+            if (!isNodeOfType(value, "JSXExpressionContainer")) continue;
+            if (!isNodeOfType(value.expression, "ObjectExpression")) continue;
+            fileIsNonReactJsx = true;
+            break;
+          }
+        }
+        if (fileIsNonReactJsx) return;
         if (!isNodeOfType(node.name, "JSXIdentifier")) return;
         const elementType = node.name.name;
         const firstCharacter = elementType.charCodeAt(0);

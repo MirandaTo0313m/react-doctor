@@ -34,6 +34,7 @@ const findLegacyShadowProperty = (
 // collapses that into one key.
 export const rnStylePreferBoxShadow = defineRule<Rule>({
   id: "rn-style-prefer-boxshadow",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

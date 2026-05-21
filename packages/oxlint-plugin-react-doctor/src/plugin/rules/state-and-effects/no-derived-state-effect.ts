@@ -5,6 +5,7 @@ import { getCallbackStatements } from "../../utils/get-callback-statements.js";
 import { getEffectCallback } from "../../utils/get-effect-callback.js";
 import { getRootIdentifierName } from "../../utils/get-root-identifier-name.js";
 import { isHookCall } from "../../utils/is-hook-call.js";
+import { isInitialOnlyPropName } from "../../utils/is-initial-only-prop-name.js";
 import { isSetterCall } from "../../utils/is-setter-call.js";
 import { isSetterIdentifier } from "../../utils/is-setter-identifier.js";
 import { walkAst } from "../../utils/walk-ast.js";
@@ -75,6 +76,7 @@ const collectValueIdentifierNames = (node: EsTreeNode | null | undefined, into: 
 export const noDerivedStateEffect = defineRule<Rule>({
   id: "no-derived-state-effect",
   severity: "warn",
+  tags: ["test-noise"],
   recommendation:
     "For derived state, compute inline: `const x = fn(dep)`. For state resets on prop change, use a key prop: `<Component key={prop} />`. See https://react.dev/learn/you-might-not-need-an-effect",
   create: (context: RuleContext) => ({
@@ -92,6 +94,20 @@ export const noDerivedStateEffect = defineRule<Rule>({
         if (isNodeOfType(element, "Identifier")) dependencyNames.add(element.name);
       }
       if (dependencyNames.size === 0) return;
+      // Initial-only / default / seed-named deps signal an explicit
+      // controlled-init re-sync pattern. `useEffect(..., [initialValue])`
+      // is the canonical "reset child state when the caller passes a
+      // new initial" idiom — skip when EVERY dep matches.
+      let allDepsAreInitialOnly = true;
+      let sawAnyDep = false;
+      for (const name of dependencyNames) {
+        sawAnyDep = true;
+        if (!isInitialOnlyPropName(name)) {
+          allDepsAreInitialOnly = false;
+          break;
+        }
+      }
+      if (sawAnyDep && allDepsAreInitialOnly) return;
 
       const statements = getCallbackStatements(callback);
       if (statements.length === 0) return;

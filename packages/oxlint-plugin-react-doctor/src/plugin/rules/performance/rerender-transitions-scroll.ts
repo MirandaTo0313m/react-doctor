@@ -54,6 +54,7 @@ const handlerCallsSetState = (handler: EsTreeNode): EsTreeNode | null => {
 // `useDeferredValue`.
 export const rerenderTransitionsScroll = defineRule<Rule>({
   id: "rerender-transitions-scroll",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Wrap the setState in startTransition (mark as non-urgent), use useDeferredValue, or stash in a ref + rAF throttle so scroll/pointer events don't trigger a re-render per fire",

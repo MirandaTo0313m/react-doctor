@@ -1,3 +1,8 @@
+import {
+  buildSameFileMemoRegistry,
+  memoStatusForJsxOpeningName,
+  type MemoStatus,
+} from "../../utils/build-same-file-memo-registry.js";
 import { defineRule } from "../../utils/define-rule.js";
 import type { EsTreeNode } from "../../utils/es-tree-node.js";
 import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
@@ -88,6 +93,83 @@ const CONFIG_OBJECT_PROP_NAMES: ReadonlySet<string> = new Set([
   "truncateText",
   "formatters",
   "label",
+  // Generic single-record / config / query props
+  "context",
+  "query",
+  "props",
+  "pagination",
+  "filters",
+  "person",
+  "command",
+  "cursor",
+  "payload",
+  "tooltip",
+  "properties",
+  "metadataSource",
+  "queryParams",
+  "extraQueryParams",
+  "selectedOption",
+  "emptyOption",
+  "pinnedOption",
+  "excludedProperties",
+  "disabledReasons",
+  "fallbackApplicationData",
+  "fieldMetadataItem",
+  "contextDescription",
+  "emptyMessage",
+  "defaultSorting",
+  "defaultValue",
+  "dropdown",
+  "sideAction",
+  "dropdownOffset",
+  "collisionPadding",
+  "forceBackTo",
+  // Domain singular records and config objects (corpus-derived)
+  "resource",
+  "field",
+  "menu",
+  "survey",
+  "legend",
+  "defaultFilters",
+  "introOverride",
+  "searchParams",
+  "commandMenuContextApi",
+  "nodeTypes",
+  "forceParams",
+  "callToActionButton",
+  // Single-letter placeholders ("a", "b") appear in lib-call patterns
+  // (`<Comparator a={...} b={...} />`) and configuration tuples.
+  "a",
+  "b",
+  // Chart / visualization specifics (recharts, nivo, victory, visx).
+  // These typically receive config objects per-render; rewriting to
+  // `useMemo` adds noise without measurable perf gain.
+  "edgeTypes",
+  "axisBottom",
+  "axisLeft",
+  "axisRight",
+  "axisTop",
+  "xScale",
+  "yScale",
+  "xAxis",
+  "yAxis",
+  "xData",
+  "yData",
+  "activeDot",
+  "defaultViewport",
+  "effectiveValueRange",
+  "arcLinkLabelsColor",
+  "applicationInfo",
+  "developerLinks",
+  "permission",
+  "modifier",
+  "modifiers",
+  "animationDurations",
+  "targetRecordIdentifier",
+  "web",
+  "item",
+  "overflow",
+  "button",
 ]);
 
 // Suffixes that mark a prop as a "config object" by convention —
@@ -107,6 +189,7 @@ const CONFIG_OBJECT_PROP_SUFFIXES: ReadonlyArray<string> = [
   "ClassNames",
   "Theme",
   "Sort",
+  "Sorting",
   "Filter",
   "Pagination",
   "Format",
@@ -114,6 +197,75 @@ const CONFIG_OBJECT_PROP_SUFFIXES: ReadonlyArray<string> = [
   "Validator",
   "Args",
   "Type",
+  // Generic singular-record / option / metadata / context suffixes
+  "Item",
+  "Option",
+  "Record",
+  "Metadata",
+  "Context",
+  "Query",
+  "Source",
+  "Target",
+  "Action",
+  "Properties",
+  "Property",
+  "Reasons",
+  "Reason",
+  "Padding",
+  "Margin",
+  "Offset",
+  "Position",
+  "Placement",
+  "Value",
+  "Defaults",
+  "Default",
+  "Schema",
+  "Payload",
+  "Cursor",
+  "Tooltip",
+  // Chart / visualization props that take config objects (recharts,
+  // nivo, victory, visx, etc.). Per-render config object recreation
+  // is the canonical usage pattern in those libraries.
+  "Scale",
+  "Axis",
+  "Range",
+  "Domain",
+  "Tick",
+  "Bar",
+  "Line",
+  "Area",
+  "Mark",
+  "Point",
+  "Dot",
+  "Label",
+  "Color",
+  "Stroke",
+  "Fill",
+  "Bottom",
+  "Top",
+  "Left",
+  "Right",
+  "Layer",
+  "Viewport",
+  "ViewBox",
+  "Bounds",
+  // Date/time/period config objects
+  "Date",
+  "Time",
+  "Period",
+  "Window",
+  "Interval",
+  "Duration",
+  // Domain/object record suffixes
+  "Identifier",
+  "Permission",
+  "Info",
+  "Link",
+  "Links",
+  "Animation",
+  "Modifier",
+  "Modifiers",
+  "Strategy",
 ];
 
 const isConfigObjectPropName = (propName: string): boolean => {
@@ -133,6 +285,11 @@ const OBJECT_PRODUCING_METHODS = new Set([
   "freeze",
   "seal",
 ]);
+
+const isEmptyObjectLiteralExpression = (expression: EsTreeNode): boolean => {
+  const stripped = stripParenExpression(expression);
+  return isNodeOfType(stripped, "ObjectExpression") && (stripped.properties ?? []).length === 0;
+};
 
 const isObjectProducingExpression = (expression: EsTreeNode): boolean => {
   const stripped = stripParenExpression(expression);
@@ -162,6 +319,19 @@ const isObjectProducingExpression = (expression: EsTreeNode): boolean => {
     return false;
   }
   if (isNodeOfType(stripped, "LogicalExpression")) {
+    // `value ?? {}` / `{} || value` — an empty object literal on
+    // either side is a fallback that only allocates on the rare
+    // null/undefined path. Same reasoning as the array variant; if
+    // NEITHER side is the empty-fallback shape (e.g.
+    // `style={opts ?? makeDefaults()}` where `makeDefaults()` itself
+    // allocates an object), the expression always allocates so we
+    // check both.
+    if (stripped.operator === "??" || stripped.operator === "||") {
+      const leftIsEmptyFallback = isEmptyObjectLiteralExpression(stripped.left);
+      const rightIsEmptyFallback = isEmptyObjectLiteralExpression(stripped.right);
+      if (leftIsEmptyFallback) return isObjectProducingExpression(stripped.right);
+      if (rightIsEmptyFallback) return isObjectProducingExpression(stripped.left);
+    }
     return (
       isObjectProducingExpression(stripped.left) || isObjectProducingExpression(stripped.right)
     );
@@ -201,6 +371,7 @@ const followsRenderLocalObjectBinding = (
 // scope-analysis gap noted there.
 export const jsxNoNewObjectAsProp = defineRule<Rule>({
   id: "jsx-no-new-object-as-prop",
+  tags: ["react-jsx-only"],
   severity: "warn",
   // React Compiler auto-memoizes prop allocations, so the perf footgun
   // this rule guards against doesn't exist in compiler-enabled projects.
@@ -209,13 +380,25 @@ export const jsxNoNewObjectAsProp = defineRule<Rule>({
   category: "Performance",
   create: (context) => {
     const isTestlikeFile = isTestlikeFilename(context.getFilename?.());
+    let memoRegistry: Map<string, MemoStatus> | null = null;
     return {
+      Program(node: EsTreeNodeOfType<"Program">) {
+        memoRegistry = buildSameFileMemoRegistry(node as EsTreeNode);
+      },
       JSXAttribute(node: EsTreeNodeOfType<"JSXAttribute">) {
         if (isTestlikeFile) return;
         // Intrinsic HTML elements aren't memoized; flagging inline
         // object literals on them is unactionable. See the same skip
         // in `jsx-no-new-function-as-prop` for the full rationale.
         if (isJsxAttributeOnIntrinsicHtmlElement(node)) return;
+        // Same-file plain-function consumer — `React.memo` rationale
+        // doesn't apply.
+        const parentJsxOpening = node.parent;
+        const openingName =
+          parentJsxOpening && isNodeOfType(parentJsxOpening, "JSXOpeningElement")
+            ? (parentJsxOpening.name as EsTreeNode)
+            : null;
+        if (memoStatusForJsxOpeningName(memoRegistry, openingName) === "not-memoised") return;
         if (!isInsideFunctionScope(node)) return;
         if (!isNodeOfType(node.name, "JSXIdentifier")) return;
         if (ALWAYS_FRESH_OBJECT_PROPS.has(node.name.name)) return;

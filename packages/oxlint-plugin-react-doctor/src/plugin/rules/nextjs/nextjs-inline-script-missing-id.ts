@@ -7,6 +7,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const nextjsInlineScriptMissingId = defineRule<Rule>({
   id: "nextjs-inline-script-missing-id",
+  tags: ["test-noise"],
   requires: ["nextjs"],
   severity: "warn",
   recommendation:

@@ -1,4 +1,9 @@
-export const Z_INDEX_ABSURD_THRESHOLD = 100;
+// Tightened to 1000 (was 100) — many design systems use a 100-step
+// scale (`dropdown: 100`, `modal: 500`, `toast: 900`) which is a
+// deliberate token system, not the `z-index: 9999` "escape hatch"
+// the rule actually targets. Values above 1000 are almost always the
+// "go on top of everything" escalation antipattern.
+export const Z_INDEX_ABSURD_THRESHOLD = 1000;
 
 export const INLINE_STYLE_PROPERTY_THRESHOLD = 8;
 
@@ -44,12 +49,45 @@ export const VAGUE_BUTTON_LABELS = new Set([
 ]);
 
 export const TYPOGRAPHY_PUNCTUATION_EXCLUDED_TAG_NAMES = new Set([
+  // Raw code / monospace HTML primitives — em-dashes / ellipses are
+  // syntactic content there, not prose.
   "code",
   "pre",
   "kbd",
   "samp",
   "var",
   "tt",
+  // Markdown / prose-rendering components — they round-trip user
+  // content (or vendor docstrings / CHANGELOG snippets / sample LLM
+  // output) which legitimately contains em-dashes and ellipses. These
+  // are conventional component names used across the ecosystem
+  // (`<Markdown>`, `<Md>`, `<MDX>`, `<MDXContent>`, `<Prose>`,
+  // `<Article>`, `<RichText>`, `<Body>` for body copy, `<Description>`
+  // for documentation snippets, `<MarkdownContent>`, `<MarkdownText>`,
+  // `<MarkdownRenderer>`, `<MarkdownBlock>`, etc.). Lowercase form is
+  // matched because `tagName.toLowerCase()` is the comparison key.
+  "markdown",
+  "markdownblock",
+  "markdowncontent",
+  "markdownrenderer",
+  "markdowntext",
+  "markdownview",
+  "mdx",
+  "mdxcontent",
+  "mdxremote",
+  "md",
+  "prose",
+  "richtext",
+  "article",
+  "blockquote",
+  "quote",
+  "trans",
+  // Internationalised / translated strings — em-dashes / ellipses in
+  // upstream translations are out of the engineer's control.
+  "translation",
+  "translated",
+  "fbt",
+  "fbs",
 ]);
 
 // HACK: trailing boundary uses a LOOKAHEAD `(?=...)` so the whitespace

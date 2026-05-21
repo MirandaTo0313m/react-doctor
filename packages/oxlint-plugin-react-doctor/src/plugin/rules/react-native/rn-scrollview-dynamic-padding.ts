@@ -14,6 +14,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 // the content.
 export const rnScrollviewDynamicPadding = defineRule<Rule>({
   id: "rn-scrollview-dynamic-padding",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

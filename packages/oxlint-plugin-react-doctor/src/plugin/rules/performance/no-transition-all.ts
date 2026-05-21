@@ -6,6 +6,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const noTransitionAll = defineRule<Rule>({
   id: "no-transition-all",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     'List specific properties: `transition: "opacity 200ms, transform 200ms"` — or in Tailwind use `transition-colors`, `transition-opacity`, or `transition-transform`',

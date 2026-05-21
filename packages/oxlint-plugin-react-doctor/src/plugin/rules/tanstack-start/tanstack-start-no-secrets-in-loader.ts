@@ -23,6 +23,7 @@ const isLikelySecret = (envVarName: string): boolean => {
 
 export const tanstackStartNoSecretsInLoader = defineRule<Rule>({
   id: "tanstack-start-no-secrets-in-loader",
+  tags: ["test-noise"],
   requires: ["tanstack-start"],
   severity: "error",
   category: "Security",

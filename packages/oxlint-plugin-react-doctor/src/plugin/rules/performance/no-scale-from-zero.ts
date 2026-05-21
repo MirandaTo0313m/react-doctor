@@ -6,6 +6,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const noScaleFromZero = defineRule<Rule>({
   id: "no-scale-from-zero",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Use `initial={{ scale: 0.95, opacity: 0 }}` — elements should deflate like a balloon, not vanish into a point",

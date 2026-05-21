@@ -22,16 +22,19 @@ const NamespaceFetchInEffect = () => {
   return <div>{JSON.stringify(data)}</div>;
 };
 
-const NamespaceCascadingSetState = () => {
+const NamespaceCascadingSetState = ({ trigger }: { trigger: string }) => {
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [age, setAge] = React.useState(0);
 
   React.useEffect(() => {
+    // Re-runs on `trigger` change — the init-only-effect skip
+    // (empty-deps) doesn't apply here, so the rule fires on 3
+    // cascading setStates.
     setName("John");
     setEmail("john@example.com");
     setAge(30);
-  }, []);
+  }, [trigger]);
 
   return (
     <div>
@@ -50,8 +53,11 @@ const NamespaceEffectEventHandler = ({ isOpen }: { isOpen: boolean }) => {
   return <div />;
 };
 
-const NamespaceDerivedUseState = ({ initialName }: { initialName: string }) => {
-  const [name, setName] = React.useState(initialName);
+// Prop name `currentName` (NOT `initialName`) — the initial-only
+// prop-name skip in `no-derived-useState` does NOT apply, so the
+// rule correctly flags this as derived-from-prop.
+const NamespaceDerivedUseState = ({ currentName }: { currentName: string }) => {
+  const [name, setName] = React.useState(currentName);
   return <input value={name} onChange={(event) => setName(event.target.value)} />;
 };
 

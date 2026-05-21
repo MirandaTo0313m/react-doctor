@@ -11,6 +11,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const preferUseReducer = defineRule<Rule>({
   id: "prefer-useReducer",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Group related state: `const [state, dispatch] = useReducer(reducer, { field1, field2, ... })`",

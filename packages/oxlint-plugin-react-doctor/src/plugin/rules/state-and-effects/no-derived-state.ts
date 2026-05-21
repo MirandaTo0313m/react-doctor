@@ -2,6 +2,7 @@ import type { Reference } from "eslint-scope";
 import { defineRule } from "../../utils/define-rule.js";
 import type { EsTreeNode } from "../../utils/es-tree-node.js";
 import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
+import { isInitialOnlyPropName } from "../../utils/is-initial-only-prop-name.js";
 import { isNodeOfType } from "../../utils/is-node-of-type.js";
 import type { Rule } from "../../utils/rule.js";
 import type { RuleContext } from "../../utils/rule-context.js";
@@ -53,6 +54,7 @@ const getStateNameForUseStateDecl = (useStateNode: EsTreeNode | null): string | 
 export const noDerivedState = defineRule<Rule>({
   id: "no-derived-state",
   severity: "warn",
+  tags: ["test-noise"],
   recommendation:
     "Compute derived state inline during render (or with useMemo if expensive) instead of mirroring it into useState via a useEffect. See https://react.dev/learn/you-might-not-need-an-effect#updating-state-based-on-props-or-state",
   create: (context: RuleContext) => ({
@@ -81,6 +83,16 @@ export const noDerivedState = defineRule<Rule>({
           getUpstreamRefs(analysis, depRef),
         );
 
+        // Initial-only / default / seed prop pattern. When the
+        // setter receives EXACTLY one arg that IS a bare prop
+        // identifier whose name signals init-only intent
+        // (`initialValue`, `defaultX`, `seedY`, etc.), the consumer
+        // is intentionally re-syncing on a controlled-init prop —
+        // `useState(initialValue) + useEffect(() => setX(initialValue), [initialValue])`
+        // to rebind on explicit "reset". Strict shape: avoids
+        // `.every([]) === true` and AST-shape false-positives.
+        if (isInitialOnlySetterCall(callExpr)) continue;
+
         const isSomeArgsInternal = argsUpstreamRefs.some(
           (argRef) => isState(analysis, argRef) || isProp(analysis, argRef),
         );
@@ -107,3 +119,14 @@ export const noDerivedState = defineRule<Rule>({
     },
   }),
 });
+
+// `setX(initialValue)` — sole argument is a bare identifier whose name
+// signals the consumer's controlled-init / reset intent.
+const isInitialOnlySetterCall = (callExpr: EsTreeNode): boolean => {
+  if (!isNodeOfType(callExpr, "CallExpression")) return false;
+  const args = callExpr.arguments ?? [];
+  if (args.length !== 1) return false;
+  const arg = args[0] as EsTreeNode;
+  if (!isNodeOfType(arg, "Identifier")) return false;
+  return isInitialOnlyPropName(arg.name);
+};

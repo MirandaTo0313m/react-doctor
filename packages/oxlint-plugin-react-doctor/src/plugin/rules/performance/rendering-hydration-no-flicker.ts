@@ -10,6 +10,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const renderingHydrationNoFlicker = defineRule<Rule>({
   id: "rendering-hydration-no-flicker",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Use `useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)` or add `suppressHydrationWarning` to the element",

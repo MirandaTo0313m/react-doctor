@@ -4,6 +4,11 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 import { findVariableInitializer } from "../../utils/find-variable-initializer.js";
 import { isInsideFunctionScope } from "../../utils/is-inside-function-scope.js";
 import { isJsxAttributeOnIntrinsicHtmlElement } from "../../utils/is-on-intrinsic-html-element.js";
+import {
+  buildSameFileMemoRegistry,
+  memoStatusForJsxOpeningName,
+  type MemoStatus,
+} from "../../utils/build-same-file-memo-registry.js";
 import { isNodeOfType } from "../../utils/is-node-of-type.js";
 import { isTestlikeFilename } from "../../utils/is-testlike-filename.js";
 import { stripParenExpression } from "../../utils/strip-paren-expression.js";
@@ -45,6 +50,41 @@ const ONE_SHOT_LIFECYCLE_HANDLER_NAMES: ReadonlySet<string> = new Set([
   "onDismiss",
   "onCancel",
   "onConfirm",
+  // Save / submit / commit / remove / delete — intent-class callbacks
+  // that fire at most once per user action (not per render or per
+  // pointer-move). New function reference per render has no measurable
+  // perf impact: the handler doesn't run in any hot path.
+  "onSave",
+  "onSubmit",
+  "onCommit",
+  "onApply",
+  "onRemove",
+  "onDelete",
+  "onDuplicate",
+  "onReset",
+  "onRetry",
+  "onRefresh",
+  "onAdd",
+  "onCreate",
+  "onUpdate",
+  // Compound action-button conventions (`onConfirmClick`, `onAcceptClick`)
+  "onConfirmClick",
+  "onAcceptClick",
+  "onCancelClick",
+  "onSaveClick",
+  // Outside-click / press-enter / escape / context-menu — sparse user
+  // intent, not per-render or per-pointer-move events.
+  "onClickOutside",
+  "onPressEnter",
+  "onEnter",
+  "onEscape",
+  "onLeave",
+  // Drag / drop — fires on action completion, not per-frame; consumers
+  // don't memo on these refs.
+  "onDragStart",
+  "onDragEnd",
+  "onDrop",
+  "onSort",
   // Render-prop / customization slots — accept a function that's
   // either called once (fallback) or used by the parent to render
   // subviews. Real perf hits flow through the children, not the
@@ -67,17 +107,158 @@ const ONE_SHOT_LIFECYCLE_HANDLER_NAMES: ReadonlySet<string> = new Set([
   "renderItemActions",
   "children",
   "useCustom",
+  // PascalCase render-slot props (`Icon={() => <X/>}`, `Trigger={…}`,
+  // etc.) — by convention these receive a render function whose output
+  // is inserted directly into the tree. Identity doesn't matter.
+  "Icon",
+  "Trigger",
+  "Header",
+  "Footer",
+  "Label",
+  "Content",
+  "Adornment",
+  "Indicator",
+  "Tooltip",
+  "Badge",
+  "Panel",
+  "Overlay",
+  "Section",
+  "Button",
+  "Action",
+  // Radix / Headless UI controlled-state callbacks — fire on user
+  // interaction, not per render, and library consumers don't memoize
+  // by their identity.
+  "onValueChange",
+  "onCheckedChange",
+  "onOpenChange",
+  "onSelectionChange",
+  "onPressedChange",
+  "onToggleChange",
+  "onSearch",
+  "onSearchChange",
+  "onClear",
+  "onCopy",
+  "onPaste",
+  "onPick",
+  "onActiveChange",
+  "onExpandedChange",
+  "onSortChange",
+  "onFilterChange",
+  "onSelectChange",
+  // Common selection / toggle / navigation intent callbacks — fire on
+  // discrete user actions, not per render.
+  "onSelect",
+  "onToggle",
+  "onTab",
+  "onShiftTab",
+  "onBack",
+  "onForward",
+  "onPrev",
+  "onNext",
+  "onSkip",
+  "onContinue",
+  "onPressCmdEnter",
+  "onPressCmdK",
+  "onCloseRequest",
+  "onCloseRequested",
+  "onRowClick",
+  "onCellClick",
+  "onHeaderClick",
+  "onToggleExpand",
+  "onToggleCollapse",
+  "onVisibilityChange",
+  "onVariableSelect",
+  "onSelectColor",
+  // Generic intent / action callbacks (per-action, not per-render)
+  "action",
+  "onEdit",
+  "onView",
+  "onApprove",
+  "onReject",
+  "onArchive",
+  "onUnarchive",
+  "onPin",
+  "onUnpin",
+  "onShare",
+  "onDownload",
+  "onUpload",
+  "onPrint",
+  "onExport",
+  "onImport",
+  "onMove",
+  "onRename",
+  // Table-row callbacks (antd / data-table style) — per-row, not per-render
+  "rowKey",
+  "onRow",
+  "onCell",
+  "onHeader",
+  "onHeaderRow",
+  "onHeaderCell",
+  "onPageChange",
+  "onTabChange",
+  // Form field common per-action callbacks
+  "onNameChange",
+  "onDescriptionChange",
+  "onInputChange",
+  "onLabelChange",
+  "onValueCommit",
 ]);
 
-// Render-prop suffix conventions — `render*`, `*Render`, `*Renderer`,
-// `*Slot`, `*Component`, `*Element` props receiving callable values.
+// Render-prop / slot / customization suffix conventions — `render*`,
+// `*Render`, `*Renderer`, `*Slot`, `*Component`, `*Element`, plus
+// PascalCase-suffix slot props (`actionButton`, `closeIcon`, etc.).
 const ONE_SHOT_HANDLER_SUFFIXES: ReadonlyArray<string> = [
   "Render",
   "Renderer",
   "Slot",
   "Component",
   "Element",
+  "Icon",
+  "Trigger",
+  "Header",
+  "Footer",
+  "Label",
+  "Content",
+  "Adornment",
+  "Indicator",
+  "Tooltip",
+  "Badge",
+  "Panel",
+  "Overlay",
+  "Section",
+  "Button",
+  "Action",
+  "Override",
+  "Fallback",
 ];
+
+// `get*`, `format*`, `parse*`, `validate*`, `is*`, `should*`, `match*`,
+// `select*`, `to*` — pure-ish accessor / predicate / formatter function
+// props called on demand, not on every render. New identity is OK.
+const ACCESSOR_PREDICATE_PREFIXES: ReadonlyArray<string> = [
+  "get",
+  "format",
+  "parse",
+  "validate",
+  "is",
+  "should",
+  "match",
+  "select",
+  "filter",
+  "compare",
+];
+
+const isAccessorPredicateName = (propName: string): boolean => {
+  for (const prefix of ACCESSOR_PREDICATE_PREFIXES) {
+    if (propName.length <= prefix.length) continue;
+    if (!propName.startsWith(prefix)) continue;
+    const nextChar = propName.charCodeAt(prefix.length);
+    // require uppercase after the prefix (so `get` doesn't false-match
+    // `gather`, `should` doesn't match `shouldery`, etc.)
+    if (nextChar >= 65 && nextChar <= 90) return true;
+  }
+  return false;
+};
 
 const isOneShotHandlerName = (propName: string): boolean => {
   if (ONE_SHOT_LIFECYCLE_HANDLER_NAMES.has(propName)) return true;
@@ -86,6 +267,7 @@ const isOneShotHandlerName = (propName: string): boolean => {
     // `render<X>` where X is uppercase A-Z = render-prop convention
     if (fourthCharCode >= 65 && fourthCharCode <= 90) return true;
   }
+  if (isAccessorPredicateName(propName)) return true;
   for (const suffix of ONE_SHOT_HANDLER_SUFFIXES) {
     if (propName.length > suffix.length && propName.endsWith(suffix)) return true;
   }
@@ -147,7 +329,429 @@ const followsRenderLocalFunctionBinding = (
     }
     walker = walker.parent ?? null;
   }
-  return isFunctionProducingExpression(binding.initializer);
+  if (!isFunctionProducingExpression(binding.initializer)) return false;
+  // If the binding's initializer is itself a stable wrapper, then
+  // naming it and passing it as `onClick={handleX}` is no different
+  // from passing the inline arrow `onClick={() => fn()}`. `useCallback`
+  // can't help in either shape, so don't flag.
+  if (isParameterBindingWrapper(binding.initializer as EsTreeNode)) return false;
+  // Also skip when the binding is a hooked-up handler from a hook
+  // call — `const handleSubmit = useSubmit(...)` style. The hook
+  // is responsible for its own memoisation (most React hooks
+  // return stable refs for callbacks).
+  const init = binding.initializer as EsTreeNode;
+  if (isNodeOfType(init, "CallExpression")) {
+    const callee = init.callee;
+    if (isNodeOfType(callee, "Identifier") && callee.name.startsWith("use")) {
+      return false;
+    }
+    if (
+      isNodeOfType(callee, "MemberExpression") &&
+      isNodeOfType(callee.property, "Identifier") &&
+      callee.property.name.startsWith("use")
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
+// `(…params) => fn(arg1, arg2, …)` — an arrow whose ENTIRE body is a
+// single call (or method invocation) where every argument is a stable
+// value (literal, identifier, member access, the arrow's own param, or
+// a chain expression of those). The wrapper exists purely to adapt the
+// caller's signature to the inner call's argument list — and the user
+// CAN'T `useCallback` it: the closure MUST capture the outer scope's
+// identifier references (which themselves often aren't stable). The
+// only "fix" would be restructuring the data flow (`<X arg={…} />`
+// instead of `onClick={(e) => fn(arg, e)}`), which is a major refactor
+// for a tiny perf gain that only materializes on `React.memo` consumers
+// — most internal app components aren't memo'd, so the cost is zero.
+//
+// Covered shapes (all skipped):
+//   () => fn()
+//   () => fn(literal, outerIdentifier)
+//   (e) => fn(e)
+//   (e) => e.stopPropagation()
+//   (value) => onChange?.(value)
+//   (x) => x?.foo.bar
+//   (a, b) => fn(a, b)
+//   (e) => e.key === 'Enter' && saveProperty()
+//
+// NOT covered (still flagged):
+//   () => fn({ ... })       — inline object construction is per-render
+//   () => fn([...x, ...])   — inline array
+//   () => { setA(); setB(); } — multiple statements (real work)
+//   () => () => fn()        — returns a function (HoC-style)
+const isStableArgumentValue = (node: EsTreeNode): boolean => {
+  if (isNodeOfType(node, "Literal")) return true;
+  if (isNodeOfType(node, "TemplateLiteral")) {
+    return (node.expressions ?? []).every((expression) =>
+      isStableArgumentValue(expression as EsTreeNode),
+    );
+  }
+  if (isNodeOfType(node, "Identifier")) return true;
+  if (isNodeOfType(node, "MemberExpression")) return true;
+  if (isNodeOfType(node, "UnaryExpression")) {
+    return isStableArgumentValue(node.argument as EsTreeNode);
+  }
+  if (isNodeOfType(node, "ChainExpression")) {
+    return isStableArgumentValue(node.expression as EsTreeNode);
+  }
+  // `value as string` / `value as MyType` — TypeScript type
+  // assertions erase at runtime, the underlying expression is what
+  // matters. Without this, `(value) => onTimeRangeChange(value as string, 1)`
+  // (the canonical "narrow the typed arg" shape) doesn't match the
+  // parameter-binding wrapper.
+  if (
+    (node as { type: string }).type === "TSAsExpression" ||
+    (node as { type: string }).type === "TSTypeAssertion" ||
+    (node as { type: string }).type === "TSNonNullExpression" ||
+    (node as { type: string }).type === "TSSatisfiesExpression"
+  ) {
+    return isStableArgumentValue((node as { expression: EsTreeNode }).expression);
+  }
+  // `value ? 'on' : 'off'` — ternary with both branches stable.
+  if (isNodeOfType(node, "ConditionalExpression")) {
+    return (
+      isStableArgumentValue(node.test as EsTreeNode) &&
+      isStableArgumentValue(node.consequent as EsTreeNode) &&
+      isStableArgumentValue(node.alternate as EsTreeNode)
+    );
+  }
+  // `value ?? defaultValue` / `value || ''` — fallback with stable
+  // both sides. `(v) => setX(v ?? '')` is still adapting one arg
+  // into a setter call; useCallback won't help.
+  if (
+    isNodeOfType(node, "LogicalExpression") &&
+    (node.operator === "??" || node.operator === "||" || node.operator === "&&")
+  ) {
+    return (
+      isStableArgumentValue(node.left as EsTreeNode) &&
+      isStableArgumentValue(node.right as EsTreeNode)
+    );
+  }
+  // `value + 1` / `index - 1` / `'prefix' + value` — arithmetic /
+  // concatenation with stable operands. Page-step handlers like
+  // `() => setPage(page + 1)` get to this point.
+  if (
+    isNodeOfType(node, "BinaryExpression") &&
+    isStableArgumentValue(node.left as EsTreeNode) &&
+    isStableArgumentValue(node.right as EsTreeNode)
+  ) {
+    return true;
+  }
+  // `{ key: value }` / `{ value }` (shorthand) — shape-transformation
+  // wrapper like `(value) => setFilters({ search: value })`. The
+  // wrapper IS allocating an object per call, but useCallback can't
+  // fix that — the OBJECT identity is per-invocation, not per-render.
+  // The only "fix" would be to restructure the data flow (e.g.
+  // `setFilters(prev => ({ ...prev, search: value }))`), which is a
+  // major refactor. Skip unless one of the properties is itself a
+  // non-stable shape.
+  if (isNodeOfType(node, "ObjectExpression")) {
+    for (const property of node.properties ?? []) {
+      if (isNodeOfType(property, "SpreadElement")) {
+        // `{ ...x, key: value }` — the spread brings in an outer
+        // value, that's still stable (the spread is over an
+        // identifier/member access).
+        if (!isStableArgumentValue(property.argument as EsTreeNode)) return false;
+        continue;
+      }
+      if (!isNodeOfType(property, "Property")) return false;
+      if (property.shorthand) continue;
+      if (!isStableArgumentValue(property.value as EsTreeNode)) return false;
+    }
+    return true;
+  }
+  // `[a, b, c]` — array shape transformation, same reasoning as
+  // ObjectExpression.
+  if (isNodeOfType(node, "ArrayExpression")) {
+    for (const element of node.elements ?? []) {
+      if (!element) continue;
+      if (isNodeOfType(element, "SpreadElement")) {
+        if (!isStableArgumentValue(element.argument as EsTreeNode)) return false;
+        continue;
+      }
+      if (!isStableArgumentValue(element as EsTreeNode)) return false;
+    }
+    return true;
+  }
+  // Nested CallExpression — `setX(getValue(prop))` style. Accept
+  // when the nested call is itself stable (pure namespace OR all
+  // args are stable). Same reasoning as the wrapper itself:
+  // useCallback can't fix nested-call allocation.
+  if (isNodeOfType(node, "CallExpression")) {
+    return isStableCallExpression(node);
+  }
+  // `tag\`literal\`` — i18n template tags like `t\`Save\``. Treat as
+  // stable string-like result.
+  if ((node as { type: string }).type === "TaggedTemplateExpression") {
+    return true;
+  }
+  return false;
+};
+
+// Receivers whose method calls don't typically pass derived state
+// — navigation, routing, telemetry, dialog management. Used as a
+// "fully stable" gate: any args to these calls are accepted as
+// stable even if they're themselves call expressions, because the
+// outer wrapper is doing a fire-and-forget side effect.
+const SAFE_RECEIVER_NAMES: ReadonlySet<string> = new Set([
+  "router",
+  "navigate",
+  "navigation",
+  "history",
+  "console",
+  "window",
+  "document",
+  "location",
+  "localStorage",
+  "sessionStorage",
+  "analytics",
+  "telemetry",
+  "logger",
+  "log",
+  "posthog",
+  "Sentry",
+  // Pure-function namespaces — outputs are determined by inputs,
+  // call args (even when themselves call expressions) compose
+  // cleanly with the wrapper.
+  "Math",
+  "Number",
+  "String",
+  "Boolean",
+  "Array",
+  "Object",
+  "JSON",
+  "Date",
+  "Promise",
+  "Map",
+  "Set",
+  "Symbol",
+]);
+
+const calleeReceiverName = (callee: EsTreeNode): string | null => {
+  let cursor: EsTreeNode = callee;
+  // Walk down chains: `router.actions.push` → root is `router`.
+  while (isNodeOfType(cursor, "MemberExpression")) {
+    cursor = cursor.object as EsTreeNode;
+  }
+  return isNodeOfType(cursor, "Identifier") ? cursor.name : null;
+};
+
+const isStableCallExpression = (node: EsTreeNode): boolean => {
+  let inner = node;
+  if (isNodeOfType(inner, "ChainExpression")) inner = inner.expression as EsTreeNode;
+  if (!isNodeOfType(inner, "CallExpression")) return false;
+  const callee = inner.callee;
+  if (!isNodeOfType(callee, "Identifier") && !isNodeOfType(callee, "MemberExpression"))
+    return false;
+  // For calls on safe-receiver namespaces (`router.push(...)`,
+  // `console.log(...)`, `Sentry.captureException(...)`), any
+  // argument shape is fine — these are fire-and-forget side
+  // effects, not data hand-off to a memoised consumer.
+  const receiverName = calleeReceiverName(callee);
+  if (receiverName && SAFE_RECEIVER_NAMES.has(receiverName)) return true;
+  for (const argument of inner.arguments ?? []) {
+    if (!isStableArgumentValue(argument as EsTreeNode)) return false;
+  }
+  return true;
+};
+
+const isLightweightBodyExpression = (body: EsTreeNode): boolean => {
+  // Direct call: `(e) => fn(e)`, `(e) => e.method()`, `(v) => fn?.(v)`
+  if (isStableCallExpression(body)) return true;
+  if (isNodeOfType(body, "ChainExpression")) {
+    return isLightweightBodyExpression(body.expression as EsTreeNode);
+  }
+  // Short-circuit guard: `(e) => e.key === 'Enter' && saveProperty()`
+  // / `(v) => v && onChange(v)` — left is any stable value (the
+  // guard), right is a lightweight expression. At least one side
+  // must be a call so we don't accidentally accept `(x) => x && x`.
+  if (
+    isNodeOfType(body, "LogicalExpression") &&
+    (body.operator === "&&" || body.operator === "||" || body.operator === "??")
+  ) {
+    const leftStable =
+      isStableArgumentValue(body.left as EsTreeNode) ||
+      isLightweightBodyExpression(body.left as EsTreeNode);
+    const rightStable =
+      isStableArgumentValue(body.right as EsTreeNode) ||
+      isLightweightBodyExpression(body.right as EsTreeNode);
+    if (!leftStable || !rightStable) return false;
+    const leftIsCall =
+      isNodeOfType(body.left as EsTreeNode, "CallExpression") ||
+      (isNodeOfType(body.left as EsTreeNode, "ChainExpression") &&
+        isNodeOfType(
+          (body.left as EsTreeNodeOfType<"ChainExpression">).expression as EsTreeNode,
+          "CallExpression",
+        ));
+    const rightIsCall =
+      isNodeOfType(body.right as EsTreeNode, "CallExpression") ||
+      (isNodeOfType(body.right as EsTreeNode, "ChainExpression") &&
+        isNodeOfType(
+          (body.right as EsTreeNodeOfType<"ChainExpression">).expression as EsTreeNode,
+          "CallExpression",
+        ));
+    return leftIsCall || rightIsCall;
+  }
+  // Ternary body: `(e) => cond ? fn(e) : other(e)` — accept when
+  // both branches are themselves lightweight calls.
+  if (isNodeOfType(body, "ConditionalExpression")) {
+    return (
+      isLightweightBodyExpression(body.consequent as EsTreeNode) &&
+      isLightweightBodyExpression(body.alternate as EsTreeNode)
+    );
+  }
+  // `void copyToClipboard(value)` — `void` wrapper around a stable
+  // call. The void just discards the return value (often used to
+  // signal "I'm intentionally not awaiting this promise").
+  if (
+    isNodeOfType(body, "UnaryExpression") &&
+    (body.operator === "void" || body.operator === "!")
+  ) {
+    return isLightweightBodyExpression(body.argument as EsTreeNode);
+  }
+  // `await fn(arg)` — async wrappers, treated the same as the
+  // underlying call. `async () => await save(item)` is just a
+  // promise-returning wrapper.
+  if ((body as { type: string }).type === "AwaitExpression") {
+    return isLightweightBodyExpression((body as { argument: EsTreeNode }).argument);
+  }
+  // `(value as string)` style TS assertion at the body level — unwrap.
+  if (
+    (body as { type: string }).type === "TSAsExpression" ||
+    (body as { type: string }).type === "TSTypeAssertion" ||
+    (body as { type: string }).type === "TSNonNullExpression" ||
+    (body as { type: string }).type === "TSSatisfiesExpression"
+  ) {
+    return isLightweightBodyExpression((body as { expression: EsTreeNode }).expression);
+  }
+  // Pure-value or no-call bodies (`() => true`, `(x) => x.length`) get
+  // flagged — these can be trivially hoisted (`const T = () => true`).
+  return false;
+};
+
+// At this depth the gate is "every statement is itself a stable
+// wrapper-like expression", not "the block is short". A 5-statement
+// block where every statement is `setX(literal)` / `if (cond)
+// setY(literal)` is still tiny adaptation work that `useCallback`
+// can't optimise.
+const MAX_STABLE_STATEMENTS_IN_BLOCK = 8;
+
+const isStableStatement = (statement: EsTreeNode): boolean => {
+  if (isNodeOfType(statement, "ExpressionStatement")) {
+    return isLightweightBodyExpression(statement.expression as EsTreeNode);
+  }
+  if (isNodeOfType(statement, "ReturnStatement")) {
+    if (!statement.argument) return true;
+    return isLightweightBodyExpression(statement.argument as EsTreeNode);
+  }
+  // `const x = stableValue; …` — local binding for a stable
+  // computation. The init expression must itself be stable.
+  if (isNodeOfType(statement, "VariableDeclaration")) {
+    for (const declarator of statement.declarations ?? []) {
+      if (!isNodeOfType(declarator, "VariableDeclarator")) return false;
+      if (!declarator.init) continue;
+      if (!isStableArgumentValue(declarator.init as EsTreeNode)) return false;
+    }
+    return true;
+  }
+  // `if (guard) stableStatement` — common pattern in event-handler
+  // wrappers (`() => { if (!disabled) onChange(value) }`). The guard
+  // is a stable test (literal / identifier / member / arithmetic /
+  // logical) and the consequent is itself a stable statement (or
+  // block of stable statements).
+  if (isNodeOfType(statement, "IfStatement")) {
+    if (!isStableArgumentValue(statement.test as EsTreeNode)) return false;
+    if (!isStableStatement(statement.consequent as EsTreeNode)) return false;
+    if (statement.alternate && !isStableStatement(statement.alternate as EsTreeNode)) {
+      return false;
+    }
+    return true;
+  }
+  if (isNodeOfType(statement, "BlockStatement")) {
+    return isStableStatementBlock(statement.body ?? []);
+  }
+  return false;
+};
+
+const isStableStatementBlock = (statements: ReadonlyArray<EsTreeNode>): boolean => {
+  if (statements.length === 0) return true;
+  if (statements.length > MAX_STABLE_STATEMENTS_IN_BLOCK) return false;
+  for (const statement of statements) {
+    if (!isStableStatement(statement)) return false;
+  }
+  return true;
+};
+
+// Returns true when the value at this prop slot is either nothing
+// (null / undefined / not-passed) or a stable wrapper / identifier.
+// The ternary `cond ? () => fn() : undefined` shape is the canonical
+// "conditional handler" — one branch wraps, the other passes
+// nothing. There's no useCallback win here: the wrapper still has
+// to allocate when `cond` is truthy.
+const isNullishOrStableWrapper = (expression: EsTreeNode): boolean => {
+  const stripped = stripParenExpression(expression);
+  if (isNodeOfType(stripped, "Literal")) {
+    return (stripped as { value?: unknown }).value === null;
+  }
+  // Only the literal identifier `undefined` is nullish. Other
+  // identifiers (`onClick`, `props.onSubmit`, etc.) might resolve to
+  // a freshly-allocated function — `cond ? () => fn() : onClick`
+  // still allocates on every render the truthy branch fires, and
+  // `useCallback` IS able to fix that. Bailing out here would be a
+  // false negative.
+  if (isNodeOfType(stripped, "Identifier")) {
+    return stripped.name === "undefined";
+  }
+  if (isNodeOfType(stripped, "ArrowFunctionExpression")) {
+    return isParameterBindingWrapper(stripped);
+  }
+  if (isNodeOfType(stripped, "ConditionalExpression")) {
+    return (
+      isNullishOrStableWrapper(stripped.consequent as EsTreeNode) &&
+      isNullishOrStableWrapper(stripped.alternate as EsTreeNode)
+    );
+  }
+  if (
+    isNodeOfType(stripped, "LogicalExpression") &&
+    (stripped.operator === "??" || stripped.operator === "||" || stripped.operator === "&&")
+  ) {
+    return (
+      isNullishOrStableWrapper(stripped.left as EsTreeNode) &&
+      isNullishOrStableWrapper(stripped.right as EsTreeNode)
+    );
+  }
+  return false;
+};
+
+const isParameterBindingWrapper = (expression: EsTreeNode): boolean => {
+  const stripped = stripParenExpression(expression);
+  // `cond ? () => fn(arg) : undefined` — ternary where each branch
+  // is itself a stable wrapper / nullish. Same `useCallback can't
+  // help` reasoning as the underlying wrapper.
+  if (isNodeOfType(stripped, "ConditionalExpression")) {
+    return (
+      isNullishOrStableWrapper(stripped.consequent as EsTreeNode) &&
+      isNullishOrStableWrapper(stripped.alternate as EsTreeNode) &&
+      // Require AT LEAST one branch to be a wrapper (else the rule
+      // never would have fired — it's not function-producing at all).
+      (isNodeOfType(stripped.consequent as EsTreeNode, "ArrowFunctionExpression") ||
+        isNodeOfType(stripped.alternate as EsTreeNode, "ArrowFunctionExpression"))
+    );
+  }
+  if (!isNodeOfType(stripped, "ArrowFunctionExpression")) return false;
+  // Expression-form body (no braces) — single expression at the top.
+  const body = stripped.body as EsTreeNode;
+  if (!isNodeOfType(body, "BlockStatement")) {
+    return isLightweightBodyExpression(body);
+  }
+  // Block body — accept up to MAX stable statements OR a single
+  // if-guard around stable work. The wrapper is doing tiny
+  // adaptation work that useCallback can't meaningfully optimise.
+  return isStableStatementBlock(body.body ?? []);
 };
 
 // Port of `oxc_linter::rules::react_perf::jsx_no_new_function_as_prop`.
@@ -156,6 +760,7 @@ const followsRenderLocalFunctionBinding = (
 // return <C onClick={x} />`) we don't catch yet.
 export const jsxNoNewFunctionAsProp = defineRule<Rule>({
   id: "jsx-no-new-function-as-prop",
+  tags: ["react-jsx-only"],
   severity: "warn",
   // React Compiler auto-memoizes inline callbacks. The perf footgun this
   // rule guards against doesn't exist in compiler-enabled projects.
@@ -164,7 +769,11 @@ export const jsxNoNewFunctionAsProp = defineRule<Rule>({
   category: "Performance",
   create: (context) => {
     const isTestlikeFile = isTestlikeFilename(context.getFilename?.());
+    let memoRegistry: Map<string, MemoStatus> | null = null;
     return {
+      Program(node: EsTreeNodeOfType<"Program">) {
+        memoRegistry = buildSameFileMemoRegistry(node as EsTreeNode);
+      },
       JSXAttribute(node: EsTreeNodeOfType<"JSXAttribute">) {
         if (isTestlikeFile) return;
         // Intrinsic HTML elements (`<button onClick={...}>`) aren't
@@ -174,6 +783,18 @@ export const jsxNoNewFunctionAsProp = defineRule<Rule>({
         // fires on custom-component props where downstream `React.memo`
         // bails on the new reference.
         if (isJsxAttributeOnIntrinsicHtmlElement(node)) return;
+        // If the consumer component is defined in this same file as a
+        // plain function/arrow (NOT wrapped in memo/forwardRef/
+        // observer), the React.memo argument doesn't apply: the parent
+        // re-renders unconditionally on EVERY prop change, new function
+        // references included. The wrapper pattern is unactionable
+        // noise here.
+        const parentJsxOpening = node.parent;
+        const openingName =
+          parentJsxOpening && isNodeOfType(parentJsxOpening, "JSXOpeningElement")
+            ? (parentJsxOpening.name as EsTreeNode)
+            : null;
+        if (memoStatusForJsxOpeningName(memoRegistry, openingName) === "not-memoised") return;
         // One-shot lifecycle handlers (onMount / onError / onClose /
         // etc.) and render-prop slots (`fallback`, `render*`, `*Render`,
         // `*Renderer`, etc.) accept inline functions by design — they
@@ -189,6 +810,9 @@ export const jsxNoNewFunctionAsProp = defineRule<Rule>({
         const expression = value.expression;
         if (!expression || expression.type === "JSXEmptyExpression") return;
         const expressionNode = expression as EsTreeNode;
+        // Parameter-binding wrappers (`() => fn(arg1, arg2)`) can't be
+        // useCallback-ed — the closure must capture `arg1`/`arg2`.
+        if (isParameterBindingWrapper(expressionNode)) return;
         if (
           !isFunctionProducingExpression(expressionNode) &&
           !followsRenderLocalFunctionBinding(expressionNode, node)

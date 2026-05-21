@@ -20,6 +20,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 export const noPropCallbackInEffect = defineRule<Rule>({
   id: "no-prop-callback-in-effect",
   severity: "warn",
+  tags: ["test-noise"],
   recommendation:
     "Lift the shared state into a Provider so both sides read the same source — no useEffect-driven sync needed",
   create: (context: RuleContext) => {

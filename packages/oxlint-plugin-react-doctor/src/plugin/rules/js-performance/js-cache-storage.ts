@@ -9,6 +9,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const jsCacheStorage = defineRule<Rule>({
   id: "js-cache-storage",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Cache repeated `localStorage`/`sessionStorage` reads in a local variable — each access serializes/deserializes",

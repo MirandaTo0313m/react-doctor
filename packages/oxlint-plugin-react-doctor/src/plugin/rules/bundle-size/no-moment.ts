@@ -5,6 +5,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const noMoment = defineRule<Rule>({
   id: "no-moment",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Replace with `import { format } from 'date-fns'` (tree-shakeable) or `import dayjs from 'dayjs'` (2kb)",

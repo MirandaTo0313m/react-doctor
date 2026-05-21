@@ -48,6 +48,7 @@ const evaluateTitleValue = (value: EsTreeNode | null | undefined): StaticVerdict
 // Port of `oxc_linter::rules::jsx_a11y::iframe_has_title`.
 export const iframeHasTitle = defineRule<Rule>({
   id: "iframe-has-title",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Add a descriptive `title` attribute to every `<iframe>`.",
   category: "Accessibility",

@@ -18,6 +18,7 @@ const RENDER_PROP_PATTERN = /^render[A-Z]/;
 // `children` would be cleaner".
 export const noRenderPropChildren = defineRule<Rule>({
   id: "no-render-prop-children",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Replace `renderXxx` props with compound subcomponents (e.g. `<Modal.Header>`) or `children` so the parent doesn't dictate every customization point",

@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 export const noGenericHandlerNames = defineRule<Rule>({
   id: "no-generic-handler-names",
   severity: "warn",
+  tags: ["test-noise"],
   recommendation:
     "Rename to describe the action: e.g. `handleSubmit` → `saveUserProfile`, `handleClick` → `toggleSidebar`",
   create: (context: RuleContext) => ({

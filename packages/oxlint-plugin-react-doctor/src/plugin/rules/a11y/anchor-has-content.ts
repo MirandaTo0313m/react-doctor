@@ -12,6 +12,7 @@ const MESSAGE =
 // Port of `oxc_linter::rules::jsx_a11y::anchor_has_content`.
 export const anchorHasContent = defineRule<Rule>({
   id: "anchor-has-content",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Add visible or aria-labelled text inside every `<a>`.",
   category: "Accessibility",

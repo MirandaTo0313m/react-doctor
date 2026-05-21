@@ -128,6 +128,7 @@ const collectIdentifierParams = (params: EsTreeNode[]): Set<string> => {
 // handler(req, res)` in `pages/api/...`).
 export const serverHoistStaticIo = defineRule<Rule>({
   id: "server-hoist-static-io",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Hoist the read to module scope: `const FONT_DATA = await fetch(new URL('./fonts/Inter.ttf', import.meta.url)).then(r => r.arrayBuffer())` runs once at module load",

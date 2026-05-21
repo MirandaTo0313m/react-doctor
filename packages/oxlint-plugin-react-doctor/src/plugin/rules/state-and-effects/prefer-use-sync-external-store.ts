@@ -148,6 +148,7 @@ const cleanupReleasesSubscription = (
 
 export const preferUseSyncExternalStore = defineRule<Rule>({
   id: "prefer-use-sync-external-store",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Replace the `useState(getSnapshot())` + `useEffect(() => store.subscribe(() => setSnapshot(getSnapshot())))` pair with `useSyncExternalStore(store.subscribe, getSnapshot)`. The hook handles tearing during concurrent renders and SSR snapshots; the manual subscribe pattern doesn't",

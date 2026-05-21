@@ -1,10 +1,10 @@
 import { createLoopAwareVisitors } from "../../utils/create-loop-aware-visitors.js";
 import { defineRule } from "../../utils/define-rule.js";
 import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
+import { isNodeOfType } from "../../utils/is-node-of-type.js";
 import type { Rule } from "../../utils/rule.js";
 import type { RuleContext } from "../../utils/rule-context.js";
-import { isNodeOfType } from "../../utils/is-node-of-type.js";
-import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 // HACK: methods that ALWAYS return a string when called on a string
 // receiver. Used to recognize `.toLowerCase().includes(x)` chains as
@@ -86,6 +86,46 @@ const STRING_TYPED_PROPERTY_NAMES: ReadonlySet<string> = new Set([
   "prefix",
 ]);
 
+// Identifier suffix conventions whose binding is overwhelmingly a
+// string: `*Text` (`spanText`, `labelText`), `*Path` (`lowerPath`,
+// `filePath`), `*Url` / `*Uri` / `*Href`, `*Name` (when paired with
+// `.includes('literal')`), `*Pattern`, `*Tag`.
+const STRING_TYPED_IDENTIFIER_SUFFIXES: ReadonlyArray<string> = [
+  "Text",
+  "Path",
+  "Url",
+  "Uri",
+  "Href",
+  "Pattern",
+  "Suffix",
+  "Prefix",
+  "String",
+  "Source",
+  "Locale",
+  "Codepoint",
+  "Char",
+  "Word",
+  "Markdown",
+  "HTML",
+  "Html",
+  "Css",
+  "Xml",
+  "Json",
+  "Yaml",
+  "Sql",
+  "Query",
+  "Line",
+  "Filename",
+  "Filepath",
+];
+
+const hasStringTypedSuffix = (name: string): boolean => {
+  for (const suffix of STRING_TYPED_IDENTIFIER_SUFFIXES) {
+    if (name.length > suffix.length && name.endsWith(suffix)) return true;
+  }
+  return false;
+};
+
 // HACK: identifier names that overwhelmingly bind to strings.
 const STRING_TYPED_IDENTIFIER_NAMES: ReadonlySet<string> = new Set([
   "text",
@@ -127,6 +167,21 @@ const STRING_TYPED_IDENTIFIER_NAMES: ReadonlySet<string> = new Set([
   "search",
   "haystack",
   "needle",
+  // Common string-typed naming conventions in addition to the above
+  "suffix",
+  "prefix",
+  "extension",
+  "ext",
+  "tableSuffix",
+  "tablePrefix",
+  "filenameSuffix",
+  "filenamePrefix",
+  "moduleSuffix",
+  "modulePrefix",
+  "declaration",
+  "expression",
+  "statement",
+  "literal",
 ]);
 
 // HACK: returns true when the receiver of `.includes()` / `.indexOf()`
@@ -160,14 +215,67 @@ const isLikelyStringReceiver = (receiver: EsTreeNode | null | undefined): boolea
   ) {
     return true;
   }
-  if (isNodeOfType(receiver, "Identifier") && STRING_TYPED_IDENTIFIER_NAMES.has(receiver.name)) {
+  if (isNodeOfType(receiver, "Identifier")) {
+    if (STRING_TYPED_IDENTIFIER_NAMES.has(receiver.name)) return true;
+    if (hasStringTypedSuffix(receiver.name)) return true;
+  }
+  if (isNodeOfType(receiver, "MemberExpression") && isNodeOfType(receiver.property, "Identifier")) {
+    if (hasStringTypedSuffix(receiver.property.name)) return true;
+  }
+  return false;
+};
+
+// `lines[i]` / `tokens[cursor]` — indexing into an array by a numeric
+// index. The result is the array's element type, which is overwhelmingly
+// `string` in the cases that survive after `isLikelyStringReceiver`
+// (other element types' membership tests don't even compile without
+// the right operand being the same shape). We require the indexer to
+// be an index-named Identifier OR a numeric literal so we don't
+// accidentally pass through `record[someKey]`.
+const INDEX_LIKE_IDENTIFIER_NAMES: ReadonlySet<string> = new Set([
+  "i",
+  "j",
+  "k",
+  "idx",
+  "index",
+  "cursor",
+  "position",
+  "pos",
+  "lineNumber",
+  "lineIndex",
+  "ln",
+  "row",
+  "col",
+  "column",
+]);
+
+const isIndexedArrayElementWithStringArgument = (
+  receiver: EsTreeNode | null | undefined,
+  callArgument: EsTreeNode | null | undefined,
+): boolean => {
+  if (!receiver || !isNodeOfType(receiver, "MemberExpression") || !receiver.computed) {
+    return false;
+  }
+  const property = receiver.property as EsTreeNode;
+  const isIndexLike =
+    (isNodeOfType(property, "Identifier") && INDEX_LIKE_IDENTIFIER_NAMES.has(property.name)) ||
+    (isNodeOfType(property, "Literal") &&
+      typeof (property as { value?: unknown }).value === "number");
+  if (!isIndexLike) return false;
+  // Pair with `.includes("literal-string")` — only skip when the
+  // argument is itself a string literal so we don't paper over genuine
+  // `arr[i].includes(otherObj)` cases.
+  if (!callArgument) return false;
+  if (isNodeOfType(callArgument, "Literal") && typeof callArgument.value === "string") {
     return true;
   }
+  if (isNodeOfType(callArgument, "TemplateLiteral")) return true;
   return false;
 };
 
 export const jsSetMapLookups = defineRule<Rule>({
   id: "js-set-map-lookups",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Use a `Set` or `Map` for repeated membership tests / keyed lookups — `Array.includes`/`find` is O(n) per call",
@@ -182,6 +290,14 @@ export const jsSetMapLookups = defineRule<Rule>({
         const methodName = node.callee.property.name;
         if (methodName !== "includes" && methodName !== "indexOf") return;
         if (isLikelyStringReceiver(node.callee.object)) return;
+        if (
+          isIndexedArrayElementWithStringArgument(
+            node.callee.object,
+            node.arguments?.[0] as EsTreeNode | undefined,
+          )
+        ) {
+          return;
+        }
         context.report({
           node,
           message: `array.${methodName}() in a loop is O(n) per call — convert to a Set for O(1) lookups`,

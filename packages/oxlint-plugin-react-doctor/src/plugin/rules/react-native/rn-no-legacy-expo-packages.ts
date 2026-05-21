@@ -6,6 +6,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const rnNoLegacyExpoPackages = defineRule<Rule>({
   id: "rn-no-legacy-expo-packages",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

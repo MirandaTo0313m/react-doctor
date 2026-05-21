@@ -9,6 +9,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const clientPassiveEventListeners = defineRule<Rule>({
   id: "client-passive-event-listeners",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Add `{ passive: true }` as the third argument: `addEventListener('scroll', handler, { passive: true })`. Only do this if the handler does NOT call `event.preventDefault()` — passive listeners silently ignore `preventDefault()`, which breaks features like pull-to-refresh suppression, custom gestures, and nested-scroll containment.",

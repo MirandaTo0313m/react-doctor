@@ -31,6 +31,7 @@ const reportLegacyShadowProperties = (
 
 export const rnNoLegacyShadowStyles = defineRule<Rule>({
   id: "rn-no-legacy-shadow-styles",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

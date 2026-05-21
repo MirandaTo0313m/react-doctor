@@ -55,6 +55,7 @@ const evaluateMuted = (attribute: EsTreeNodeOfType<"JSXAttribute"> | undefined):
 // Port of `oxc_linter::rules::jsx_a11y::media_has_caption`.
 export const mediaHasCaption = defineRule<Rule>({
   id: "media-has-caption",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: 'Add `<track kind="captions">` inside every `<audio>` / `<video>`.',
   category: "Accessibility",

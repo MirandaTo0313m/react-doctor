@@ -9,12 +9,15 @@ import type { Rule } from "../../utils/rule.js";
 const buildMessage = (depth: number, max: number): string =>
   `JSX nesting depth ${depth} exceeds maximum ${max}.`;
 
-// Default depth threshold: 10. OXC's `max: 2` default is far too strict
+// Default depth threshold: 14. OXC's `max: 2` default is far too strict
 // for real-world React UIs — a routine shadcn Card already exceeds it
 // (`<Card><CardHeader><CardTitle/></CardHeader></Card>` = depth 3).
-// 10 catches genuinely-unreadable trees without flagging idiomatic
-// composition. Tunable per project via `jsxMaxDepth.max`.
-const DEFAULT_MAX_DEPTH = 10;
+// Real apps with Provider stacks + composed layouts + design-system
+// wrappers regularly hit depth 10-13 (Excalidraw, tldraw, Linear-style
+// shells). 14 catches genuinely-unreadable trees (depth >= ~15 is a
+// real warning) without flagging idiomatic composition. Tunable per
+// project via `jsxMaxDepth.max`.
+const DEFAULT_MAX_DEPTH = 14;
 
 interface JsxMaxDepthSettings {
   max?: number;
@@ -97,6 +100,7 @@ const computeChildrenDepth = (
 export const jsxMaxDepth = defineRule<Rule>({
   id: "jsx-max-depth",
   severity: "warn",
+  tags: ["test-noise"],
   recommendation:
     "Extract deeply nested JSX into smaller components to keep render trees readable.",
   category: "Architecture",

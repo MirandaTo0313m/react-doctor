@@ -1,3 +1,8 @@
+import {
+  buildSameFileMemoRegistry,
+  memoStatusForJsxOpeningName,
+  type MemoStatus,
+} from "../../utils/build-same-file-memo-registry.js";
 import { defineRule } from "../../utils/define-rule.js";
 import type { EsTreeNode } from "../../utils/es-tree-node.js";
 import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
@@ -63,6 +68,38 @@ const KNOWN_SLOT_PROP_NAMES: ReadonlySet<string> = new Set([
   "selectButton",
   "badge",
   "message",
+  // Info / help slots — receive JSX explanation/help/preview content
+  "info",
+  "infoMessage",
+  "help",
+  "helpText",
+  "helpTooltip",
+  "avatar",
+  "preview",
+  "adornment",
+  "callToAction",
+  "extraControls",
+  "contextualText",
+  "topHeading",
+  "topContent",
+  "bottomContent",
+  "leftContent",
+  "rightContent",
+  // Generic JSX-receiving slots (corpus-derived)
+  "value",
+  "currentValue",
+  "form",
+  "text",
+  "count",
+  "modal",
+  "rightOptions",
+  "leftOptions",
+  "titleHelper",
+  "inputDisplay",
+  "outputDisplay",
+  "animatedSvg",
+  "Status",
+  "additionalEmptyState",
   // Directional / positional slots (`left`, `right`, `top`, `bottom`,
   // `aside`, `details`, `extra`) — flexbox-aware design systems use
   // these to control layout of slot children.
@@ -101,6 +138,78 @@ const KNOWN_SLOT_PROP_NAMES: ReadonlySet<string> = new Set([
   "renderContent",
   "renderTrigger",
   "renderOption",
+  // CTA / button slots (common in card/list/toolbar primitives —
+  // <ListCard button={<Button>...</Button>}>, <Toolbar
+  // primaryButton={<Button>...} secondaryButton={<Button>...}>, etc.)
+  "button",
+  "primaryButton",
+  "secondaryButton",
+  "tertiaryButton",
+  "leftButton",
+  "rightButton",
+  "submitButton",
+  "cancelButton",
+  "closeButton",
+  "actionButton",
+  "ctaButton",
+  "menuButton",
+  "iconButton",
+  // Dialog / modal slots
+  "dialog",
+  "drawer",
+  "popover",
+  "sheet",
+  "menu",
+  "submenu",
+  "dropdown",
+  "dropdownContent",
+  "dropdownComponents",
+  // Toolbar / navigation slots
+  "toolbar",
+  "toolbarContent",
+  "navigation",
+  "breadcrumbs",
+  "sidebar",
+  "topBar",
+  "bottomBar",
+  // Layout / structural slots
+  "container",
+  "wrapper",
+  "main",
+  "section",
+  "panel",
+  "card",
+  "tile",
+  "row",
+  "column",
+  "cell",
+  "item",
+  "items",
+  "list",
+  "table",
+  "tableHeader",
+  "tableFooter",
+  // Form / input slots
+  "input",
+  "inputElement",
+  "select",
+  "checkbox",
+  "radio",
+  "switch",
+  "field",
+  "fieldset",
+  "legend",
+  "control",
+  "controlPanel",
+  // Image / media slots
+  "image",
+  "img",
+  "thumbnail",
+  "logo",
+  "media",
+  "cover",
+  "banner",
+  "hero",
 ]);
 
 // Suffix patterns that mark a prop as a "slot" — `*Button`, `*Icon`,
@@ -112,11 +221,17 @@ const KNOWN_SLOT_PROP_NAMES: ReadonlySet<string> = new Set([
 // convention a single JSX node, not a perf-critical handler.
 const SLOT_PROP_SUFFIXES: ReadonlyArray<string> = [
   "Button",
+  "Buttons",
   "Icon",
+  "Icons",
   "Component",
+  "Components",
   "Element",
+  "Elements",
   "Slot",
+  "Slots",
   "Content",
+  "Contents",
   "Renderer",
   "Trigger",
   "Header",
@@ -130,6 +245,19 @@ const SLOT_PROP_SUFFIXES: ReadonlyArray<string> = [
   "Panel",
   "Overlay",
   "Shape",
+  // Slot-replacement / customization suffixes
+  "Override",
+  "Overrides",
+  "Items",
+  "Item",
+  "Action",
+  "Actions",
+  "Controls",
+  "Message",
+  "Heading",
+  "Details",
+  "Preview",
+  "Info",
 ];
 
 const isSlotPropName = (propName: string): boolean => {
@@ -181,6 +309,7 @@ const followsRenderLocalJsxBinding = (
 // don't track — those tests are not ported.
 export const jsxNoJsxAsProp = defineRule<Rule>({
   id: "jsx-no-jsx-as-prop",
+  tags: ["react-jsx-only"],
   severity: "warn",
   // React Compiler auto-memoizes inline JSX. The perf footgun this rule
   // guards against doesn't exist in compiler-enabled projects.
@@ -189,13 +318,25 @@ export const jsxNoJsxAsProp = defineRule<Rule>({
   category: "Performance",
   create: (context) => {
     const isTestlikeFile = isTestlikeFilename(context.getFilename?.());
+    let memoRegistry: Map<string, MemoStatus> | null = null;
     return {
+      Program(node: EsTreeNodeOfType<"Program">) {
+        memoRegistry = buildSameFileMemoRegistry(node as EsTreeNode);
+      },
       JSXAttribute(node: EsTreeNodeOfType<"JSXAttribute">) {
         if (isTestlikeFile) return;
         // Intrinsic HTML elements aren't memoized; flagging inline JSX
         // passed as a prop on them is unactionable. See
         // `jsx-no-new-function-as-prop` for the full rationale.
         if (isJsxAttributeOnIntrinsicHtmlElement(node)) return;
+        // Same-file plain-function consumer — `React.memo` rationale
+        // doesn't apply.
+        const parentJsxOpening = node.parent;
+        const openingName =
+          parentJsxOpening && isNodeOfType(parentJsxOpening, "JSXOpeningElement")
+            ? (parentJsxOpening.name as EsTreeNode)
+            : null;
+        if (memoStatusForJsxOpeningName(memoRegistry, openingName) === "not-memoised") return;
         // Known slot prop names (icon, tooltip, fallback, header, etc.)
         // and slot suffixes (*Button, *Icon, *Component, *Element, ...)
         // are designed to receive JSX. Flagging them is unactionable.

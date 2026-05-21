@@ -1,4 +1,5 @@
 import { ALL_EVENT_HANDLERS } from "../../constants/event-handlers.js";
+import { HTML_TAGS } from "../../constants/html-tags.js";
 import { defineRule } from "../../utils/define-rule.js";
 import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 import { getElementType } from "../../utils/get-element-type.js";
@@ -47,6 +48,7 @@ const resolveSettings = (
 // Port of `oxc_linter::rules::jsx_a11y::interactive_supports_focus`.
 export const interactiveSupportsFocus = defineRule<Rule>({
   id: "interactive-supports-focus",
+  tags: ["react-jsx-only"],
   severity: "warn",
   recommendation: "Add `tabIndex` to elements that have interactive roles and event handlers.",
   category: "Accessibility",
@@ -58,6 +60,13 @@ export const interactiveSupportsFocus = defineRule<Rule>({
         const roleAttribute = hasJsxPropIgnoreCase(node.attributes, "role");
         const role = roleAttribute ? getJsxPropStringValue(roleAttribute) : null;
         const elementType = getElementType(node, context.settings);
+        // Custom components (PascalCase, not in HTML_TAGS) encapsulate
+        // their own focus behaviour — `<SegmentButton role="option" />`
+        // and `<LemonButton>` typically manage tabIndex internally via
+        // the underlying intrinsic element. Flagging them is
+        // unactionable: the user can't add tabIndex to a wrapper that
+        // already handles focus correctly.
+        if (!HTML_TAGS.has(elementType)) return;
         const hasInteractiveHandler = ALL_EVENT_HANDLERS.some((handler) =>
           Boolean(hasJsxPropIgnoreCase(node.attributes, handler)),
         );

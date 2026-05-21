@@ -1,11 +1,11 @@
-import { defineRule } from "../../utils/define-rule.js";
 import { createRelativeImportSource } from "../../utils/create-relative-import-source.js";
+import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 import { isBarrelIndexModule } from "../../utils/is-barrel-index-module.js";
 import { resolveBarrelExportFilePath } from "../../utils/resolve-barrel-export-file-path.js";
 import { resolveRelativeImportPath } from "../../utils/resolve-relative-import-path.js";
 import type { Rule } from "../../utils/rule.js";
 import type { RuleContext } from "../../utils/rule-context.js";
-import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 interface RuntimeImportRequest {
   importedName: string | null;
@@ -58,8 +58,12 @@ const buildReportMessage = (
   return "Import from barrel/index file — import directly from the source module for better tree-shaking";
 };
 
+// `test-noise` because stories / tests / playground / examples aren't
+// shipped to users — barrel imports there don't expand the production
+// bundle.
 export const noBarrelImport = defineRule<Rule>({
   id: "no-barrel-import",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Import from the direct path: `import { Button } from './components/Button'` instead of `./components`",
