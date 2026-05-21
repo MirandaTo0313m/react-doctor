@@ -24,10 +24,7 @@ const describeFailure = (error: unknown): string => {
 };
 
 export interface CalculateScoreOptions {
-  /**
-   * Marks the run as CI-originated. The CLI sets this when running
-   * under `GITHUB_ACTIONS` / `GITLAB_CI` / `CIRCLECI` / `CI=true`.
-   */
+  /** Marks the run as CI-originated. */
   isCi?: boolean;
 }
 

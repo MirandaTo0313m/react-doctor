@@ -254,19 +254,13 @@ const runInspect = async (
   if (didDeadCodeFail) skippedChecks.push("dead-code");
   const hasSkippedChecks = skippedChecks.length > 0;
 
-  // HACK: --offline opts out of the score entirely; without a local
-  // fallback (intentional — scoring lives on the server) we simply
-  // skip the score in offline mode and the renderer shows the "score
-  // unavailable" branch. The message distinguishes the two null
-  // sources — `--offline` (user-requested) vs API failure — so the
-  // renderer doesn't claim offline mode when the user is online but
-  // the API was unreachable. CI runs are NOT auto-offline (the score
-  // still appears); only the share URL is suppressed downstream.
-  //
   // Pre-filter diagnostics through the `score` surface so weak-signal
   // rule families (e.g. `design`) stay out of scoring by default and
   // don't dilute the headline number. Surface-included diagnostics
   // still flow through `result.diagnostics` for CLI/JSON consumers.
+  // The two null branches (offline vs unreachable API) are
+  // distinguished in `noScoreMessage` so the renderer doesn't claim
+  // offline mode when the user is online but the API failed.
   const scoreDiagnostics = filterDiagnosticsForSurface(diagnostics, "score", userConfig);
   const scoreResult = options.offline
     ? null
@@ -360,9 +354,6 @@ const runInspect = async (
 
   const displayedSourceFileCount = isDiffMode ? includePaths.length : lintSourceFileCount;
 
-  // Share links are noise in CI logs (the score itself is what useful
-  // there — see the GitHub Action's `score` output). Suppress the
-  // share URL on CI runs even though the score API still runs.
   const shouldShowShareLink = !options.offline && options.share && !options.isCi;
   printSummary(
     surfaceDiagnostics,

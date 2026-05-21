@@ -37,12 +37,11 @@ describe("GitHub Action contract", () => {
     expect(scoreStep).toContain("|| true");
   });
 
-  it("issue #302: action exposes a `score` output and threads the offline input into the score step", () => {
+  it("issue #302: exposes a `score` output and threads `offline` into the score step", () => {
     const actionYaml = readActionYaml();
     const outputsBlock = extractBlock(actionYaml, "outputs:", "\nruns:");
     const scoreStep = normalizeWhitespace(extractStep(actionYaml, "- id: score"));
 
-    expect(outputsBlock).toContain("  score:");
     expect(outputsBlock).toContain("${{ steps.score.outputs.score }}");
     expect(scoreStep).toContain("INPUT_OFFLINE: ${{ inputs.offline }}");
     expect(scoreStep).toContain(

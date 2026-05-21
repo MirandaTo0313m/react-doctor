@@ -60,7 +60,7 @@ Use `--fail-on <level>` to control exit codes (`error`, `warning`, `none`):
 npx react-doctor@latest --fail-on error
 ```
 
-Use `--offline` to skip the score API and the share URL. Scoring runs on the react.doctor API, so offline runs print no score and the rest of the report still renders normally. CI runs are not offline by default — only the share URL is suppressed:
+Use `--offline` to skip the score API and the share URL. Offline runs print no score; the rest of the report renders normally:
 
 ```bash
 npx react-doctor@latest --offline

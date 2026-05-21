@@ -24,7 +24,7 @@ inputs:
     description: "Exit non-zero when diagnostics fire (error, warning, none). Gates on individual diagnostics in the scanned files, not on the score. Combine with `diff` for regression-only gating, or read the `score` output in a follow-up step to enforce an absolute score floor."
     default: "error"
   offline:
-    description: "Skip the score API. The score is computed server-side, so offline runs print no score and the `score` output stays empty. CI runs are not offline by default; the score still appears."
+    description: "Skip the score API. Offline runs print no score and leave the `score` output empty."
     default: "false"
   annotations:
     description: "Emit diagnostics as GitHub Actions annotations so findings show inline in the PR's Files changed view. Combine with `github-token` for both annotations and a sticky comment."
@@ -35,7 +35,7 @@ inputs:
 
 outputs:
   score:
-    description: "Health score (0-100). Empty when the `offline` input is true (the score API is skipped) or when the score API was unreachable."
+    description: "Health score (0-100). Empty in offline mode or when the score API was unreachable."
     value: ${{ steps.score.outputs.score }}
 
 runs:

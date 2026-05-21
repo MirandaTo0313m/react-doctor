@@ -28,11 +28,8 @@ export interface InspectOptions {
   scoreOnly?: boolean;
   offline?: boolean;
   /**
-   * Marks the run as originating from a CI environment. Set by the CLI
-   * when one of `GITHUB_ACTIONS` / `GITLAB_CI` / `CIRCLECI` / `CI=true`
-   * is present. Used to suppress the share URL in the printed summary
-   * (share links are noise in CI logs). Does NOT imply `--offline` —
-   * the score still runs unless the user explicitly opts out.
+   * Marks the run as CI-originated. Suppresses the share URL in the
+   * printed summary; does not imply `--offline`.
    */
   isCi?: boolean;
   silent?: boolean;

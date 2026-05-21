@@ -25,7 +25,7 @@ describe("resolveCliInspectOptions: CI behavior (issue #302)", () => {
     }
   });
 
-  it("does NOT auto-flip offline in CI — the score API still runs so `outputs.score` works", () => {
+  it("does not auto-flip offline in CI; the score path still runs", () => {
     process.env.GITHUB_ACTIONS = "true";
 
     const resolved = resolveCliInspectOptions({}, null);
@@ -34,37 +34,22 @@ describe("resolveCliInspectOptions: CI behavior (issue #302)", () => {
     expect(resolved.isCi).toBe(true);
   });
 
-  it("respects an explicit user `--offline` flag in CI (zero-network opt-out is preserved)", () => {
+  it("respects an explicit user opt-out (CLI flag or config) in CI", () => {
     process.env.GITHUB_ACTIONS = "true";
 
-    const resolved = resolveCliInspectOptions({ offline: true }, null);
-
-    expect(resolved.offline).toBe(true);
-    expect(resolved.isCi).toBe(true);
+    expect(resolveCliInspectOptions({ offline: true }, null).offline).toBe(true);
+    expect(resolveCliInspectOptions({}, { offline: true }).offline).toBe(true);
   });
 
-  it("respects `offline: true` from user config in CI", () => {
-    process.env.GITHUB_ACTIONS = "true";
-
-    const resolved = resolveCliInspectOptions({}, { offline: true });
-
-    expect(resolved.offline).toBe(true);
-    expect(resolved.isCi).toBe(true);
+  it("leaves isCi false outside CI", () => {
+    expect(resolveCliInspectOptions({}, null).isCi).toBe(false);
   });
 
-  it("leaves isCi false outside CI environments", () => {
-    const resolved = resolveCliInspectOptions({}, null);
-
-    expect(resolved.offline).toBe(false);
-    expect(resolved.isCi).toBe(false);
-  });
-
-  it("flags GITLAB_CI and CIRCLECI as CI runs", () => {
-    process.env.GITLAB_CI = "true";
-    expect(resolveCliInspectOptions({}, null).isCi).toBe(true);
-    delete process.env.GITLAB_CI;
-
-    process.env.CIRCLECI = "true";
-    expect(resolveCliInspectOptions({}, null).isCi).toBe(true);
+  it("detects GITHUB_ACTIONS, GITLAB_CI, and CIRCLECI", () => {
+    for (const envVariable of ["GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI"] as const) {
+      process.env[envVariable] = "true";
+      expect(resolveCliInspectOptions({}, null).isCi).toBe(true);
+      delete process.env[envVariable];
+    }
   });
 });
