@@ -254,17 +254,14 @@ const runInspect = async (
   if (didDeadCodeFail) skippedChecks.push("dead-code");
   const hasSkippedChecks = skippedChecks.length > 0;
 
-  // HACK: --offline opts out of the score API entirely; without a
-  // local fallback (intentional — scoring lives on the server) we
-  // simply skip the score in offline mode and the renderer shows the
-  // "score unavailable" branch. The message distinguishes the two
-  // null sources — `--offline` (user-requested) vs API failure (the
-  // network round-trip didn't return a usable score) — so the
+  // HACK: --offline opts out of the score entirely; without a local
+  // fallback (intentional — scoring lives on the server) we simply
+  // skip the score in offline mode and the renderer shows the "score
+  // unavailable" branch. The message distinguishes the two null
+  // sources — `--offline` (user-requested) vs API failure — so the
   // renderer doesn't claim offline mode when the user is online but
-  // the API was unreachable. CI runs are NOT auto-offline: they reach
-  // the score API with a `?ci=1` marker (see `options.isCi`) so the
-  // GitHub Action's `score` output stays populated, and only the share
-  // URL is suppressed downstream.
+  // the API was unreachable. CI runs are NOT auto-offline (the score
+  // still appears); only the share URL is suppressed downstream.
   //
   // Pre-filter diagnostics through the `score` surface so weak-signal
   // rule families (e.g. `design`) stay out of scoring by default and

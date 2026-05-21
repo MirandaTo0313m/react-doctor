@@ -24,7 +24,7 @@ inputs:
     description: "Exit non-zero when diagnostics fire (error, warning, none). Gates on individual diagnostics in the scanned files, not on the score. Combine with `diff` for regression-only gating, or read the `score` output in a follow-up step to enforce an absolute score floor."
     default: "error"
   offline:
-    description: "Skip sending diagnostics to the react.doctor score API. The score is computed by that API, so offline runs print no score and the action's `score` output stays empty. CI runs are NOT offline by default — they tag the score request with `ci=1` so the server can separate CI traffic, and only the share URL is suppressed."
+    description: "Skip the score API. The score is computed server-side, so offline runs print no score and the `score` output stays empty. CI runs are not offline by default; the score still appears."
     default: "false"
   annotations:
     description: "Emit diagnostics as GitHub Actions annotations so findings show inline in the PR's Files changed view. Combine with `github-token` for both annotations and a sticky comment."

@@ -60,7 +60,7 @@ Use `--fail-on <level>` to control exit codes (`error`, `warning`, `none`):
 npx react-doctor@latest --fail-on error
 ```
 
-Use `--offline` to skip the score API and the share URL. Scoring runs on the react.doctor API, so offline runs print no score and the rest of the report still renders normally. CI runs (GitHub Actions, GitLab CI, CircleCI) are NOT auto-offline — the score request is tagged with `?ci=1` instead, and only the share URL is suppressed:
+Use `--offline` to skip the score API and the share URL. Scoring runs on the react.doctor API, so offline runs print no score and the rest of the report still renders normally. CI runs are not offline by default — only the share URL is suppressed:
 
 ```bash
 npx react-doctor@latest --offline
@@ -88,7 +88,7 @@ Options:
   --full             skip prompts, always run a full scan (decline diff-only)
   --project <name>   select workspace project (comma-separated for multiple)
   --diff [base]      scan only files changed vs base branch or uncommitted changes
-  --offline          skip the score API and share URL (no score is shown; CI runs reach the API by default with a ci=1 marker)
+  --offline          skip the score API and share URL (no score is shown)
   --staged           scan only staged (git index) files for pre-commit hooks
   --fail-on <level>  exit with error code on diagnostics: error, warning, none
   --annotations      output diagnostics as GitHub Actions annotations

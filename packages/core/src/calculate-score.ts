@@ -25,12 +25,8 @@ const describeFailure = (error: unknown): string => {
 
 export interface CalculateScoreOptions {
   /**
-   * Tags the request as originating from a CI run by appending `?ci=1`
-   * to the score API URL. The CLI sets this when running under
-   * `GITHUB_ACTIONS` / `GITLAB_CI` / `CIRCLECI` / `CI=true` so the
-   * server can distinguish CI traffic from interactive local runs
-   * (rate-limit envelope, billing attribution, share-link generation,
-   * …) without changing the request body shape.
+   * Marks the run as CI-originated. The CLI sets this when running
+   * under `GITHUB_ACTIONS` / `GITLAB_CI` / `CIRCLECI` / `CI=true`.
    */
   isCi?: boolean;
 }
