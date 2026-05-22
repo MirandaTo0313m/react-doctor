@@ -1,0 +1,147 @@
+# Proposal: `react-doctor/no-standalone-expect`
+
+> **Status**: 🟡 Auto-discovered draft proposal. **Not yet implemented.** Maintainer review wanted before any code lands.
+
+|                             |                             |
+| --------------------------- | --------------------------- |
+| Category                    | `correctness`               |
+| Severity                    | `warn`                      |
+| Source clusters             | `NEW::no-standalone-expect` |
+| Independent draft proposals | 1                           |
+| Backing evidence units      | 1                           |
+
+## Sources
+
+Discovered by the [react-doctor-evals discovery flywheel](https://github.com/millionco/react-doctor-evals/pull/11) mining bug-fix evidence across React OSS repos. The pipeline below produced this proposal:
+
+```
+OSS repo → Vercel Sandbox miner → EvidenceUnit → RuleDrafter (LLM) → RuleDedupe → THIS PR
+```
+
+### Backing evidence
+
+- [`freeCodeCamp/freeCodeCamp` — `api/src/exam-environment/routes/exam-environment.test.ts` (DisableChurnMeta)](https://github.com/freeCodeCamp/freeCodeCamp/commit/a6d06fe724782c64ad54d7acc522ba091a8b700d)
+
+## Validation prompt
+
+FP-aware guidance for the [react-review agent](https://github.com/millionco/react-review) when triaging this rule:
+
+> Check whether the assertion is truly outside a test body. False positives usually come from `it`/`test` callbacks, `test.each` or `it.each` blocks, or helper functions defined inside a test and called from there. Ignore assertions already inside a test and focus on `beforeAll`/`beforeEach`/`afterAll`/`afterEach` or top-level setup code.
+
+## Fix prompt
+
+Actionable fix suggestion surfaced to the user when the rule fires:
+
+> Move the assertion into a real test, or replace it with an explicit setup failure. For setup guards, prefer:
+
+```ts
+beforeAll(async () => {
+  const res = await createToken();
+  if (res.status !== 201) throw new Error(`Expected 201, got ${res.status}`);
+});
+```
+
+If the value is part of the behavior under test, assert inside `it()` instead.
+
+## Positive fixture (SHOULD trigger)
+
+```tsx
+import { beforeAll, expect } from "vitest";
+
+function App() {
+  return <div />;
+}
+
+beforeAll(() => {
+  expect(1).toBe(1);
+});
+```
+
+## Negative fixture (should NOT trigger)
+
+```tsx
+import { expect, it } from "vitest";
+
+function App() {
+  return <div />;
+}
+
+it("renders", () => {
+  expect(1).toBe(1);
+});
+```
+
+## Proposed AST detector
+
+Would land at `packages/oxlint-plugin-react-doctor/src/plugin/rules/correctness/no-standalone-expect.ts`:
+
+```ts
+import { getCalleeIdentifierTrail } from "../../utils/get-callee-identifier-trail.js";
+import { defineRule } from "../../utils/define-rule.js";
+import { isTestlikeFilename } from "../../utils/is-testlike-filename.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
+import { isNodeOfType } from "../../utils/is-node-of-type.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+
+const TEST_CALL_NAMES = new Set(["fit", "it", "test", "xit", "xtest"]);
+
+const isFunctionLike = (node: EsTreeNode): boolean =>
+  isNodeOfType(node, "ArrowFunctionExpression") || isNodeOfType(node, "FunctionExpression");
+
+const isTestCallbackCall = (node: EsTreeNode): boolean => {
+  if (!isNodeOfType(node, "CallExpression")) return false;
+  const trail = getCalleeIdentifierTrail(node);
+  const rootName = trail[trail.length - 1];
+  return Boolean(rootName && TEST_CALL_NAMES.has(rootName));
+};
+
+const isInsideTestCallback = (node: EsTreeNode): boolean => {
+  let current: EsTreeNode | null | undefined = node.parent;
+  while (current) {
+    if (
+      isFunctionLike(current) &&
+      isNodeOfType(current.parent, "CallExpression") &&
+      current.parent.arguments.some((argument) => argument === current) &&
+      isTestCallbackCall(current.parent)
+    ) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
+};
+
+export const noStandaloneExpect = defineRule<Rule>({
+  id: "no-standalone-expect",
+  severity: "warn",
+  category: "Correctness",
+  recommendation:
+    "Move `expect()` into an `it()`/`test()` body. If the check belongs to setup, throw an `Error` in `beforeAll()`/`beforeEach()` instead of asserting there.",
+  create: (context: RuleContext) => {
+    const filename = context.getFilename?.();
+    if (!isTestlikeFilename(filename)) return {};
+
+    return {
+      CallExpression(node: EsTreeNodeOfType<"CallExpression">) {
+        if (!isNodeOfType(node.callee, "Identifier")) return;
+        if (node.callee.name !== "expect") return;
+        if (isInsideTestCallback(node)) return;
+
+        context.report({
+          node: node.callee,
+          message:
+            "expect() outside a test callback — move it into it()/test(), or throw an error in setup code instead",
+        });
+      },
+    };
+  },
+});
+```
+
+---
+
+<sub>
+Generated by `rde discover` (see [millionco/react-doctor-evals#11](https://github.com/millionco/react-doctor-evals/pull/11) for the pipeline). Implementation, test fixtures, and rule registration are deliberately deferred — this PR exists for maintainer triage of the proposal only. Reject, edit-and-approve, or merge after wiring as you see fit.
+</sub>
