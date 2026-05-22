@@ -1,5 +1,11 @@
 # @react-doctor/types
 
+## 0.2.2
+
+### Patch Changes
+
+- fix
+
 ## 0.2.1
 
 ### Patch Changes
