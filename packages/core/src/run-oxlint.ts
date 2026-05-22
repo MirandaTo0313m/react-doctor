@@ -152,7 +152,18 @@ const SANITIZED_ENV: NodeJS.ProcessEnv = (() => {
 // `spawnLintBatches`, large pathological batches now narrow down to
 // the single offending file rather than killing the whole scan as
 // the previous 5-min budget did on supabase/studio.
-const OXLINT_SPAWN_TIMEOUT_MS = 60_000;
+//
+// HACK: env override (`REACT_DOCTOR_OXLINT_SPAWN_TIMEOUT_MS`) so the
+// evals harness can raise the budget when running under Vercel Sandbox
+// microVMs, where the oxlint native binding is markedly slower than on
+// a developer laptop and the default 60s starves every batch.
+const OXLINT_SPAWN_TIMEOUT_MS = (() => {
+  const raw = process.env["REACT_DOCTOR_OXLINT_SPAWN_TIMEOUT_MS"];
+  if (raw === undefined) return 60_000;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 60_000;
+  return parsed;
+})();
 
 const spawnOxlint = (
   args: string[],
