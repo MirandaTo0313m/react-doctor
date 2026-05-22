@@ -1,0 +1,137 @@
+# Proposal: `react-doctor/no-expect-any-as-value`
+
+> **Status**: 🟡 Auto-discovered draft proposal. **Not yet implemented.** Maintainer review wanted before any code lands.
+
+|                             |                               |
+| --------------------------- | ----------------------------- |
+| Category                    | `correctness`                 |
+| Severity                    | `warn`                        |
+| Source clusters             | `NEW::no-expect-any-as-value` |
+| Independent draft proposals | 1                             |
+| Backing evidence units      | 1                             |
+
+## Sources
+
+Discovered by the [react-doctor-evals discovery flywheel](https://github.com/millionco/react-doctor-evals/pull/11) mining bug-fix evidence across React OSS repos. The pipeline below produced this proposal:
+
+```
+OSS repo → Vercel Sandbox miner → EvidenceUnit → RuleDrafter (LLM) → RuleDedupe → THIS PR
+```
+
+### Backing evidence
+
+- [`freeCodeCamp/freeCodeCamp` — `api/__fixtures__/exam.ts` (DisableChurnMeta)](https://github.com/freeCodeCamp/freeCodeCamp/commit/a6d06fe724782c64ad54d7acc522ba091a8b700d)
+
+## Validation prompt
+
+FP-aware guidance for the [react-review agent](https://github.com/millionco/react-review) when triaging this rule:
+
+> Flag only raw `expect.any(...)` or `expect.anything()` calls that are being used as literal data, especially in object/array fixtures and exported constants. Do not flag matcher usage nested inside assertion helpers such as `expect(...).toEqual(...)`, `expect.objectContaining(...)`, or `expect.arrayContaining(...)`, since those are legitimate test patterns. Also avoid reporting code that intentionally builds matcher objects for custom assertion utilities if they are immediately consumed as matchers.
+
+## Fix prompt
+
+Actionable fix suggestion surfaced to the user when the rule fires:
+
+> Replace raw matcher values in fixtures with a concrete placeholder, and reserve `expect.any(...)` for assertion sites. For example:
+
+```ts
+const completedExamChallenge = {
+  id: examChallengeId,
+  completedDate: Date.now(),
+};
+
+expect(completedExamChallenge).toEqual(
+  expect.objectContaining({
+    completedDate: expect.any(Number),
+  }),
+);
+```
+
+## Positive fixture (SHOULD trigger)
+
+```tsx
+import { expect } from "vitest";
+
+export const App = () => null;
+
+const completedExamChallenge = {
+  completedDate: expect.any(Number),
+};
+```
+
+## Negative fixture (should NOT trigger)
+
+```tsx
+import { expect } from "vitest";
+
+export const App = () => null;
+
+const completedExamChallenge = {
+  completedDate: 1,
+};
+
+expect(completedExamChallenge).toEqual(
+  expect.objectContaining({
+    completedDate: expect.any(Number),
+  }),
+);
+```
+
+## Proposed AST detector
+
+Would land at `packages/oxlint-plugin-react-doctor/src/plugin/rules/correctness/no-expect-any-as-value.ts`:
+
+```ts
+import { defineRule } from "../../utils/define-rule.js";
+import { isNodeOfType } from "../../utils/is-node-of-type.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+
+const EXPECT_OBJECT_NAME = "expect";
+const RAW_MATCHER_NAMES: ReadonlySet<string> = new Set(["any", "anything"]);
+
+const getExpectMatcherName = (node: EsTreeNode): string | null => {
+  if (!isNodeOfType(node, "CallExpression")) return null;
+  if (!isNodeOfType(node.callee, "MemberExpression")) return null;
+  if (!isNodeOfType(node.callee.object, "Identifier")) return null;
+  if (node.callee.object.name !== EXPECT_OBJECT_NAME) return null;
+  if (!isNodeOfType(node.callee.property, "Identifier")) return null;
+  return node.callee.property.name;
+};
+
+const hasCallExpressionAncestor = (node: EsTreeNode): boolean => {
+  let ancestor = node.parent ?? null;
+  while (ancestor) {
+    if (isNodeOfType(ancestor, "CallExpression")) return true;
+    ancestor = ancestor.parent ?? null;
+  }
+  return false;
+};
+
+export const noExpectAnyAsValue = defineRule<Rule>({
+  id: "no-expect-any-as-value",
+  severity: "warn",
+  recommendation:
+    "Keep `expect.any(...)` inside assertion matchers like `expect.objectContaining(...)` or `expect(...).toEqual(...)`. Use a concrete placeholder value in plain fixtures and exported data objects instead.",
+  create: (context: RuleContext) => ({
+    CallExpression(node: EsTreeNodeOfType<"CallExpression">) {
+      const matcherName = getExpectMatcherName(node);
+      if (matcherName === null || !RAW_MATCHER_NAMES.has(matcherName)) return;
+      if (hasCallExpressionAncestor(node)) return;
+      context.report({
+        node,
+        message:
+          "`expect.any(...)` is being used as data, which can leak `any` into the assignment; use a concrete placeholder or move the matcher into an assertion.",
+      });
+    },
+  }),
+});
+```
+
+---
+
+<sub>
+Generated by `rde discover` (see [millionco/react-doctor-evals#11](https://github.com/millionco/react-doctor-evals/pull/11) for the pipeline). Implementation, test fixtures, and rule registration are deliberately deferred — this PR exists for maintainer triage of the proposal only. Reject, edit-and-approve, or merge after wiring as you see fit.
+</sub>
