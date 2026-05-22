@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Create Release PR or Publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          publish: pnpm release
+          title: "chore: version packages"
+          commit: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Releases and move action tags
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          REACT_DOCTOR_VERSION=""
+
+          while IFS= read -r encoded; do
+            NAME=$(echo "$encoded" | base64 -d | jq -r '.name')
+            VERSION=$(echo "$encoded" | base64 -d | jq -r '.version')
+            TAG="${NAME}@${VERSION}"
+            if [ "$NAME" = "react-doctor" ]; then
+              TAG="v${VERSION}"
+              REACT_DOCTOR_VERSION="$VERSION"
+            fi
+            PRERELEASE_FLAG=""
+            if [[ "$VERSION" == *-* ]]; then
+              PRERELEASE_FLAG="--prerelease"
+            fi
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --generate-notes \
+              --target "$GITHUB_SHA" \
+              $PRERELEASE_FLAG || true
+          done < <(echo "$PUBLISHED_PACKAGES" | jq -r '.[] | @base64')
+
+          # Move the floating action tags (vMAJOR and vMAJOR.MINOR) to this
+          # commit so `uses: millionco/react-doctor@v0` keeps resolving to the
+          # latest release of the v0.x line. Stable tags are mandatory for
+          # GitHub Action consumers (TODOS: stop recommending `@main`).
+          if [ -z "$REACT_DOCTOR_VERSION" ] || [[ "$REACT_DOCTOR_VERSION" == *-* ]]; then
+            echo "Skipping floating action tag updates (no stable react-doctor release in this batch)."
+            exit 0
+          fi
+
+          MAJOR=$(echo "$REACT_DOCTOR_VERSION" | cut -d. -f1)
+          MINOR=$(echo "$REACT_DOCTOR_VERSION" | cut -d. -f2)
+          for FLOATING in "v${MAJOR}" "v${MAJOR}.${MINOR}"; do
+            git tag -fa "$FLOATING" -m "Move ${FLOATING} to react-doctor v${REACT_DOCTOR_VERSION}"
+            git push origin "refs/tags/${FLOATING}" --force
+          done
