@@ -1,6 +1,6 @@
 # React Doctor / React Review TODOs
 
-Last refreshed against `main` (commit `77b49650`). Items that have
+Last refreshed against `main` (commit `2cc0a603`). Items that have
 landed in code or whose tracking issues/PRs were resolved on GitHub
 have been removed; everything below is still genuinely open.
 
@@ -24,27 +24,18 @@ Fix:
 
 ## P1 - CI, Docs, Config, Product Semantics
 
-### [ ] Stop recommending `millionco/react-doctor@main`
+### [x] Stop recommending `millionco/react-doctor@main`
 
-Status: still open in code.
+Status: shipped — README now recommends `@v0`, `.github/workflows/release.yml` republishes the floating major/minor action tags after every `changesets` publish, and the new "Release versioning" section in the README documents the npm / action / marketing version mapping.
 
 Links:
 
 - https://github.com/millionco/react-doctor/issues/75
 - https://github.com/millionco/react-doctor/issues/79
 
-Current problem:
+Follow-ups (still open):
 
-- README still uses `uses: millionco/react-doctor@main` (README lines 67, 86, 115, 127, 138).
-- `.github/workflows/` contains only `ci.yml` and `update-leaderboard.yml`; no `release.yml`.
-- `@main` was explicitly reported as a supply-chain risk.
-
-Fix:
-
-- Recommend stable action tags in the README.
-- Add a release workflow that publishes a versioned action tag.
-- Ensure released action inputs match docs.
-- Document npm / action / marketing version mapping.
+- After the first release runs, double-check that `@v0`, `@v0.2`, and `@v0.2.3` all resolve and that downstream consumers receive the expected action inputs.
 
 ### [ ] Support mature-codebase adoption workflows natively
 
@@ -129,21 +120,9 @@ Fix:
 - Document memory expectations and large-repo mitigations.
 - Re-check Windows / path-length behavior outside dead-code scanning.
 
-### [ ] Clarify React Doctor vs React Review
+### [x] Clarify React Doctor vs React Review
 
-Status: hosted/product.
-
-User confusion:
-
-- "Should we use react doctor or react review?"
-- "Is there additional benefit if already using react-doctor?"
-- "So a react-doctor clone?"
-
-Fix:
-
-- React Doctor: local CLI, packages, CI command, offline / local workflows.
-- React Review: hosted dashboard, GitHub App, PR comments, baseline / delta, team workflow.
-- Add an "Already using React Doctor?" migration path.
+Status: docs shipped — README now opens with an explicit "React Doctor vs React Review" callout that names the CLI vs hosted split, and points out that the hosted product augments (rather than replaces) CLI users. Hosted-side onboarding / migration path remains a product task.
 
 ### [ ] Fix hosted private-repo / repo-not-found failures
 
@@ -186,49 +165,48 @@ Fix:
 - Add states for waiting, queued, running, no issues, comment failed, repo access failed, unsupported project, backend error.
 - Alert internally when install succeeds but no analysis / comment appears.
 
-### [ ] Make local and hosted privacy/data behavior explicit
+### [x] Make local and hosted privacy/data behavior explicit
 
-Status: partially addressed. README documents `--offline` and the
-share-URL behavior, but no dedicated privacy / data section exists.
-Underlying issues #35 / #89 / #92 are closed on GitHub.
+Status: shipped — README has a dedicated "Privacy and data" section
+that itemizes the score and share-URL network calls, what each request
+actually carries (and what it doesn't — no source code, no file
+paths), what `--offline` / `"share": false` disable, and how hosted
+React Review's GitHub App scope differs.
 
-Fix:
+### [~] Improve score-change communication
 
-- Explain what the CLI sends to score / share APIs.
-- Explain exactly what `--offline` disables.
-- Explain hosted Review repo / code access.
-- Explain local CLI-only mode and the share-link opt-out.
+Status: docs partially shipped — the Scoring section now spells out
+how to debug a score change (release changelog, unique-rules diff,
+`--explain`/`--why`), tells users not to chase 100/100, and points at
+the new "Release versioning" pin recipe for score-floor automation.
 
-### [ ] Improve score-change communication
+Remaining:
 
-Status: partially addressed. README warns "Scores may decrease across
-releases" but there is no per-release rule-diff / score-impact path.
+- Auto-generate the "what rules moved between X and Y" diff in the
+  changelog tooling so the docs link points to concrete content per
+  release.
 
-Sources:
+### [x] Add clear release/version mapping
 
-- 89 -> 49.
-- 93 -> 68.
-- 44/100 with hundreds of warnings.
+Status: shipped — README "Release versioning" section publishes the
+mapping table (CLI npm, plugin npm, composite action git tags,
+hosted Review) and documents the `@v0` / `@v0.2` / `@v0.2.3` floating
+vs exact-pin recommendations. Release workflow keeps the floating
+action tags in sync with each npm publish.
 
-Fix:
+Remaining:
 
-- Add release notes for material rule changes.
-- Show why scores changed: new rules, changed severities, formula, unique error/warning rules.
-- Avoid encouraging blind 100/100 chasing.
+- Bake a "rules added / removed since previous release" section into
+  the auto-generated changelog so the per-release score impact is
+  visible at a glance.
 
-### [ ] Add clear release/version mapping
+### [~] Verify local report / export support and docs
 
-Status: open.
-
-Fix:
-
-- Publish a mapping for marketing version, npm version, action tag, and hosted Review version.
-- Include rule diff and expected score impact in releases.
-
-### [ ] Verify local report / export support and docs
-
-Status: partially addressed. `--json`, `--score`, and the Node API
-(`react-doctor/api`) are documented; SARIF is not.
+Status: docs partially shipped — README now has a "Non-GitHub CI"
+section that walks through the JSON-report flow for GitLab /
+CircleCI / Jenkins / Buildkite consumers and pins the
+`JsonReport` / `JsonReportSummary` API surface as the stable
+integration contract.
 
 Links:
 
@@ -236,11 +214,11 @@ Links:
 - #60
 - #88
 
-Fix:
+Remaining:
 
-- Confirm current JSON / report / share outputs.
-- Document the local-only report workflow.
-- Add a SARIF or generic report path if needed for non-GitHub CI.
+- Decide whether to ship a first-class SARIF output (or a
+  GitLab Code Quality report adapter) instead of relying on
+  caller-side translation.
 
 ## P2 - Platform and Product Expansion
 
@@ -305,18 +283,17 @@ Fix:
 - Detect `preact`, `preact/compat`, and `@preact/signals`.
 - Document unsupported React-specific rules.
 
-### [ ] Clarify React Native coverage
+### [x] Clarify React Native coverage
 
-Status: partially addressed.
+Status: shipped — README has a new "React Native support matrix"
+table (CLI / tvOS / Expo / Windows / macOS / out-of-tree, plus the
+file-extension overrides) directly above the existing mixed-monorepo
+section, and the `rawTextWrapperComponents` / `textComponents`
+escape hatches are now called out next to the matrix.
 
 Links:
 
 - Support: #21, #65, #64
-
-Fix:
-
-- Publish RN support matrix.
-- Document `rawTextWrapperComponents`.
 
 ### [ ] Decide HIR precision work priority
 
@@ -361,7 +338,7 @@ are the ones whose code follow-up is still real.
 
 ### GitHub Action and CI
 
-- [ ] #75 / #79 — README still uses `@main`; no release workflow exists.
+- [x] #75 / #79 — README recommends `@v0` and `.github/workflows/release.yml` republishes floating action tags after each changesets publish.
 
 ### CLI and agent workflow
 
@@ -377,9 +354,9 @@ are the ones whose code follow-up is still real.
 
 ### Product and docs
 
-- [ ] #188 / #97 Action docs and PR blocking — stable tags and delta semantics still outstanding.
+- [~] #188 / #97 Action docs and PR blocking — stable tags shipped (`@v0`); delta semantics for the hosted PR comment still outstanding.
 - [ ] #189 Simplified Chinese README — closed PR; decide whether to ship docs.
-- [ ] #65 / #21 / #64 RN support exists; support matrix / docs remain open.
+- [x] #65 / #21 / #64 RN support — README now publishes the full RN support matrix.
 
 ### Shipped enhancements
 
@@ -387,7 +364,7 @@ are the ones whose code follow-up is still real.
 
 ## Immediate Order
 
-1. [ ] Update the README to recommend stable action tags and add a release workflow.
+1. [x] Update the README to recommend stable action tags and add a release workflow.
 2. [ ] Change React Review PR comment semantics to delta-first.
 3. [ ] Decide and ship a stable `--package-json` (or equivalent) API.
 4. [ ] Ship baseline mode for mature-codebase adoption.
