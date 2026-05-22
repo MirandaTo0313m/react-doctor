@@ -86,12 +86,6 @@ importers:
 
   packages/oxlint-plugin-react-doctor:
     dependencies:
-      '@types/eslint-scope':
-        specifier: ^9.1.0
-        version: 9.1.0
-      '@types/eslint-visitor-keys':
-        specifier: ^3.3.2
-        version: 3.3.2
       '@typescript-eslint/types':
         specifier: ^8.59.3
         version: 8.59.3
@@ -1663,14 +1657,6 @@ packages:
 
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
-
-  '@types/eslint-scope@9.1.0':
-    resolution: {integrity: sha512-ZdRd/C3bTObl4fZ6d7iXN2AVv20waMU2tPy1W24e6ECLbB8T9fBxtONKZUpIpYHShMVk6cDNP9QMVw7Qdqsd/w==}
-    deprecated: This is a stub types definition. eslint-scope provides its own type definitions, so you do not need this installed.
-
-  '@types/eslint-visitor-keys@3.3.2':
-    resolution: {integrity: sha512-Jv7Ga0rieI+HtsG18BwW7FJZbxtm5XZxPRbQN9mSyek6Dt29YEkeWGxnUvwwzQ76j8BrS5nhfLF2tch+9vesuQ==}
-    deprecated: This is a stub types definition. eslint-visitor-keys provides its own type definitions, so you do not need this installed.
 
   '@types/esrecurse@4.3.1':
     resolution: {integrity: sha512-xJBAbDifo5hpffDBuHl0Y8ywswbiAp/Wi7Y/GtAgSlZyIABppyurxVueOPE8LUQOxdlgi6Zqce7uoEpqNTeiUw==}
@@ -4205,14 +4191,6 @@ snapshots:
       assertion-error: 2.0.1
 
   '@types/deep-eql@4.0.2': {}
-
-  '@types/eslint-scope@9.1.0':
-    dependencies:
-      eslint-scope: 9.1.2
-
-  '@types/eslint-visitor-keys@3.3.2':
-    dependencies:
-      eslint-visitor-keys: 5.0.1
 
   '@types/esrecurse@4.3.1': {}
 
