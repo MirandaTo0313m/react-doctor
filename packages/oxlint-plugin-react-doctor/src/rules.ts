@@ -67,49 +67,6 @@ export const EXTERNAL_RULES = [
   { key: "react-hooks-js/todo", source: "react-compiler", severity: "error" },
 ] as const;
 
-const YOU_MIGHT_NOT_NEED_EFFECT_NATIVE_RULES = [
-  { key: "react-doctor/no-derived-state", severity: "warn" },
-  { key: "react-doctor/no-chain-state-updates", severity: "warn" },
-  { key: "react-doctor/no-event-handler", severity: "warn" },
-  { key: "react-doctor/no-adjust-state-on-prop-change", severity: "warn" },
-  { key: "react-doctor/no-reset-all-state-on-prop-change", severity: "warn" },
-  { key: "react-doctor/no-pass-live-state-to-parent", severity: "warn" },
-  { key: "react-doctor/no-pass-data-to-parent", severity: "warn" },
-  { key: "react-doctor/no-initialize-state", severity: "warn" },
-] as const;
-
-const BUILTIN_REACT_NATIVE_RULES = [
-  { key: "react-doctor/rules-of-hooks", severity: "error" },
-  { key: "react-doctor/no-direct-mutation-state", severity: "error" },
-  { key: "react-doctor/jsx-no-duplicate-props", severity: "error" },
-  { key: "react-doctor/jsx-key", severity: "error" },
-  { key: "react-doctor/no-children-prop", severity: "warn" },
-  { key: "react-doctor/no-danger", severity: "warn" },
-  { key: "react-doctor/jsx-no-script-url", severity: "error" },
-  { key: "react-doctor/no-render-return-value", severity: "warn" },
-  { key: "react-doctor/no-string-refs", severity: "warn" },
-  { key: "react-doctor/no-is-mounted", severity: "warn" },
-  { key: "react-doctor/require-render-return", severity: "error" },
-  { key: "react-doctor/no-unknown-property", severity: "warn" },
-] as const;
-
-const BUILTIN_A11Y_NATIVE_RULES = [
-  { key: "react-doctor/alt-text", severity: "error" },
-  { key: "react-doctor/anchor-is-valid", severity: "warn" },
-  { key: "react-doctor/click-events-have-key-events", severity: "warn" },
-  { key: "react-doctor/no-static-element-interactions", severity: "warn" },
-  { key: "react-doctor/role-has-required-aria-props", severity: "error" },
-  { key: "react-doctor/no-autofocus", severity: "warn" },
-  { key: "react-doctor/heading-has-content", severity: "warn" },
-  { key: "react-doctor/html-has-lang", severity: "warn" },
-  { key: "react-doctor/no-redundant-roles", severity: "warn" },
-  { key: "react-doctor/scope", severity: "warn" },
-  { key: "react-doctor/tabindex-no-positive", severity: "warn" },
-  { key: "react-doctor/label-has-associated-control", severity: "warn" },
-  { key: "react-doctor/no-distracting-elements", severity: "error" },
-  { key: "react-doctor/iframe-has-title", severity: "warn" },
-] as const;
-
 export const RULES = [...REACT_DOCTOR_RULES, ...EXTERNAL_RULES] as const;
 
 export const RECOMMENDED_RULES = toRuleMap(collectReactDoctorRulesByFramework("global"));
@@ -123,6 +80,3 @@ export const ALL_REACT_DOCTOR_RULE_KEYS: ReadonlySet<string> = new Set(
 );
 export const FRAMEWORK_SPECIFIC_RULE_KEYS = collectFrameworkSpecificRuleKeys();
 export const REACT_COMPILER_RULES = toRuleMap(collectExternalRulesBySource("react-compiler"));
-export const YOU_MIGHT_NOT_NEED_EFFECT_RULES = toRuleMap(YOU_MIGHT_NOT_NEED_EFFECT_NATIVE_RULES);
-export const BUILTIN_REACT_RULES = toRuleMap(BUILTIN_REACT_NATIVE_RULES);
-export const BUILTIN_A11Y_RULES = toRuleMap(BUILTIN_A11Y_NATIVE_RULES);

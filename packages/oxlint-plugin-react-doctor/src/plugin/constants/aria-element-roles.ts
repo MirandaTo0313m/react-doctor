@@ -4,7 +4,7 @@
 // (e.g. <input> varies by `type`); both appear here so callers that
 // need a single role have to pick.
 
-export const ELEMENT_ROLE_PAIRS: ReadonlyArray<readonly [string, string]> = [
+const ELEMENT_ROLE_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["a", "link"],
   ["address", "group"],
   ["area", "link"],

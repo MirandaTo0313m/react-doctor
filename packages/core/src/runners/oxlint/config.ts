@@ -68,9 +68,9 @@ export const createOxlintConfig = ({
   for (const registryEntry of REACT_DOCTOR_RULES) {
     const rule = reactDoctorPlugin.rules[registryEntry.id];
     if (!rule) continue;
-    // `customRulesOnly` mirrors the historical behavior of the
-    // pre-port `BUILTIN_REACT_RULES` / `BUILTIN_A11Y_RULES` gate —
-    // skip everything ported 1:1 from upstream OXC plugins.
+    // `customRulesOnly` mirrors the historical behavior of the pre-port
+    // builtin-react / builtin-a11y gate — skip everything ported 1:1
+    // from upstream OXC plugins.
     if (customRulesOnly && registryEntry.originallyExternal) continue;
     if (rule.framework !== "global" && !rule.requires) continue;
     if (!shouldEnableRule(rule.requires, rule.tags, capabilities, ignoredTags, rule.disabledBy))

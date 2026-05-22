@@ -53,7 +53,7 @@ const isFunctionLike = (
       isNodeOfType(node, "FunctionDeclaration")),
   );
 
-export const isReactFunctionalComponent = (node: EsTreeNode | null | undefined): boolean => {
+const isReactFunctionalComponent = (node: EsTreeNode | null | undefined): boolean => {
   if (!node) return false;
   if (isNodeOfType(node, "FunctionDeclaration")) {
     return Boolean(node.id && startsWithUppercase(node.id.name));
@@ -68,7 +68,7 @@ export const isReactFunctionalComponent = (node: EsTreeNode | null | undefined):
   return false;
 };
 
-export const isReactFunctionalHOC = (
+const isReactFunctionalHOC = (
   analysis: ProgramAnalysis,
   node: EsTreeNode | null | undefined,
 ): boolean => {
@@ -355,7 +355,7 @@ export const isConstant = (ref: Reference): boolean =>
     }),
   );
 
-export const isRef = (analysis: ProgramAnalysis, ref: Reference): boolean =>
+const isRef = (analysis: ProgramAnalysis, ref: Reference): boolean =>
   Boolean(
     ref.resolved?.defs.some((def) => {
       const node = def.node as unknown as EsTreeNode;
@@ -468,8 +468,3 @@ export const findContainingNode = (
   const parent = (node as unknown as { parent?: EsTreeNode | null }).parent;
   return findContainingNode(analysis, parent);
 };
-
-// Re-export `isFunctionLike` so consumers (rules) and tests can use
-// it without re-declaring; also keeps the imported helper from being
-// reported as unused.
-export { isFunctionLike };

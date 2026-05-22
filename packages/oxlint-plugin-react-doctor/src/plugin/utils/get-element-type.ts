@@ -1,6 +1,5 @@
 import type { EsTreeNode } from "./es-tree-node.js";
 import type { EsTreeNodeOfType } from "./es-tree-node-of-type.js";
-import { getJsxAttributeName } from "./get-jsx-attribute-name.js";
 import { getJsxPropStringValue } from "./get-jsx-prop-string-value.js";
 import { hasJsxPropIgnoreCase } from "./has-jsx-prop-ignore-case.js";
 import { isNodeOfType } from "./is-node-of-type.js";
@@ -63,5 +62,3 @@ export const getElementType = (
   }
   return baseName;
 };
-
-export { flattenJsxName, getJsxAttributeName };

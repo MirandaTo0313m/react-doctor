@@ -346,6 +346,13 @@
       "code": "\n        function Form() {\n          const [firstName, setFirstName] = useState('Dwayne');\n          const [lastName, setLastName] = useState('The Rock');\n          const [fullName, setFullName] = useState('');\n\n          const setDerivedFullName = (firstName, lastName) => {\n            setFullName(\"Sparky\");\n          }\n\n          useEffect(() => {\n            setDerivedFullName(firstName, lastName);\n          }, [firstName, lastName]);\n        }\n      ",
       "todo": false,
       "errors": 1
+    },
+    {
+      "idx": 33,
+      "name": "From props via TypeScript expression wrapper",
+      "code": "\n        function Form({ count }) {\n          const [doubled, setDoubled] = useState(0);\n\n          useEffect(() => {\n            setDoubled((count as number) * 2);\n          }, [count]);\n        }\n      ",
+      "todo": false,
+      "errors": 1
     }
   ]
 }

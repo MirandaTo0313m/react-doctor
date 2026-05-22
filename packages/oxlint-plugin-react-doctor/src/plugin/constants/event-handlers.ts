@@ -2,7 +2,7 @@
 // `KEYBOARD_EVENT_HANDLERS`. Used by jsx-a11y rules that look for
 // pointer / keyboard interactions on a JSX element.
 
-export const MOUSE_EVENT_HANDLERS: ReadonlyArray<string> = [
+const MOUSE_EVENT_HANDLERS: ReadonlyArray<string> = [
   "onClick",
   "onContextMenu",
   "onDblClick",
@@ -24,11 +24,7 @@ export const MOUSE_EVENT_HANDLERS: ReadonlyArray<string> = [
   "onMouseUp",
 ];
 
-export const KEYBOARD_EVENT_HANDLERS: ReadonlyArray<string> = [
-  "onKeyDown",
-  "onKeyPress",
-  "onKeyUp",
-];
+const KEYBOARD_EVENT_HANDLERS: ReadonlyArray<string> = ["onKeyDown", "onKeyPress", "onKeyUp"];
 
 export const ALL_EVENT_HANDLERS: ReadonlyArray<string> = [
   ...MOUSE_EVENT_HANDLERS,

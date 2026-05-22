@@ -144,7 +144,7 @@ for (const [legacyRuleKey, nativeRuleKey] of Object.entries(LEGACY_RULE_KEY_TO_N
   NATIVE_RULE_KEY_TO_LEGACY_RULE_KEYS.set(nativeRuleKey, aliases);
 }
 
-export const getLegacyRuleKeysForNative = (ruleKey: string): ReadonlyArray<string> =>
+const getLegacyRuleKeysForNative = (ruleKey: string): ReadonlyArray<string> =>
   NATIVE_RULE_KEY_TO_LEGACY_RULE_KEYS.get(ruleKey) ?? [];
 
 const canonicalizeRuleKey = (ruleKey: string): string =>

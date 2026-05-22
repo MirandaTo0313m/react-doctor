@@ -1,7 +1,7 @@
 // Ported from `oxc_linter::globals::AriaProperty` constants — the full
 // list of `aria-*` attribute names supported by ARIA 1.2. Stored
 // lowercase, matched against the suffix after `aria-` lower-cased.
-export const ARIA_PROPERTY_NAMES: ReadonlySet<string> = new Set([
+const ARIA_PROPERTY_NAMES: ReadonlySet<string> = new Set([
   "activedescendant",
   "atomic",
   "autocomplete",
