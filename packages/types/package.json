@@ -1,6 +1,6 @@
 {
   "name": "@react-doctor/types",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "description": "Internal shared types and constants for React Doctor. Not published.",
   "license": "MIT",

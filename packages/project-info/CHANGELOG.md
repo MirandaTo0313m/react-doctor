@@ -1,5 +1,14 @@
 # @react-doctor/project-info
 
+## 0.2.3
+
+### Patch Changes
+
+- fix
+
+- Updated dependencies []:
+  - @react-doctor/types@0.2.3
+
 ## 0.2.2
 
 ### Patch Changes
