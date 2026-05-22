@@ -549,6 +549,13 @@ export const runOxlint = async (options: RunOxlintOptions): Promise<Diagnostic[]
       // JS-plugin rule, like supabase/studio's `apps/studio/pages/...`
       // bucket against `eslint-plugin-react-you-might-not-need-an-effect`).
       const droppedFiles: string[] = [];
+      // HACK: keep the first splittable error message we saw so
+      // `onPartialFailure` can report WHY each batch failed instead
+      // of misleadingly always blaming the per-batch budget. Same
+      // root cause across a project tends to repeat (e.g. native
+      // binding crash on every invocation in a sandbox runtime), so
+      // surfacing one example is enough to diagnose.
+      let firstDropReason: string | null = null;
 
       const spawnLintBatch = async (batch: string[]): Promise<Diagnostic[]> => {
         const batchArgs = [...baseArgs, ...batch];
@@ -561,6 +568,9 @@ export const runOxlint = async (options: RunOxlintOptions): Promise<Diagnostic[]
             // Single-file batch still fails with a splittable error —
             // drop the file, record it, and let the scan continue.
             droppedFiles.push(...batch);
+            if (firstDropReason === null && error instanceof Error) {
+              firstDropReason = error.message;
+            }
             return [];
           }
           const splitIndex = Math.ceil(batch.length / 2);
@@ -580,8 +590,9 @@ export const runOxlint = async (options: RunOxlintOptions): Promise<Diagnostic[]
         const previewFiles = droppedFiles.slice(0, previewCount).join(", ");
         const remainderHint =
           droppedFiles.length > previewCount ? `, +${droppedFiles.length - previewCount} more` : "";
+        const reasonHint = firstDropReason ? ` — first failure: ${firstDropReason}` : "";
         onPartialFailure(
-          `${droppedFiles.length} file(s) exceeded the ${OXLINT_SPAWN_TIMEOUT_MS / 1000}s per-batch oxlint budget and were skipped (${previewFiles}${remainderHint})`,
+          `${droppedFiles.length} file(s) failed to lint and were skipped (${previewFiles}${remainderHint})${reasonHint}`,
         );
       }
       return dedupeDiagnostics(allDiagnostics);
