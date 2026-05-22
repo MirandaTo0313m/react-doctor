@@ -33,13 +33,19 @@ const SOURCE_ROOT_PATTERN =
   /\/(?:src|app|lib|components|pages|features|modules|packages|apps|frontend|client)\//g;
 
 const stripAboveSourceRoot = (relativePath: string): string => {
-  if (!FIXTURE_PROJECT_PATTERN.test(relativePath)) return relativePath;
+  const fixtureMatch = FIXTURE_PROJECT_PATTERN.exec(relativePath);
+  if (fixtureMatch === null) return relativePath;
   let lastIdx = -1;
   for (const match of relativePath.matchAll(SOURCE_ROOT_PATTERN)) {
     if (match.index !== undefined && match.index > lastIdx) lastIdx = match.index;
   }
-  if (lastIdx < 0) return relativePath;
-  return relativePath.slice(lastIdx);
+  if (lastIdx >= 0) return relativePath.slice(lastIdx);
+  // No inner source-root marker — strip up through the fixture segment
+  // so the outer `tests/` / `e2e/` prefix can't re-trigger the test
+  // heuristic on fixture production files like
+  // `tests/fixtures/my-app/Component.tsx`. The fixture itself is the
+  // unit under test; its contents are production-shaped code.
+  return relativePath.slice(fixtureMatch.index + fixtureMatch[0].length - 1);
 };
 
 export const isTestFilePath = (relativePath: string): boolean => {

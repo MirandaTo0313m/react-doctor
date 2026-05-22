@@ -66,6 +66,17 @@ describe("isTestFilePath", () => {
     expect(isTestFilePath("fixtures/proj/src/index.ts")).toBe(false);
   });
 
+  it("does NOT match fixture-project files WITHOUT an inner source-root segment", () => {
+    // Same intent as the previous case, but for flatter fixture layouts
+    // where the inner project doesn't have a `src/` / `app/` / `lib/`
+    // wrapper. The outer `tests/` prefix must not re-trigger the
+    // directory heuristic on these production-shaped fixture files.
+    expect(isTestFilePath("tests/fixtures/sample/Button.tsx")).toBe(false);
+    expect(isTestFilePath("tests/fixtures/my-app/Component.tsx")).toBe(false);
+    expect(isTestFilePath("tests/__fixtures__/repo/Component.tsx")).toBe(false);
+    expect(isTestFilePath("e2e/fixtures/widget/index.tsx")).toBe(false);
+  });
+
   it("does NOT match files that merely contain `test` as a substring", () => {
     expect(isTestFilePath("src/contestants/list.tsx")).toBe(false);
     expect(isTestFilePath("src/protest/Banner.tsx")).toBe(false);
