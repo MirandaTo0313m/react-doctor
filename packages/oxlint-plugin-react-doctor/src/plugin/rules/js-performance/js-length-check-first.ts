@@ -62,6 +62,7 @@ const isMatchingLengthEqualityGuard = (
 // runs the every-loop only when lengths match.
 export const jsLengthCheckFirst = defineRule<Rule>({
   id: "js-length-check-first",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Short-circuit with `a.length === b.length && a.every((x, i) => x === b[i])` — unequal-length arrays exit immediately",

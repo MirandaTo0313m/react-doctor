@@ -423,6 +423,21 @@ describe("issue #141: oxlint config must not reference unloaded plugins", () => 
     expect(hasReactHooksJsPluginEntry).toBe(false);
   });
 
+  it("honors top-level off overrides before registering react-hooks-js rules", () => {
+    const config = createOxlintConfig({
+      pluginPath: "/tmp/react-doctor-plugin.js",
+      project: buildTestProject({ rootDirectory: "/tmp/test", hasReactCompiler: true }),
+      severityControls: {
+        rules: { "react-hooks-js/void-use-memo": "off" },
+      },
+    });
+
+    expect(config.rules["react-hooks-js/void-use-memo"]).toBeUndefined();
+    expect(Object.keys(config.rules).some((ruleKey) => ruleKey.startsWith("react-hooks-js/"))).toBe(
+      true,
+    );
+  });
+
   it("emits every react-hooks-js rule at error severity (so they fail CI under --fail-on error)", () => {
     // Regression for the silent severity downgrade introduced in PR
     // #140: every `react-hooks-js/*` entry got mass-converted from
@@ -469,57 +484,154 @@ describe("issue #141: oxlint config must not reference unloaded plugins", () => 
     }
   });
 
-  it("loads eslint-plugin-react-you-might-not-need-an-effect when installed (#187)", () => {
+  it("ships the 8 ported `you-might-not-need-an-effect` rules as react-doctor rules", () => {
+    // After the native port (#187 follow-up), the previously-external
+    // `effect/*` rule surface lives inside `oxlint-plugin-react-doctor`
+    // as plain `react-doctor/*` global rules. No JS plugin entry, no
+    // separate `effect/` namespace, no optional peer dependency.
     const config = createOxlintConfig({
       pluginPath: "/tmp/react-doctor-plugin.js",
       project: buildTestProject({ rootDirectory: "/tmp/test" }),
     });
 
-    const effectRuleKeys = Object.keys(config.rules).filter((ruleKey) =>
-      ruleKey.startsWith("effect/"),
-    );
-    const hasEffectPluginEntry = config.jsPlugins.some(
-      (jsPlugin) => typeof jsPlugin === "object" && jsPlugin.name === "effect",
-    );
+    const portedRuleIds = [
+      "no-derived-state",
+      "no-chain-state-updates",
+      "no-event-handler",
+      "no-adjust-state-on-prop-change",
+      "no-reset-all-state-on-prop-change",
+      "no-pass-live-state-to-parent",
+      "no-pass-data-to-parent",
+      "no-initialize-state",
+    ];
+    for (const ruleId of portedRuleIds) {
+      const fullKey = `react-doctor/${ruleId}`;
+      expect(config.rules[fullKey]).toBe("warn");
+    }
 
-    expect(hasEffectPluginEntry).toBe(true);
-    expect(effectRuleKeys.length).toBeGreaterThan(0);
-    expect(effectRuleKeys.every((ruleKey) => config.rules[ruleKey] === "warn")).toBe(true);
+    expect(Object.keys(config.rules).some((ruleKey) => ruleKey.startsWith("effect/"))).toBe(false);
+    expect(
+      config.jsPlugins.some(
+        (jsPlugin) => typeof jsPlugin === "object" && jsPlugin.name === "effect",
+      ),
+    ).toBe(false);
   });
 
-  it("emits no effect/* rules when customRulesOnly skips third-party plugins (#187)", () => {
+  it("customRulesOnly still excludes the ported effect rule family", () => {
     const config = createOxlintConfig({
       pluginPath: "/tmp/react-doctor-plugin.js",
       project: buildTestProject({ rootDirectory: "/tmp/test" }),
       customRulesOnly: true,
     });
 
-    const effectRuleKeys = Object.keys(config.rules).filter((ruleKey) =>
-      ruleKey.startsWith("effect/"),
-    );
-    const hasEffectPluginEntry = config.jsPlugins.some(
-      (jsPlugin) => typeof jsPlugin === "object" && jsPlugin.name === "effect",
-    );
-
-    expect(effectRuleKeys).toHaveLength(0);
-    expect(hasEffectPluginEntry).toBe(false);
+    const portedRuleIds = [
+      "no-derived-state",
+      "no-chain-state-updates",
+      "no-event-handler",
+      "no-adjust-state-on-prop-change",
+      "no-reset-all-state-on-prop-change",
+      "no-pass-live-state-to-parent",
+      "no-pass-data-to-parent",
+      "no-initialize-state",
+    ];
+    for (const ruleId of portedRuleIds) {
+      expect(config.rules[`react-doctor/${ruleId}`]).toBeUndefined();
+    }
   });
 
-  it("only enables effect/* rules that the resolved plugin actually exports (#187)", async () => {
-    const config = createOxlintConfig({
+  // The four `jsx-no-new-*-as-prop` perf rules guard against a footgun
+  // (new array/object/function/JSX as a prop breaks downstream
+  // `React.memo`) that React Compiler auto-fixes at compile time. When
+  // RC is in scope they're unactionable noise, so they ship with
+  // `disabledBy: ["react-compiler"]` and the gate must drop them.
+  it("disables react-compiler-redundant perf rules when React Compiler is detected", () => {
+    const reactCompilerGatedRules = [
+      "react-doctor/jsx-no-new-object-as-prop",
+      "react-doctor/jsx-no-new-array-as-prop",
+      "react-doctor/jsx-no-new-function-as-prop",
+      "react-doctor/jsx-no-jsx-as-prop",
+    ];
+
+    const withoutCompiler = createOxlintConfig({
+      pluginPath: "/tmp/react-doctor-plugin.js",
+      project: buildTestProject({ rootDirectory: "/tmp/test", hasReactCompiler: false }),
+    });
+    for (const ruleKey of reactCompilerGatedRules) {
+      expect(withoutCompiler.rules[ruleKey]).toBe("warn");
+    }
+
+    const withCompiler = createOxlintConfig({
+      pluginPath: "/tmp/react-doctor-plugin.js",
+      project: buildTestProject({ rootDirectory: "/tmp/test", hasReactCompiler: true }),
+    });
+    for (const ruleKey of reactCompilerGatedRules) {
+      expect(withCompiler.rules[ruleKey]).toBeUndefined();
+    }
+  });
+
+  // The three noisy upstream rules ship `defaultEnabled: false` —
+  // they're imported and runnable, but the default config skips them.
+  // Users opt in via `severityControls.rules`.
+  it("default-disabled rules are off until explicitly enabled via severityControls", () => {
+    const defaultDisabledRules = [
+      "react-doctor/react-in-jsx-scope",
+      "react-doctor/forbid-component-props",
+      "react-doctor/jsx-props-no-spreading",
+    ];
+
+    const defaultConfig = createOxlintConfig({
       pluginPath: "/tmp/react-doctor-plugin.js",
       project: buildTestProject({ rootDirectory: "/tmp/test" }),
     });
-    const pluginModule = await import("eslint-plugin-react-you-might-not-need-an-effect");
-    const availableRuleNames = new Set(
-      Object.keys((pluginModule.default ?? pluginModule).rules ?? {}),
-    );
-    const enabledRuleNames = Object.keys(config.rules)
-      .filter((ruleKey) => ruleKey.startsWith("effect/"))
-      .map((ruleKey) => ruleKey.replace(/^effect\//, ""));
-    expect(enabledRuleNames.length).toBeGreaterThan(0);
-    for (const ruleName of enabledRuleNames) {
-      expect(availableRuleNames.has(ruleName)).toBe(true);
+    for (const ruleKey of defaultDisabledRules) {
+      expect(defaultConfig.rules[ruleKey]).toBeUndefined();
+    }
+
+    const optedInConfig = createOxlintConfig({
+      pluginPath: "/tmp/react-doctor-plugin.js",
+      project: buildTestProject({ rootDirectory: "/tmp/test" }),
+      severityControls: {
+        rules: Object.fromEntries(defaultDisabledRules.map((ruleKey) => [ruleKey, "warn"])),
+      },
+    });
+    for (const ruleKey of defaultDisabledRules) {
+      expect(optedInConfig.rules[ruleKey]).toBe("warn");
+    }
+  });
+
+  // Bugbot #fa3d54f2: `RECOMMENDED_RULES` / `NEXTJS_RULES` / etc. (the
+  // ESLint flat-config presets exported by `oxlint-plugin-react-doctor`
+  // and consumed by `eslint-plugin-react-doctor`) used to include
+  // every `framework: global` rule regardless of `defaultEnabled`. The
+  // oxlint config builder honored the flag but the ESLint presets
+  // didn't, so ESLint users on the `recommended` preset would
+  // silently get every default-disabled rule. Regression test: confirm
+  // none of the default-disabled rules leak into the recommended set.
+  it("RECOMMENDED_RULES (ESLint preset) honors `defaultEnabled: false`", async () => {
+    const pluginModule = await import("oxlint-plugin-react-doctor");
+    const recommendedRuleKeys = new Set(Object.keys(pluginModule.RECOMMENDED_RULES));
+    const defaultDisabledRules = [
+      "react-doctor/react-in-jsx-scope",
+      "react-doctor/forbid-component-props",
+      "react-doctor/jsx-props-no-spreading",
+      "react-doctor/no-unescaped-entities",
+      "react-doctor/jsx-boolean-value",
+      "react-doctor/jsx-curly-brace-presence",
+      "react-doctor/self-closing-comp",
+      "react-doctor/jsx-no-useless-fragment",
+      "react-doctor/display-name",
+      "react-doctor/no-set-state",
+      "react-doctor/no-clone-element",
+      "react-doctor/hook-use-state",
+      "react-doctor/jsx-handler-names",
+      "react-doctor/prefer-function-component",
+      "react-doctor/jsx-fragments",
+      "react-doctor/state-in-constructor",
+      "react-doctor/jsx-filename-extension",
+      "react-doctor/no-react-children",
+    ];
+    for (const ruleKey of defaultDisabledRules) {
+      expect(recommendedRuleKeys.has(ruleKey)).toBe(false);
     }
   });
 });

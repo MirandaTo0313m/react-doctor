@@ -22,6 +22,7 @@ const getDerivingMethodName = (node: EsTreeNode): string | null => {
 // client derive what it needs from the single source prop instead.
 export const serverDedupProps = defineRule<Rule>({
   id: "server-dedup-props",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Pass the source array once and derive the projection on the client — passing both doubles RSC serialization bytes",

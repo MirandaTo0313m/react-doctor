@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const jsEarlyExit = defineRule<Rule>({
   id: "js-early-exit",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Add an early `return` / `continue` to flatten deep nesting and short-circuit when the predicate is already known",

@@ -9,6 +9,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const noNestedComponentDefinition = defineRule<Rule>({
   id: "no-nested-component-definition",
+  tags: ["test-noise", "react-jsx-only"],
   severity: "error",
   category: "Correctness",
   recommendation: "Move to a separate file or to module scope above the parent component",

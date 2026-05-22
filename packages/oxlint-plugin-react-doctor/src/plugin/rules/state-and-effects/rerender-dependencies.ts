@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const rerenderDependencies = defineRule<Rule>({
   id: "rerender-dependencies",
+  tags: ["test-noise"],
   severity: "error",
   recommendation:
     "Extract to a useMemo, useRef, or module-level constant so the reference is stable",

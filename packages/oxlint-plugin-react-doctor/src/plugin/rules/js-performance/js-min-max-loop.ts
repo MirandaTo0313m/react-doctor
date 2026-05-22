@@ -7,6 +7,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const jsMinMaxLoop = defineRule<Rule>({
   id: "js-min-max-loop",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Use `Math.min(...array)` / `Math.max(...array)` instead of sorting just to read the first or last element",

@@ -14,6 +14,7 @@ const NON_NATIVE_NAVIGATOR_PACKAGES = new Set([
 // iOS/Android transitions, swipe-back, and large titles for free.
 export const rnNoNonNativeNavigator = defineRule<Rule>({
   id: "rn-no-non-native-navigator",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

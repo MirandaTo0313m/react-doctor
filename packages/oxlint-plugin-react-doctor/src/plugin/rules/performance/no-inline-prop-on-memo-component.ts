@@ -39,6 +39,7 @@ const isInlineReference = (node: EsTreeNode): string | null => {
 
 export const noInlinePropOnMemoComponent = defineRule<Rule>({
   id: "no-inline-prop-on-memo-component",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Hoist the inline `() => ...` / `[]` / `{}` to a stable reference (useMemo, useCallback, or module scope) so the memoized child doesn't re-render every parent render",

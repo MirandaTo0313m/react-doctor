@@ -6,16 +6,15 @@ import oxlintPlugin, {
   TANSTACK_QUERY_RULES,
   TANSTACK_START_RULES,
 } from "oxlint-plugin-react-doctor";
-import type {
-  EsTreeNode,
-  OxlintRuleSeverity,
-  Rule as PluginRule,
-  RuleVisitors,
-} from "oxlint-plugin-react-doctor";
+import type { EsTreeNode, OxlintRuleSeverity, RuleVisitors } from "oxlint-plugin-react-doctor";
 
 interface EslintRuleContext {
   report: (descriptor: { node: EsTreeNode; message: string }) => void;
   getFilename?: () => string;
+}
+
+interface WrappedRule {
+  create: (context: EslintRuleContext) => RuleVisitors;
 }
 
 interface EslintRuleMeta {
@@ -57,7 +56,7 @@ const RULE_DOCS_BASE_URL = "https://react.doctor/rules";
 
 const recommendedRuleKeys = new Set(Object.keys(RECOMMENDED_RULES));
 
-const wrapAsEslintRule = (ruleName: string, ruleImpl: PluginRule): EslintRule => ({
+const wrapAsEslintRule = (ruleName: string, ruleImpl: WrappedRule): EslintRule => ({
   meta: {
     type: "problem",
     docs: {

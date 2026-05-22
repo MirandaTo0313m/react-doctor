@@ -22,6 +22,7 @@ const VIRTUALIZED_LIST_NAMES = new Set([
 // scope or do the projection earlier in the parent.
 export const rnListDataMapped = defineRule<Rule>({
   id: "rn-list-data-mapped",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

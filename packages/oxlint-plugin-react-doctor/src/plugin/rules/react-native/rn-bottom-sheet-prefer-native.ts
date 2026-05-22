@@ -18,6 +18,7 @@ const JS_BOTTOM_SHEET_PACKAGES = new Set([
 // platform's native modal stack.
 export const rnBottomSheetPreferNative = defineRule<Rule>({
   id: "rn-bottom-sheet-prefer-native",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

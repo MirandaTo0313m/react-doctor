@@ -46,6 +46,7 @@ const isDeferrableSideEffectCall = (objectName: string, methodName: string): boo
 
 export const serverAfterNonblocking = defineRule<Rule>({
   id: "server-after-nonblocking",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "`import { after } from 'next/server'` then wrap: `after(() => analytics.track(...))` — response isn't blocked",

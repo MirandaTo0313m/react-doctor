@@ -7,6 +7,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const tanstackStartNoUseServerInHandler = defineRule<Rule>({
   id: "tanstack-start-no-use-server-in-handler",
+  tags: ["test-noise"],
   requires: ["tanstack-start"],
   severity: "error",
   recommendation:

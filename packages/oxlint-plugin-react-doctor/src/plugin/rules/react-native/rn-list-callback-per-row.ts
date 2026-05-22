@@ -59,6 +59,7 @@ const isRenderItemFunction = (node: EsTreeNode): boolean => {
 // pass the row's id as a primitive prop.
 export const rnListCallbackPerRow = defineRule<Rule>({
   id: "rn-list-callback-per-row",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

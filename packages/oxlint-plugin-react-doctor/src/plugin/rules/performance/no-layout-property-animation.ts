@@ -26,6 +26,7 @@ const isMotionElement = (attributeNode: EsTreeNode): boolean => {
 
 export const noLayoutPropertyAnimation = defineRule<Rule>({
   id: "no-layout-property-animation",
+  tags: ["test-noise"],
   severity: "error",
   recommendation:
     "Use `transform: translateX()` or `scale()` instead — they run on the compositor and skip layout/paint",

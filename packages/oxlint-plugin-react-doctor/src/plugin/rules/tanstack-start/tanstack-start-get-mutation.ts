@@ -11,6 +11,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const tanstackStartGetMutation = defineRule<Rule>({
   id: "tanstack-start-get-mutation",
+  tags: ["test-noise"],
   requires: ["tanstack-start"],
   severity: "warn",
   category: "Security",

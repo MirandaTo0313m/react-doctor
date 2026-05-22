@@ -49,6 +49,7 @@ const containsEarlyReturn = (ifStatement: EsTreeNode): boolean => {
 // short-circuits before the child renders.
 export const rerenderMemoBeforeEarlyReturn = defineRule<Rule>({
   id: "rerender-memo-before-early-return",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Extract the JSX into a memoized child component so the parent's early return short-circuits before the child renders",

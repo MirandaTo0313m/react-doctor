@@ -152,7 +152,18 @@ const SANITIZED_ENV: NodeJS.ProcessEnv = (() => {
 // `spawnLintBatches`, large pathological batches now narrow down to
 // the single offending file rather than killing the whole scan as
 // the previous 5-min budget did on supabase/studio.
-const OXLINT_SPAWN_TIMEOUT_MS = 60_000;
+//
+// HACK: env override (`REACT_DOCTOR_OXLINT_SPAWN_TIMEOUT_MS`) so the
+// evals harness can raise the budget when running under Vercel Sandbox
+// microVMs, where the oxlint native binding is markedly slower than on
+// a developer laptop and the default 60s starves every batch.
+const OXLINT_SPAWN_TIMEOUT_MS = (() => {
+  const raw = process.env["REACT_DOCTOR_OXLINT_SPAWN_TIMEOUT_MS"];
+  if (raw === undefined) return 60_000;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 60_000;
+  return parsed;
+})();
 
 const spawnOxlint = (
   args: string[],
@@ -500,13 +511,14 @@ export const runOxlint = async (options: RunOxlintOptions): Promise<Diagnostic[]
     // HACK: when `includePaths` is undefined we used to pass `["."]` and
     // let oxlint walk the tree itself. That defeated batching entirely
     // — verified on supabase/studio (3567 source files) that JS-plugin
-    // rules (notably `eslint-plugin-react-you-might-not-need-an-effect`)
-    // hit the 5-min `OXLINT_SPAWN_TIMEOUT_MS` in a single batch, leaving
-    // `skippedChecks: ["lint"]` and zero diagnostics for the entire
-    // project. Materializing the file list ahead of time and feeding
-    // it through `batchIncludePaths` keeps each spawn under the timeout
-    // (~7-8s per 100-file batch on studio) and recovers the diagnostics
-    // we were silently dropping.
+    // rules (originally the upstream `effect` plugin; now the natively
+    // ported `react-doctor/no-derived-state` family with comparable
+    // scope-walking cost) hit the 5-min `OXLINT_SPAWN_TIMEOUT_MS` in a
+    // single batch, leaving `skippedChecks: ["lint"]` and zero
+    // diagnostics for the entire project. Materializing the file list
+    // ahead of time and feeding it through `batchIncludePaths` keeps
+    // each spawn under the timeout (~7-8s per 100-file batch on studio)
+    // and recovers the diagnostics we were silently dropping.
     const fileBatches = batchIncludePaths(
       baseArgs,
       includePaths !== undefined ? includePaths : listSourceFiles(rootDirectory),
@@ -535,9 +547,17 @@ export const runOxlint = async (options: RunOxlintOptions): Promise<Diagnostic[]
       // binary-split below: large batches that time out / OOM split in
       // half and retry; the only files that reach this set are the
       // genuinely-pathological ones (e.g. one file × one quadratic
-      // JS-plugin rule, like supabase/studio's `apps/studio/pages/...`
-      // bucket against `eslint-plugin-react-you-might-not-need-an-effect`).
+      // JS-plugin rule, originally hit on supabase/studio's
+      // `apps/studio/pages/...` bucket against the upstream `effect`
+      // plugin and now applicable to the native port).
       const droppedFiles: string[] = [];
+      // HACK: keep the first splittable error message we saw so
+      // `onPartialFailure` can report WHY each batch failed instead
+      // of misleadingly always blaming the per-batch budget. Same
+      // root cause across a project tends to repeat (e.g. native
+      // binding crash on every invocation in a sandbox runtime), so
+      // surfacing one example is enough to diagnose.
+      let firstDropReason: string | null = null;
 
       const spawnLintBatch = async (batch: string[]): Promise<Diagnostic[]> => {
         const batchArgs = [...baseArgs, ...batch];
@@ -550,6 +570,9 @@ export const runOxlint = async (options: RunOxlintOptions): Promise<Diagnostic[]
             // Single-file batch still fails with a splittable error —
             // drop the file, record it, and let the scan continue.
             droppedFiles.push(...batch);
+            if (firstDropReason === null && error instanceof Error) {
+              firstDropReason = error.message;
+            }
             return [];
           }
           const splitIndex = Math.ceil(batch.length / 2);
@@ -569,8 +592,9 @@ export const runOxlint = async (options: RunOxlintOptions): Promise<Diagnostic[]
         const previewFiles = droppedFiles.slice(0, previewCount).join(", ");
         const remainderHint =
           droppedFiles.length > previewCount ? `, +${droppedFiles.length - previewCount} more` : "";
+        const reasonHint = firstDropReason ? ` — first failure: ${firstDropReason}` : "";
         onPartialFailure(
-          `${droppedFiles.length} file(s) exceeded the ${OXLINT_SPAWN_TIMEOUT_MS / 1000}s per-batch oxlint budget and were skipped (${previewFiles}${remainderHint})`,
+          `${droppedFiles.length} file(s) failed to lint and were skipped (${previewFiles}${remainderHint})${reasonHint}`,
         );
       }
       return dedupeDiagnostics(allDiagnostics);

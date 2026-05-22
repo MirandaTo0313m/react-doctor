@@ -9,6 +9,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 // `require(variable)` defeats trace targets and forces a fat bundle.
 export const noDynamicImportPath = defineRule<Rule>({
   id: "no-dynamic-import-path",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Use a string-literal path: `import('./feature/heavy.js')` so the bundler can split this chunk",

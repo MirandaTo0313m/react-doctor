@@ -56,7 +56,7 @@
   },
   "dependencies": {
     "agent-install": "0.0.5",
-    "oxlint": "^1.63.0",
+    "oxlint": "^1.66.0",
     "oxlint-plugin-react-doctor": "workspace:*",
     "prompts": "^2.4.2",
     "typescript": ">=5.0.4 <7"
@@ -68,22 +68,17 @@
     "@types/prompts": "^2.4.9",
     "commander": "^14.0.3",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-you-might-not-need-an-effect": "^0.10.1",
     "ora": "^9.4.0"
   },
   "peerDependencies": {
-    "eslint-plugin-react-hooks": "^6 || ^7",
-    "eslint-plugin-react-you-might-not-need-an-effect": "^0.10"
+    "eslint-plugin-react-hooks": "^6 || ^7"
   },
   "peerDependenciesMeta": {
     "eslint-plugin-react-hooks": {
       "optional": true
-    },
-    "eslint-plugin-react-you-might-not-need-an-effect": {
-      "optional": true
     }
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13.0"
   }
 }

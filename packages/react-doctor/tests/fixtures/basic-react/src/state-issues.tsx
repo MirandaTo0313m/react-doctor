@@ -35,16 +35,18 @@ const LazyInitComponent = () => {
   return <div>{JSON.stringify(value)}</div>;
 };
 
-const CascadingSetStateComponent = () => {
+const CascadingSetStateComponent = ({ trigger }: { trigger: string }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [age, setAge] = useState(0);
 
   useEffect(() => {
+    // Non-empty deps array — the init-only-effect skip doesn't apply
+    // and the rule fires for cascading setStates.
     setName("John");
     setEmail("john@example.com");
     setAge(30);
-  }, []);
+  }, [trigger]);
 
   return (
     <div>

@@ -6,6 +6,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const noPermanentWillChange = defineRule<Rule>({
   id: "no-permanent-will-change",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Add will-change on animation start (`onMouseEnter`) and remove on end (`onAnimationEnd`). Permanent promotion wastes GPU memory and can degrade performance",

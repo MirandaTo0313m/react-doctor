@@ -11,6 +11,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const tanstackStartNoUseEffectFetch = defineRule<Rule>({
   id: "tanstack-start-no-useeffect-fetch",
+  tags: ["test-noise"],
   requires: ["tanstack-start"],
   severity: "warn",
   recommendation:

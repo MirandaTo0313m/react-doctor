@@ -39,10 +39,31 @@ const BUCKET_TO_AUTO_TAGS = {
   server: ["server-action"],
 };
 
+// Buckets containing rules ported from external upstream linters
+// (OXC's `react/*` plugin and `jsx-a11y/*` plugin). Even though these
+// rules now ship inside `react-doctor`, semantically they ARE the
+// previously-external rules — users opting into `customRulesOnly`
+// (which skips third-party rule sets to keep diagnostics narrow to
+// react-doctor's distinctive checks) should still not receive them.
+// `originallyExternal: true` flows through the registry into the
+// oxlint-config builder so `customRulesOnly` can filter them out.
+const BUCKETS_PORTED_FROM_EXTERNAL = new Set(["react-builtins", "a11y"]);
+const EFFECT_RULES_PORTED_FROM_EXTERNAL = new Set([
+  "no-derived-state",
+  "no-chain-state-updates",
+  "no-event-handler",
+  "no-adjust-state-on-prop-change",
+  "no-reset-all-state-on-prop-change",
+  "no-pass-live-state-to-parent",
+  "no-pass-data-to-parent",
+  "no-initialize-state",
+]);
+
 // Bucket directory → default category. A rule MAY override its category
 // with an explicit `category: "..."` field in its `defineRule({...})` call
 // (e.g. some `tanstack-start/` and `nextjs/` rules override to "Security").
 const BUCKET_TO_DEFAULT_CATEGORY = {
+  a11y: "Accessibility",
   architecture: "Architecture",
   "bundle-size": "Bundle Size",
   client: "Performance",
@@ -51,6 +72,7 @@ const BUCKET_TO_DEFAULT_CATEGORY = {
   "js-performance": "Performance",
   nextjs: "Next.js",
   performance: "Performance",
+  "react-builtins": "Correctness",
   "react-native": "React Native",
   "react-ui": "Accessibility",
   security: "Security",
@@ -109,6 +131,9 @@ for (const bucket of fs.readdirSync(PLUGIN_RULES_ROOT, { withFileTypes: true }))
         .replaceAll(path.sep, "/")
         .replace(/\.ts$/, ".js");
     const autoTags = BUCKET_TO_AUTO_TAGS[bucket.name] ?? [];
+    const originallyExternal =
+      BUCKETS_PORTED_FROM_EXTERNAL.has(bucket.name) ||
+      EFFECT_RULES_PORTED_FROM_EXTERNAL.has(ruleId);
     ruleEntries.push({
       ruleId,
       identifier,
@@ -117,6 +142,7 @@ for (const bucket of fs.readdirSync(PLUGIN_RULES_ROOT, { withFileTypes: true }))
       category,
       severity,
       autoTags,
+      originallyExternal,
     });
   }
 }
@@ -159,6 +185,7 @@ const ruleLines = ruleEntries
       `    key: "react-doctor/${entry.ruleId}",\n` +
       `    id: "${entry.ruleId}",\n` +
       `    source: "react-doctor",\n` +
+      `    originallyExternal: ${entry.originallyExternal},\n` +
       `    framework: "${entry.framework}",\n` +
       `    category: "${entry.category}",\n` +
       `    severity: "${entry.severity}",\n` +

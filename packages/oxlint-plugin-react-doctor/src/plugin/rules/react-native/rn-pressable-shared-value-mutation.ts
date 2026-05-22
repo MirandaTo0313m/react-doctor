@@ -56,6 +56,7 @@ const handlerMutatesIdentifier = (
 // false-positives on `Map.prototype.set` / `ref.current.value =` etc.
 export const rnPressableSharedValueMutation = defineRule<Rule>({
   id: "rn-pressable-shared-value-mutation",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

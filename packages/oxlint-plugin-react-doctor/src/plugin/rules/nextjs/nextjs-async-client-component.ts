@@ -9,6 +9,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const nextjsAsyncClientComponent = defineRule<Rule>({
   id: "nextjs-async-client-component",
+  tags: ["test-noise"],
   requires: ["nextjs"],
   severity: "error",
   recommendation:

@@ -33,7 +33,7 @@ const objectExpressionHasNextRevalidate = (objectExpression: EsTreeNode): boolea
 // HACK: in Next.js (App Router), `fetch(url)` inside a Server Component
 // or route handler is cached *forever* by default unless the response
 // is dynamic. The fix is to set `next: { revalidate: <seconds> }` (or
-// `cache: "no-store"` for fully dynamic data, or `next: { tags: [...] }`
+// `cache: "no-store"` for fully dynamic data, or `next: { tags: [..., "test-noise"] }`
 // for tag-based invalidation). Forgetting this is a common silent-stale
 // data bug.
 //

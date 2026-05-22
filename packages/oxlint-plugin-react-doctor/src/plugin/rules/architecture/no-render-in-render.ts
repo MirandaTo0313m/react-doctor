@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 export const noRenderInRender = defineRule<Rule>({
   id: "no-render-in-render",
   severity: "warn",
+  tags: ["test-noise"],
   recommendation:
     "Extract to a named component: `const ListItem = ({ item }) => <div>{item.name}</div>`",
   create: (context: RuleContext) => ({
@@ -25,12 +26,12 @@ export const noRenderInRender = defineRule<Rule>({
         calleeName = expression.callee.property.name;
       }
 
-      if (calleeName && RENDER_FUNCTION_PATTERN.test(calleeName)) {
-        context.report({
-          node: expression,
-          message: `Inline render function "${calleeName}()" — extract to a separate component for proper reconciliation`,
-        });
-      }
+      if (!calleeName || !RENDER_FUNCTION_PATTERN.test(calleeName)) return;
+
+      context.report({
+        node: expression,
+        message: `Inline render function "${calleeName}()" — extract to a separate component for proper reconciliation`,
+      });
     },
   }),
 });

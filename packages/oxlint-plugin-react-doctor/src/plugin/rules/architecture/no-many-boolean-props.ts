@@ -40,6 +40,7 @@ const collectBooleanLikePropsFromBody = (
 export const noManyBooleanProps = defineRule<Rule>({
   id: "no-many-boolean-props",
   severity: "warn",
+  tags: ["test-noise", "react-jsx-only"],
   recommendation:
     "Split into compound components or named variants: `<Button.Primary />`, `<DialogConfirm />` instead of stacking `isPrimary`, `isConfirm` flags",
   create: (context: RuleContext) => {

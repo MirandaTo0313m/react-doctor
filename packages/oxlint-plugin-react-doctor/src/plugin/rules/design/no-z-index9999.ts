@@ -12,6 +12,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const noZIndex9999 = defineRule<Rule>({
   id: "no-z-index-9999",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Define a z-index scale in your design tokens (e.g. dropdown: 10, modal: 20, toast: 30). Create a new stacking context with `isolation: isolate` instead of escalating values",

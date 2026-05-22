@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const tanstackStartRoutePropertyOrder = defineRule<Rule>({
   id: "tanstack-start-route-property-order",
+  tags: ["test-noise"],
   requires: ["tanstack-start"],
   severity: "error",
   recommendation:

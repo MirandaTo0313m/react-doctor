@@ -56,7 +56,10 @@ describe("namespace hook detection (React.useEffect, React.useState, etc.)", () 
   it("detects no-derived-useState with React.useState", () => {
     const issues = findDiagnosticsInFile(diagnostics, "no-derived-useState", "namespace-hooks");
     expect(issues.length).toBeGreaterThan(0);
-    expect(issues[0].message).toContain("initialName");
+    // NOTE: prop name is `currentName` (NOT `initialName`) — the
+    // initial-only prop-name skip in `no-derived-useState` would
+    // suppress `initialName` as a controlled-init pattern.
+    expect(issues[0].message).toContain("currentName");
   });
 
   it("detects rerender-lazy-state-init with React.useState", () => {

@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const rnNoDeprecatedModules = defineRule<Rule>({
   id: "rn-no-deprecated-modules",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "error",
   recommendation:

@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const noUndeferredThirdParty = defineRule<Rule>({
   id: "no-undeferred-third-party",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation: 'Use `next/script` with `strategy="lazyOnload"` or add the `defer` attribute',
   create: (context: RuleContext) => ({

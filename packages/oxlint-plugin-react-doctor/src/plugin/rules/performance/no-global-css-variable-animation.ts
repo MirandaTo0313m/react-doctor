@@ -10,6 +10,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const noGlobalCssVariableAnimation = defineRule<Rule>({
   id: "no-global-css-variable-animation",
+  tags: ["test-noise"],
   severity: "error",
   recommendation:
     "Set the variable on the nearest element instead of a parent, or use `@property` with `inherits: false` to prevent cascade. Better yet, use targeted `element.style.transform` updates",

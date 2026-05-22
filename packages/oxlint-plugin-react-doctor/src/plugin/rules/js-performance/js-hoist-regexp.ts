@@ -7,6 +7,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const jsHoistRegexp = defineRule<Rule>({
   id: "js-hoist-regexp",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Hoist `new RegExp(...)` (or large regex literals) to a module-level constant so it isn't recompiled on every loop iteration",

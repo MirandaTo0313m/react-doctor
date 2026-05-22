@@ -6,6 +6,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const nextjsNoHeadImport = defineRule<Rule>({
   id: "nextjs-no-head-import",
+  tags: ["test-noise"],
   requires: ["nextjs"],
   severity: "error",
   recommendation:

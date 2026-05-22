@@ -194,6 +194,7 @@ const resolveGetHandlerBodies = (
 
 export const nextjsNoSideEffectInGetHandler = defineRule<Rule>({
   id: "nextjs-no-side-effect-in-get-handler",
+  tags: ["test-noise"],
   requires: ["nextjs"],
   severity: "error",
   category: "Security",

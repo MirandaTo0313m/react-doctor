@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const renderingScriptDeferAsync = defineRule<Rule>({
   id: "rendering-script-defer-async",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     'Add `defer` for DOM-dependent scripts or `async` for independent ones (analytics). In Next.js, use `<Script strategy="afterInteractive" />` instead',

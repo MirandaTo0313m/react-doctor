@@ -9,6 +9,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const noLongTransitionDuration = defineRule<Rule>({
   id: "no-long-transition-duration",
+  tags: ["test-noise"],
   severity: "warn",
   category: "Performance",
   recommendation:

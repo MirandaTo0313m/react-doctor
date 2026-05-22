@@ -7,6 +7,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const rnPreferReanimated = defineRule<Rule>({
   id: "rn-prefer-reanimated",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

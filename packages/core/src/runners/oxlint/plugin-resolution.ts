@@ -16,11 +16,6 @@ interface ResolvedReactHooksJsPlugin {
   availableRuleNames: ReadonlySet<string>;
 }
 
-interface ResolvedYouMightNotNeedEffectPlugin {
-  entry: JsPluginEntry;
-  availableRuleNames: ReadonlySet<string>;
-}
-
 interface MaybePluginModule {
   rules?: Record<string, unknown>;
   default?: { rules?: Record<string, unknown> };
@@ -58,29 +53,6 @@ export const resolveReactHooksJsPlugin = (
   }
   return {
     entry: { name: "react-hooks-js", specifier: pluginSpecifier },
-    availableRuleNames: readPluginRuleNames(pluginSpecifier),
-  };
-};
-
-// HACK: oxlint-namespaces this third-party ESLint plugin under
-// `effect` so the long upstream package name doesn't clutter rule
-// keys. Issue #187 - adds the plugin's complementary rule surface
-// alongside react-doctor's native `state-and-effects` rules. The
-// plugin is opt-in: skipped when not installed (peer is optional).
-export const YOU_MIGHT_NOT_NEED_EFFECT_NAMESPACE = "effect";
-
-export const resolveYouMightNotNeedEffectPlugin = (
-  customRulesOnly: boolean,
-): ResolvedYouMightNotNeedEffectPlugin | null => {
-  if (customRulesOnly) return null;
-  let pluginSpecifier: string;
-  try {
-    pluginSpecifier = esmRequire.resolve("eslint-plugin-react-you-might-not-need-an-effect");
-  } catch {
-    return null;
-  }
-  return {
-    entry: { name: YOU_MIGHT_NOT_NEED_EFFECT_NAMESPACE, specifier: pluginSpecifier },
     availableRuleNames: readPluginRuleNames(pluginSpecifier),
   };
 };

@@ -23,6 +23,7 @@ const buildMemberAccessKey = (node: EsTreeNode): string | null => {
 // (two dots) and ≥ 3 occurrences in the same loop block to fire.
 export const jsCachePropertyAccess = defineRule<Rule>({
   id: "js-cache-property-access",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Hoist the deep member access into a const at the top of the loop body: `const { x, y } = obj.deeply.nested`",
@@ -35,6 +36,14 @@ export const jsCachePropertyAccess = defineRule<Rule>({
         // Skip if this MemberExpression is itself nested inside another (only
         // count the deepest reference per chain).
         if (isNodeOfType(child.parent, "MemberExpression") && child.parent.object === child) return;
+        // Skip when the MemberExpression IS the callee of a CallExpression
+        // — that's a method call, not a property read. Hoisting
+        // `const x = obj.deeply.method` doesn't work (lost `this`
+        // binding); the user would need to hoist the PARENT
+        // `const { method } = obj.deeply` and the rule's existing
+        // chain counter still fires on the parent if it's reused
+        // ≥ 3 times.
+        if (isNodeOfType(child.parent, "CallExpression") && child.parent.callee === child) return;
         const key = buildMemberAccessKey(child);
         if (!key) return;
         if (key.split(".").length < 3) return;

@@ -19,6 +19,7 @@ const RENDER_ITEM_PROP_NAMES = new Set([
 // constant, useMemo at list scope) or pass primitives into the row.
 export const rnNoInlineObjectInListItem = defineRule<Rule>({
   id: "rn-no-inline-object-in-list-item",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

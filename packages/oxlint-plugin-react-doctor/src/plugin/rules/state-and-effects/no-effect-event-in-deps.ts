@@ -91,6 +91,7 @@ const createComponentBindingStackTracker = (
 // `onChange` in ComponentB in the same file.
 export const noEffectEventInDeps = defineRule<Rule>({
   id: "no-effect-event-in-deps",
+  tags: ["test-noise"],
   severity: "error",
   recommendation:
     "Call the useEffectEvent callback inside the effect body without listing it; its identity is intentionally unstable",

@@ -8,6 +8,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const noLayoutTransitionInline = defineRule<Rule>({
   id: "no-layout-transition-inline",
+  tags: ["test-noise"],
   severity: "warn",
   category: "Performance",
   recommendation:

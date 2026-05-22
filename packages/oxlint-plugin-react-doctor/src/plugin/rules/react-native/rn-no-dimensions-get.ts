@@ -7,6 +7,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const rnNoDimensionsGet = defineRule<Rule>({
   id: "rn-no-dimensions-get",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "warn",
   recommendation:

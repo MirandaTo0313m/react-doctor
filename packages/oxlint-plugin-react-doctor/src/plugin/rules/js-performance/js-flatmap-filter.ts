@@ -1,11 +1,14 @@
+import { SMALL_LITERAL_ARRAY_MAX_ELEMENTS } from "../../constants/thresholds.js";
 import { defineRule } from "../../utils/define-rule.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
+import { isNodeOfType } from "../../utils/is-node-of-type.js";
 import type { Rule } from "../../utils/rule.js";
 import type { RuleContext } from "../../utils/rule-context.js";
-import { isNodeOfType } from "../../utils/is-node-of-type.js";
-import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 
 export const jsFlatmapFilter = defineRule<Rule>({
   id: "js-flatmap-filter",
+  tags: ["test-noise"],
   severity: "warn",
   recommendation:
     "Use `.flatMap(item => condition ? [value] : [])` — transforms and filters in a single pass instead of creating an intermediate array",
@@ -46,6 +49,21 @@ export const jsFlatmapFilter = defineRule<Rule>({
 
       const innerMethod = innerCall.callee.property.name;
       if (innerMethod !== "map") return;
+
+      // `[a, b, c].map(...).filter(Boolean)` — iterating a small
+      // literal twice is trivial cost; the flatMap rewrite is pure
+      // ceremony at this scale.
+      const receiver: EsTreeNode | null | undefined = innerCall.callee.object;
+      if (receiver && isNodeOfType(receiver, "ArrayExpression")) {
+        const elements = receiver.elements ?? [];
+        if (
+          elements.length > 0 &&
+          elements.length <= SMALL_LITERAL_ARRAY_MAX_ELEMENTS &&
+          elements.every((element) => element == null || !isNodeOfType(element, "SpreadElement"))
+        ) {
+          return;
+        }
+      }
 
       context.report({
         node,

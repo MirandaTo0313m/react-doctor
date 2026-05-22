@@ -20,7 +20,7 @@
     "@react-doctor/project-info": "workspace:*",
     "@react-doctor/types": "workspace:*",
     "deslop-js": "^0.0.9",
-    "oxlint": "^1.63.0",
+    "oxlint": "^1.66.0",
     "oxlint-plugin-react-doctor": "workspace:*",
     "picomatch": "^4.0.4",
     "typescript": "^6.0.3"
@@ -28,18 +28,13 @@
   "devDependencies": {
     "@types/node": "^25.6.0",
     "@types/picomatch": "^4.0.3",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-you-might-not-need-an-effect": "^0.10.1"
+    "eslint-plugin-react-hooks": "^7.1.1"
   },
   "peerDependencies": {
-    "eslint-plugin-react-hooks": "^6 || ^7",
-    "eslint-plugin-react-you-might-not-need-an-effect": "^0.10"
+    "eslint-plugin-react-hooks": "^6 || ^7"
   },
   "peerDependenciesMeta": {
     "eslint-plugin-react-hooks": {
-      "optional": true
-    },
-    "eslint-plugin-react-you-might-not-need-an-effect": {
       "optional": true
     }
   },

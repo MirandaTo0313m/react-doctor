@@ -12,6 +12,7 @@ import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
 // the JS thread isn't pegged.
 export const rnNoScrollState = defineRule<Rule>({
   id: "rn-no-scroll-state",
+  tags: ["test-noise"],
   requires: ["react-native"],
   severity: "error",
   recommendation:
