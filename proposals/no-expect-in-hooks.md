@@ -1,0 +1,141 @@
+# Proposal: `react-doctor/no-expect-in-hooks`
+
+> **Status**: 🟡 Auto-discovered draft proposal. **Not yet implemented.** Maintainer review wanted before any code lands.
+
+|                             |                           |
+| --------------------------- | ------------------------- |
+| Category                    | `correctness`             |
+| Severity                    | `warn`                    |
+| Source clusters             | `NEW::no-expect-in-hooks` |
+| Independent draft proposals | 2                         |
+| Backing evidence units      | 1                         |
+
+## Sources
+
+Discovered by the [react-doctor-evals discovery flywheel](https://github.com/millionco/react-doctor-evals/pull/11) mining bug-fix evidence across React OSS repos. The pipeline below produced this proposal:
+
+```
+OSS repo → Vercel Sandbox miner → EvidenceUnit → RuleDrafter (LLM) → RuleDedupe → THIS PR
+```
+
+### Backing evidence
+
+- [`freeCodeCamp/freeCodeCamp` — `api/src/exam-environment/routes/exam-environment.test.ts` (DisableChurnMeta)](https://github.com/freeCodeCamp/freeCodeCamp/commit/a6d06fe724782c64ad54d7acc522ba091a8b700d)
+
+## Validation prompt
+
+FP-aware guidance for the [react-review agent](https://github.com/millionco/react-review) when triaging this rule:
+
+> Check whether the diagnostic points to an `expect()` call inside a setup hook such as `beforeAll`, `beforeEach`, `afterAll`, or `afterEach`. Common false positives are helper functions defined inside the hook body but executed later, or custom assertion helpers that happen to be named `expect` but are not the test-runner matcher API. If the hook is intentionally validating setup state, an explicit `throw` is usually the right replacement.
+
+## Fix prompt
+
+Actionable fix suggestion surfaced to the user when the rule fires:
+
+> Move the assertion into an `it`/`test` block, or replace it with a direct guard in the hook. For setup checks, prefer an explicit error:
+
+```ts
+beforeAll(async () => {
+  const res = await superPost("/user/exam-environment/token");
+  if (res.status !== 201) {
+    throw new Error(`Expected 201, got ${res.status}`);
+  }
+});
+```
+
+## Positive fixture (SHOULD trigger)
+
+```tsx
+import { beforeAll, expect } from "vitest";
+
+beforeAll(() => {
+  expect(1).toBe(1);
+});
+```
+
+## Negative fixture (should NOT trigger)
+
+```tsx
+import { beforeAll, expect, it } from "vitest";
+
+beforeAll(() => {
+  if (Math.random() < 0) {
+    throw new Error("setup failed");
+  }
+});
+
+it("passes", () => {
+  expect(1).toBe(1);
+});
+```
+
+## Proposed AST detector
+
+Would land at `packages/oxlint-plugin-react-doctor/src/plugin/rules/correctness/no-expect-in-hooks.ts`:
+
+```ts
+import { defineRule } from "../../utils/define-rule.js";
+import { isNodeOfType } from "../../utils/is-node-of-type.js";
+import { isTestlikeFilename } from "../../utils/is-testlike-filename.js";
+import { walkAst } from "../../utils/walk-ast.js";
+import type { EsTreeNode } from "../../utils/es-tree-node.js";
+import type { EsTreeNodeOfType } from "../../utils/es-tree-node-of-type.js";
+import type { Rule } from "../../utils/rule.js";
+import type { RuleContext } from "../../utils/rule-context.js";
+
+const SETUP_HOOK_NAMES = new Set(["beforeAll", "beforeEach", "afterAll", "afterEach"]);
+
+const isFunctionLike = (node: EsTreeNode): boolean =>
+  isNodeOfType(node, "ArrowFunctionExpression") ||
+  isNodeOfType(node, "FunctionExpression") ||
+  isNodeOfType(node, "FunctionDeclaration");
+
+const isExpectCall = (node: EsTreeNode): boolean =>
+  isNodeOfType(node, "CallExpression") &&
+  isNodeOfType(node.callee, "Identifier") &&
+  node.callee.name === "expect";
+
+const getHookCallback = (node: EsTreeNodeOfType<"CallExpression">): EsTreeNode | null => {
+  const callback = node.arguments?.[0];
+  if (!callback) return null;
+  if (isFunctionLike(callback)) return callback;
+  return null;
+};
+
+export const noExpectInHooks = defineRule<Rule>({
+  id: "no-expect-in-hooks",
+  severity: "warn",
+  recommendation:
+    "Move the assertion into an `it`/`test` block, or replace it with an explicit `throw` from the hook if setup must fail early.",
+  create: (context: RuleContext) => {
+    const isTestlikeFile = isTestlikeFilename(context.getFilename?.());
+    if (!isTestlikeFile) return {};
+
+    return {
+      CallExpression(node: EsTreeNodeOfType<"CallExpression">) {
+        if (!isNodeOfType(node.callee, "Identifier")) return;
+        if (!SETUP_HOOK_NAMES.has(node.callee.name)) return;
+
+        const callback = getHookCallback(node);
+        if (!callback) return;
+
+        walkAst(callback.body, (child: EsTreeNode) => {
+          if (isFunctionLike(child)) return false;
+          if (!isExpectCall(child)) return;
+          context.report({
+            node: child,
+            message:
+              "Avoid `expect()` inside Vitest/Jest setup hooks — move the assertion into a test or throw explicitly from the hook instead.",
+          });
+        });
+      },
+    };
+  },
+});
+```
+
+---
+
+<sub>
+Generated by `rde discover` (see [millionco/react-doctor-evals#11](https://github.com/millionco/react-doctor-evals/pull/11) for the pipeline). Implementation, test fixtures, and rule registration are deliberately deferred — this PR exists for maintainer triage of the proposal only. Reject, edit-and-approve, or merge after wiring as you see fit.
+</sub>
