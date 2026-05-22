@@ -69,6 +69,10 @@ export default defineConfig({
           // resolves the bindings from the deslop-js node_modules
           // tree on install — see issue #404.
           "deslop-js",
+          // Effect ships as ~1MB+ of tree-shakable TypeScript; bundling
+          // it would balloon the published tarball. Match react-doctor-evals
+          // and let installers pull it as a regular dependency.
+          "effect",
           "oxc-parser",
           "oxc-resolver",
           "oxlint",
@@ -104,6 +108,7 @@ export default defineConfig({
         neverBundle: [
           "agent-install",
           "deslop-js",
+          "effect",
           "oxc-parser",
           "oxc-resolver",
           "oxlint",

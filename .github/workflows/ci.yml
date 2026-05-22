@@ -43,3 +43,6 @@ jobs:
             echo "Built CLI version is missing or 0.0.0; build env did not inject VERSION"
             exit 1
           fi
+
+      - name: Smoke test JSON report shape
+        run: pnpm smoke:json-report

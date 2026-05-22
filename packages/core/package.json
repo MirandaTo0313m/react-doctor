@@ -20,12 +20,14 @@
     "@react-doctor/project-info": "workspace:*",
     "@react-doctor/types": "workspace:*",
     "deslop-js": "^0.0.11",
+    "effect": "4.0.0-beta.70",
     "oxlint": "^1.66.0",
     "oxlint-plugin-react-doctor": "workspace:*",
     "picomatch": "^4.0.4",
     "typescript": "^6.0.3"
   },
   "devDependencies": {
+    "@effect/vitest": "4.0.0-beta.70",
     "@types/node": "^25.6.0",
     "@types/picomatch": "^4.0.3",
     "eslint-plugin-react-hooks": "^7.1.1"

@@ -64,7 +64,26 @@ export const CANONICAL_GITHUB_URL = "https://github.com/millionco/react-doctor";
 
 export const SKILL_NAME = "react-doctor";
 
+// HACK: cap on combined stdout+stderr bytes per oxlint batch. Above
+// this we kill the process (SIGKILL) and ask the user to narrow the
+// scan with --diff. Pinned to 50 MiB because oxlint emits ~1 KB of
+// JSON per diagnostic and the largest real-world batches in the eval
+// corpus (supabase/studio at 3,567 source files) produce ~3 MiB
+// total — 50 MiB leaves an order of magnitude of headroom for
+// pathological JS-plugin rules that emit one diagnostic per AST node.
 export const OXLINT_OUTPUT_MAX_BYTES = 50 * 1024 * 1024;
+
+// HACK: per-batch wall-clock budget for an oxlint spawn. Each batch
+// is at most OXLINT_MAX_FILES_PER_BATCH (= 100) files and a healthy
+// batch finishes in well under a second; 60 s leaves a large safety
+// margin while still firing fast enough that the binary-split
+// recovery in spawnLintBatches narrows a pathological batch to the
+// single offending file rather than killing the whole scan as the
+// previous 5-min budget did on supabase/studio. The eval harness
+// overrides this via the OxlintSpawnTimeoutMs Context.Reference when
+// running under Vercel Sandbox microVMs where the oxlint native
+// binding is markedly slower than on a developer laptop.
+export const OXLINT_SPAWN_TIMEOUT_MS = 60_000;
 
 // HACK: lookahead cap for JSX opener-span scanning; bounds worst-case
 // work on pathological files. Real openers stay well under this.

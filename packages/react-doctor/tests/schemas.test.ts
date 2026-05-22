@@ -1,0 +1,226 @@
+import * as Schema from "effect/Schema";
+import { describe, expect, it } from "vite-plus/test";
+import {
+  buildDiagnosticIdentity,
+  Diagnostic,
+  JsonReport,
+  JsonReportV1,
+  NodeBinaryPath,
+  OxlintBinaryPath,
+  Severity,
+} from "@react-doctor/core";
+
+describe("Diagnostic schema", () => {
+  it("decodes the minimal shape (required fields only)", () => {
+    const decoded = Schema.decodeUnknownSync(Diagnostic)({
+      filePath: "/repo/src/App.tsx",
+      plugin: "react-doctor",
+      rule: "no-derived-state",
+      severity: "error",
+      message: "Avoid useState(propX)",
+      help: "Use propX directly",
+      line: 12,
+      column: 4,
+      category: "Correctness",
+    });
+    expect(decoded.filePath).toBe("/repo/src/App.tsx");
+    expect(decoded.severity).toBe("error");
+    expect(decoded.url).toBeUndefined();
+    expect(decoded.suppressionHint).toBeUndefined();
+  });
+
+  it("decodes optional fields when present", () => {
+    const decoded = Schema.decodeUnknownSync(Diagnostic)({
+      filePath: "/repo/src/Button.tsx",
+      plugin: "react-doctor",
+      rule: "no-barrel-import",
+      severity: "warning",
+      message: "Barrel import",
+      help: "Import directly",
+      url: "https://www.react.doctor/rules/no-barrel-import",
+      line: 1,
+      column: 1,
+      category: "Bundle Size",
+      suppressionHint: "// react-doctor-disable-next-line no-barrel-import",
+    });
+    expect(decoded.url).toBe("https://www.react.doctor/rules/no-barrel-import");
+    expect(decoded.suppressionHint).toBe("// react-doctor-disable-next-line no-barrel-import");
+  });
+
+  it("rejects an unknown severity value", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(Diagnostic)({
+        filePath: "/repo/src/App.tsx",
+        plugin: "react-doctor",
+        rule: "x",
+        severity: "info",
+        message: "x",
+        help: "x",
+        line: 1,
+        column: 1,
+        category: "x",
+      }),
+    ).toThrow();
+  });
+
+  it("round-trips via encode / decode", () => {
+    const original = new Diagnostic({
+      filePath: "/repo/src/App.tsx",
+      plugin: "react",
+      rule: "no-danger",
+      severity: "warning",
+      message: "Avoid dangerouslySetInnerHTML",
+      help: "Use safer alternatives",
+      line: 10,
+      column: 1,
+      category: "Security",
+    });
+    const encoded = Schema.encodeUnknownSync(Diagnostic)(original);
+    const decoded = Schema.decodeUnknownSync(Diagnostic)(encoded);
+    expect(decoded.filePath).toBe(original.filePath);
+    expect(decoded.rule).toBe(original.rule);
+    expect(decoded.line).toBe(original.line);
+  });
+});
+
+describe("Severity schema", () => {
+  it("accepts the two literal values", () => {
+    expect(Schema.decodeUnknownSync(Severity)("error")).toBe("error");
+    expect(Schema.decodeUnknownSync(Severity)("warning")).toBe("warning");
+  });
+
+  it("rejects anything else", () => {
+    expect(() => Schema.decodeUnknownSync(Severity)("info")).toThrow();
+    expect(() => Schema.decodeUnknownSync(Severity)(undefined)).toThrow();
+  });
+});
+
+describe("buildDiagnosticIdentity", () => {
+  it("produces the documented shape", () => {
+    expect(
+      buildDiagnosticIdentity({
+        filePath: "/repo/src/App.tsx",
+        line: 12,
+        column: 4,
+        plugin: "react-doctor",
+        rule: "no-derived-state",
+      }),
+    ).toBe("/repo/src/App.tsx::12:4::react-doctor/no-derived-state");
+  });
+
+  it("is deterministic across calls with the same input", () => {
+    const inputs = {
+      filePath: "/a/b/c.tsx",
+      line: 1,
+      column: 1,
+      plugin: "p",
+      rule: "r",
+    } as const;
+    expect(buildDiagnosticIdentity(inputs)).toBe(buildDiagnosticIdentity(inputs));
+  });
+
+  it("changes when any field changes", () => {
+    const base = {
+      filePath: "/a/b/c.tsx",
+      line: 1,
+      column: 1,
+      plugin: "p",
+      rule: "r",
+    } as const;
+    const seen = new Set<string>();
+    seen.add(buildDiagnosticIdentity(base));
+    seen.add(buildDiagnosticIdentity({ ...base, filePath: "/a/b/d.tsx" }));
+    seen.add(buildDiagnosticIdentity({ ...base, line: 2 }));
+    seen.add(buildDiagnosticIdentity({ ...base, column: 2 }));
+    seen.add(buildDiagnosticIdentity({ ...base, plugin: "q" }));
+    seen.add(buildDiagnosticIdentity({ ...base, rule: "s" }));
+    expect(seen.size).toBe(6);
+  });
+});
+
+describe("JsonReport (v1)", () => {
+  it("decodes a minimal v1 report", () => {
+    const decoded = Schema.decodeUnknownSync(JsonReport)({
+      schemaVersion: 1,
+      version: "0.2.3",
+      ok: true,
+      directory: "/repo",
+      mode: "full",
+      diff: null,
+      projects: [],
+      diagnostics: [],
+      summary: {
+        errorCount: 0,
+        warningCount: 0,
+        affectedFileCount: 0,
+        totalDiagnosticCount: 0,
+        score: 100,
+        scoreLabel: "Excellent",
+      },
+      elapsedMilliseconds: 42,
+      error: null,
+    });
+    expect(decoded.schemaVersion).toBe(1);
+    expect(decoded instanceof JsonReportV1).toBe(true);
+  });
+
+  it("rejects a report missing the schemaVersion discriminator", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(JsonReport)({
+        version: "0.2.3",
+        ok: true,
+        directory: "/repo",
+        mode: "full",
+        diff: null,
+        projects: [],
+        diagnostics: [],
+        summary: {
+          errorCount: 0,
+          warningCount: 0,
+          affectedFileCount: 0,
+          totalDiagnosticCount: 0,
+          score: null,
+          scoreLabel: null,
+        },
+        elapsedMilliseconds: 0,
+        error: null,
+      }),
+    ).toThrow();
+  });
+
+  it("rejects an unknown mode", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(JsonReportV1)({
+        schemaVersion: 1,
+        version: "0.2.3",
+        ok: true,
+        directory: "/repo",
+        mode: "incremental",
+        diff: null,
+        projects: [],
+        diagnostics: [],
+        summary: {
+          errorCount: 0,
+          warningCount: 0,
+          affectedFileCount: 0,
+          totalDiagnosticCount: 0,
+          score: null,
+          scoreLabel: null,
+        },
+        elapsedMilliseconds: 0,
+        error: null,
+      }),
+    ).toThrow();
+  });
+});
+
+describe("Branded paths", () => {
+  it("OxlintBinaryPath and NodeBinaryPath decode raw strings", () => {
+    expect(Schema.decodeUnknownSync(OxlintBinaryPath)("/usr/local/bin/oxlint")).toBe(
+      "/usr/local/bin/oxlint",
+    );
+    expect(Schema.decodeUnknownSync(NodeBinaryPath)("/usr/local/bin/node")).toBe(
+      "/usr/local/bin/node",
+    );
+  });
+});

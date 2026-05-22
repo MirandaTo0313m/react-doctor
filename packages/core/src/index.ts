@@ -1,3 +1,7 @@
+export * from "./errors.js";
+export * from "./paths.js";
+export * from "./refs.js";
+export * from "./schemas.js";
 export * from "./apply-ignore-overrides.js";
 export * from "./apply-severity-controls.js";
 export * from "./build-rule-severity-controls.js";

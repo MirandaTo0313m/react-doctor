@@ -1,4 +1,10 @@
-import { CANONICAL_GITHUB_URL, formatErrorChain, logger } from "@react-doctor/core";
+import {
+  CANONICAL_GITHUB_URL,
+  formatErrorChain,
+  formatReactDoctorError,
+  isReactDoctorError,
+  logger,
+} from "@react-doctor/core";
 import type { HandleErrorOptions } from "@react-doctor/types";
 
 export const handleError = (
@@ -9,7 +15,7 @@ export const handleError = (
   logger.error("Something went wrong. Please check the error below for more details.");
   logger.error(`If the problem persists, please open an issue at ${CANONICAL_GITHUB_URL}/issues.`);
   logger.error("");
-  logger.error(formatErrorChain(error));
+  logger.error(isReactDoctorError(error) ? formatReactDoctorError(error) : formatErrorChain(error));
   logger.break();
   if (options.shouldExit) {
     process.exit(1);
