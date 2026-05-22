@@ -46,7 +46,24 @@ export default defineConfig({
   pack: [
     {
       entry: { cli: "./src/cli/index.ts" },
-      deps: { neverBundle: ["oxlint", "oxlint-plugin-react-doctor", "typescript"] },
+      deps: {
+        // Inline pure-JS CLI deps so `npm i react-doctor` skips
+        // ~15 transitive installs (commander, ora, and ora's spinner
+        // / cursor / log-symbols / string-width chain). Native
+        // (oxlint), the lint plugin, prompts (we monkey-patch it via
+        // require so the runtime copy must be on disk), agent-install
+        // (its jsonc-parser/yaml/toml transitives ship as UMD that
+        // doesn't bundle cleanly), and the typescript compiler all
+        // stay external.
+        alwaysBundle: ["commander", "ora"],
+        neverBundle: [
+          "agent-install",
+          "oxlint",
+          "oxlint-plugin-react-doctor",
+          "prompts",
+          "typescript",
+        ],
+      },
       dts: true,
       target: "node22",
       platform: "node",
@@ -69,7 +86,16 @@ export default defineConfig({
     },
     {
       entry: { index: "./src/index.ts" },
-      deps: { neverBundle: ["oxlint", "oxlint-plugin-react-doctor", "typescript"] },
+      deps: {
+        alwaysBundle: ["commander", "ora"],
+        neverBundle: [
+          "agent-install",
+          "oxlint",
+          "oxlint-plugin-react-doctor",
+          "prompts",
+          "typescript",
+        ],
+      },
       dts: true,
       target: "node22",
       platform: "node",
