@@ -109,21 +109,12 @@ importers:
       agent-install:
         specifier: 0.0.5
         version: 0.0.5
-      commander:
-        specifier: ^14.0.3
-        version: 14.0.3
-      ora:
-        specifier: ^9.4.0
-        version: 9.4.0
       oxlint:
         specifier: ^1.63.0
         version: 1.63.0(oxlint-tsgolint@0.22.1)
       oxlint-plugin-react-doctor:
         specifier: workspace:*
         version: link:../oxlint-plugin-react-doctor
-      picocolors:
-        specifier: ^1.1.1
-        version: 1.1.1
       prompts:
         specifier: ^2.4.2
         version: 2.4.2
@@ -143,12 +134,18 @@ importers:
       '@types/prompts':
         specifier: ^2.4.9
         version: 2.4.9
+      commander:
+        specifier: ^14.0.3
+        version: 14.0.3
       eslint-plugin-react-hooks:
         specifier: ^7.1.1
         version: 7.1.1(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react-you-might-not-need-an-effect:
         specifier: ^0.10.1
         version: 0.10.1(eslint@9.39.2(jiti@2.6.1))
+      ora:
+        specifier: ^9.4.0
+        version: 9.4.0
 
   packages/types:
     devDependencies:

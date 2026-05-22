@@ -56,11 +56,8 @@
   },
   "dependencies": {
     "agent-install": "0.0.5",
-    "commander": "^14.0.3",
-    "ora": "^9.4.0",
     "oxlint": "^1.63.0",
     "oxlint-plugin-react-doctor": "workspace:*",
-    "picocolors": "^1.1.1",
     "prompts": "^2.4.2",
     "typescript": ">=5.0.4 <7"
   },
@@ -69,8 +66,10 @@
     "@react-doctor/project-info": "workspace:*",
     "@react-doctor/types": "workspace:*",
     "@types/prompts": "^2.4.9",
+    "commander": "^14.0.3",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-you-might-not-need-an-effect": "^0.10.1"
+    "eslint-plugin-react-you-might-not-need-an-effect": "^0.10.1",
+    "ora": "^9.4.0"
   },
   "peerDependencies": {
     "eslint-plugin-react-hooks": "^6 || ^7",
