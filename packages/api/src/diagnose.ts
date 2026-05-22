@@ -104,7 +104,6 @@ export const diagnose = async (
       options.respectInlineDisables ?? initialLoadedConfig?.config?.respectInlineDisables ?? true,
     adoptExistingLintConfig: initialLoadedConfig?.config?.adoptExistingLintConfig ?? true,
     ignoredTags: new Set(initialLoadedConfig?.config?.ignore?.tags ?? []),
-    outputSurface: "cli",
     runDeadCode: options.deadCode ?? initialLoadedConfig?.config?.deadCode ?? true,
     isCi: false,
   });
