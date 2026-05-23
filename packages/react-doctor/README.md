@@ -119,6 +119,8 @@ Stable action tags follow npm: every published `react-doctor@X.Y.Z` release push
 
 Avoid `@main` — it ships unreleased work and is a documented supply-chain risk. Floating tags are produced by [`.github/workflows/release.yml`](.github/workflows/release.yml) immediately after each changesets publish.
 
+> **One caveat to pin granularity.** The composite action invokes `npx react-doctor@latest` internally, so the action ref pins the **workflow shape** (inputs, comment plumbing, score collection), not the **CLI version** running underneath. For genuinely deterministic scores in CI, also pin the CLI side: either run `npx react-doctor@0.2.3 …` in a bare `- run:` step, or add `"react-doctor": "0.2.3"` to your project's dev deps and invoke it through `pnpm exec` / `npm exec`.
+
 Each release ships with the changeset-generated changelog. Material rule additions, severity changes, or score-formula tweaks are called out there so you can read the expected score impact before bumping a pin.
 
 ## PR blocking and exit codes
