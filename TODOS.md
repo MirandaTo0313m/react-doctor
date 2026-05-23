@@ -26,7 +26,7 @@ Fix:
 
 ### [x] Stop recommending `millionco/react-doctor@main`
 
-Status: shipped — README now recommends `@v0`, `.github/workflows/release.yml` republishes the floating major/minor action tags after every `changesets` publish, and the new "Release versioning" section in the README documents the npm / action / marketing version mapping.
+Status: shipped. README now recommends `@v0`, `.github/workflows/release.yml` republishes the floating major/minor action tags after every `changesets` publish, and the new "Release versioning" section in the README documents the npm / action / marketing version mapping.
 
 Links:
 
@@ -122,7 +122,7 @@ Fix:
 
 ### [x] Clarify React Doctor vs React Review
 
-Status: docs shipped — README now opens with an explicit "React Doctor vs React Review" callout that names the CLI vs hosted split, and points out that the hosted product augments (rather than replaces) CLI users. Hosted-side onboarding / migration path remains a product task.
+Status: docs shipped. README now opens with an explicit "React Doctor vs React Review" callout that names the CLI vs hosted split, and points out that the hosted product augments (rather than replaces) CLI users. Hosted-side onboarding / migration path remains a product task.
 
 ### [ ] Fix hosted private-repo / repo-not-found failures
 
@@ -167,15 +167,15 @@ Fix:
 
 ### [x] Make local and hosted privacy/data behavior explicit
 
-Status: shipped — README has a dedicated "Privacy and data" section
+Status: shipped. README has a dedicated "Privacy and data" section
 that itemizes the score and share-URL network calls, what each request
-actually carries (and what it doesn't — no source code, no file
+actually carries (and what it doesn't: no source code, no file
 paths), what `--offline` / `"share": false` disable, and how hosted
 React Review's GitHub App scope differs.
 
 ### [~] Improve score-change communication
 
-Status: docs partially shipped — the Scoring section now spells out
+Status: docs partially shipped. The Scoring section now spells out
 how to debug a score change (release changelog, unique-rules diff,
 `--explain`/`--why`), tells users not to chase 100/100, and points at
 the new "Release versioning" pin recipe for score-floor automation.
@@ -188,7 +188,7 @@ Remaining:
 
 ### [x] Add clear release/version mapping
 
-Status: shipped — README "Release versioning" section publishes the
+Status: shipped. README "Release versioning" section publishes the
 mapping table (CLI npm, plugin npm, composite action git tags,
 hosted Review) and documents the `@v0` / `@v0.2` / `@v0.2.3` floating
 vs exact-pin recommendations. Release workflow keeps the floating
@@ -202,7 +202,7 @@ Remaining:
 
 ### [~] Verify local report / export support and docs
 
-Status: docs partially shipped — README now has a "Non-GitHub CI"
+Status: docs partially shipped. README now has a "Non-GitHub CI"
 section that walks through the JSON-report flow for GitLab /
 CircleCI / Jenkins / Buildkite consumers and pins the
 `JsonReport` / `JsonReportSummary` API surface as the stable
@@ -285,7 +285,7 @@ Fix:
 
 ### [x] Clarify React Native coverage
 
-Status: shipped — README has a new "React Native support matrix"
+Status: shipped. README has a new "React Native support matrix"
 table (CLI / tvOS / Expo / Windows / macOS / out-of-tree, plus the
 file-extension overrides) directly above the existing mixed-monorepo
 section, and the `rawTextWrapperComponents` / `textComponents`
@@ -338,7 +338,7 @@ are the ones whose code follow-up is still real.
 
 ### GitHub Action and CI
 
-- [x] #75 / #79 — README recommends `@v0` and `.github/workflows/release.yml` republishes floating action tags after each changesets publish.
+- [x] #75 / #79: README recommends `@v0` and `.github/workflows/release.yml` republishes floating action tags after each changesets publish.
 
 ### CLI and agent workflow
 
@@ -354,9 +354,9 @@ are the ones whose code follow-up is still real.
 
 ### Product and docs
 
-- [~] #188 / #97 Action docs and PR blocking — stable tags shipped (`@v0`); delta semantics for the hosted PR comment still outstanding.
+- [~] #188 / #97 Action docs and PR blocking: stable tags shipped (`@v0`); delta semantics for the hosted PR comment still outstanding.
 - [ ] #189 Simplified Chinese README — closed PR; decide whether to ship docs.
-- [x] #65 / #21 / #64 RN support — README now publishes the full RN support matrix.
+- [x] #65 / #21 / #64 RN support: README now publishes the full RN support matrix.
 
 ### Shipped enhancements
 

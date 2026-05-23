@@ -15,7 +15,7 @@ Works with Next.js, Vite, and React Native.
 
 ### [See it in action →](https://react.doctor)
 
-> **React Doctor vs React Review** — React Doctor is the local-first **CLI and lint plugins** in this repo: offline-friendly, scriptable, runs anywhere. React Review is the hosted product on [react.doctor](https://react.doctor) (GitHub App, dashboard, PR comments, baseline / delta tracking). They share the same rule set; pick the CLI when you want a one-shot scan or self-hosted CI, and add React Review when you also want a hosted dashboard and review team workflow. Already using the CLI? React Review augments it — no replacement required.
+> **React Doctor vs React Review.** React Doctor is the local-first **CLI and lint plugins** in this repo: offline-friendly, scriptable, runs anywhere. React Review is the hosted product on [react.doctor](https://react.doctor) (GitHub App, dashboard, PR comments, baseline / delta tracking). They share the same rule set; pick the CLI when you want a one-shot scan or self-hosted CI, and add React Review when you also want a hosted dashboard and review team workflow. Already using the CLI? React Review augments it without replacing it.
 
 ## Install
 
@@ -72,7 +72,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-> **Pin the action ref.** Always use a released tag — `@v0` (floating major) for automatic patch updates, or `@v0.2.3` to pin exactly. Avoid `@main`: it ships unreleased work and is a supply-chain risk. See [Release versioning](#release-versioning) for the version-mapping table.
+> **Pin the action ref.** Always use a released tag. Use `@v0` (floating major) for automatic patch updates, or `@v0.2.3` to pin exactly. Avoid `@main`: it ships unreleased work and is a supply-chain risk. See [Release versioning](#release-versioning) for the version-mapping table.
 
 When `github-token` is set on `pull_request` events, findings are posted (and updated) as a sticky PR comment. The action also exposes a `score` output (0–100) you can read in subsequent steps — see [PR blocking and exit codes](#pr-blocking-and-exit-codes) for a score-floor recipe.
 
@@ -113,13 +113,13 @@ React Doctor ships a few related artifacts. Each one has its own version, and th
 
 Stable action tags follow npm: every published `react-doctor@X.Y.Z` release pushes a matching `vX.Y.Z` tag, then moves the floating `vX` and `vX.Y` tags to that commit. Pick a granularity:
 
-- `@v0` — floating major; picks up patch and minor releases automatically. **Recommended default.**
-- `@v0.2` — pins the minor; only patch fixes auto-update.
-- `@v0.2.3` — exact pin; needed when you also enforce a score floor (new rule releases can change the score even when your code hasn't, see [Scoring](#scoring)).
+- `@v0`: floating major; picks up patch and minor releases automatically. **Recommended default.**
+- `@v0.2`: pins the minor; only patch fixes auto-update.
+- `@v0.2.3`: exact pin; needed when you also enforce a score floor (new rule releases can change the score even when your code hasn't, see [Scoring](#scoring)).
 
-Avoid `@main` — it ships unreleased work and is a documented supply-chain risk. Floating tags are produced by [`.github/workflows/release.yml`](.github/workflows/release.yml) immediately after each changesets publish.
+Avoid `@main`: it ships unreleased work and is a documented supply-chain risk. Floating tags are produced by [`.github/workflows/release.yml`](.github/workflows/release.yml) immediately after each changesets publish.
 
-> **One caveat to pin granularity.** The composite action invokes `npx react-doctor@latest` internally, so the action ref pins the **workflow shape** (inputs, comment plumbing, score collection), not the **CLI version** running underneath. For genuinely deterministic scores in CI, also pin the CLI side: either run `npx react-doctor@0.2.3 …` in a bare `- run:` step, or add `"react-doctor": "0.2.3"` to your project's dev deps and invoke it through `pnpm exec` / `npm exec`.
+> **One caveat to pin granularity.** The composite action invokes `npx react-doctor@latest` internally, so the action ref pins the **workflow shape** (inputs, comment plumbing, score collection), not the **CLI version** running underneath. For genuinely deterministic scores in CI, also pin the CLI side: either run `npx react-doctor@0.2.3 ...` in a bare `- run:` step, or add `"react-doctor": "0.2.3"` to your project's dev deps and invoke it through `pnpm exec` / `npm exec`.
 
 Each release ships with the changeset-generated changelog. Material rule additions, severity changes, or score-formula tweaks are called out there so you can read the expected score impact before bumping a pin.
 
@@ -443,14 +443,14 @@ Scoring runs on react.doctor's API and is **network-dependent**: without a succe
 
 Score labels: 75+ is **Great**, 50 to 74 is **Needs work**, under 50 is **Critical**.
 
-Scores may decrease across releases as new rules are added. Each new rule that fires in your codebase introduces an additional penalty. This is expected — it means the tool is catching more issues, not that your code got worse. Don't chase 100/100 blindly; the score is a signal to investigate, not a target.
+Scores may decrease across releases as new rules are added. Each new rule that fires in your codebase introduces an additional penalty. This is expected: it means the tool is catching more issues, not that your code got worse. Don't chase 100/100 blindly; the score is a signal to investigate, not a target.
 
 When a release moves your score noticeably:
 
 - Check the per-release changelog for added rules, severity changes, or formula tweaks. Each release ships with the changeset-generated notes.
-- Compare the `unique rules triggered` list against the previous run — a single new rule firing once can subtract 1.5 points.
+- Compare the `unique rules triggered` list against the previous run. A single new rule firing once can subtract 1.5 points.
 - Pin to a specific `react-doctor` version in CI (see [Release versioning](#release-versioning)) if you need stable scores across upgrades. `@v0.2.3` is the right pin shape for score-floor automation; `@v0` is fine for everything else.
-- If a newly fired rule looks noisy in your codebase, `--explain <file:line>` (or `--why`) prints exactly which rule it is and the suppression snippet to silence it — see [Inline suppressions](#inline-suppressions) and [Configuration](#configuration).
+- If a newly fired rule looks noisy in your codebase, `--explain <file:line>` (or `--why`) prints exactly which rule it is and the suppression snippet to silence it. See [Inline suppressions](#inline-suppressions) and [Configuration](#configuration).
 
 ## Diff and staged modes
 
@@ -525,19 +525,19 @@ In CI environments, prompts are automatically skipped. Pass `--offline` explicit
 
 ### Non-GitHub CI (GitLab, Bitbucket, CircleCI, Jenkins, …)
 
-The composite action is GitHub-specific, but everything it does is built on top of the CLI — there's nothing GitHub-only about React Doctor itself. For other providers, run the CLI directly and consume the JSON report from your existing tooling:
+The composite action is GitHub-specific, but everything it does is built on top of the CLI; there's nothing GitHub-only about React Doctor itself. For other providers, run the CLI directly and consume the JSON report from your existing tooling:
 
 ```bash
 npx react-doctor@latest --diff "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --fail-on warning --json > react-doctor.json
 ```
 
-The JSON document is the same one the action consumes — `{ ok, score, diagnostics[], summary, project }`. Any CI dashboard that accepts a parsed report can read it. Three common patterns:
+The JSON document is the same one the action consumes (`{ ok, score, diagnostics[], summary, project }`). Any CI dashboard that accepts a parsed report can read it. Three common patterns:
 
-- **GitLab CI** — invoke the CLI in a `merge_request` job and surface `react-doctor.json` as a [Code Quality report artifact](https://docs.gitlab.com/ci/testing/code_quality.html) by translating diagnostics into the GitLab Code Quality JSON shape. Until a first-class GitLab integration ships, this is the recommended path.
-- **CircleCI / Jenkins / Buildkite** — fail the step on a non-zero exit (`--fail-on warning`) and upload `react-doctor.json` as an artifact. Read `summary.errorCount` / `summary.warningCount` in a follow-up step for thresholding.
-- **Pre-merge gates without a dashboard** — `--diff <base> --fail-on warning` is enough; the build log carries the diagnostics.
+- **GitLab CI**: invoke the CLI in a `merge_request` job and surface `react-doctor.json` as a [Code Quality report artifact](https://docs.gitlab.com/ci/testing/code_quality.html) by translating diagnostics into the GitLab Code Quality JSON shape. Until a first-class GitLab integration ships, this is the recommended path.
+- **CircleCI / Jenkins / Buildkite**: fail the step on a non-zero exit (`--fail-on warning`) and upload `react-doctor.json` as an artifact. Read `summary.errorCount` / `summary.warningCount` in a follow-up step for thresholding.
+- **Pre-merge gates without a dashboard**: `--diff <base> --fail-on warning` is enough; the build log carries the diagnostics.
 
-SARIF and a hosted GitLab integration are tracked separately — see `TODOS.md` if you'd like to follow along. In the meantime, the JSON output is intentionally stable: `JsonReport`, `JsonReportSummary`, and friends are exported from [`react-doctor/api`](packages/react-doctor/src/api.ts) for type-safe consumption.
+SARIF and a hosted GitLab integration are tracked separately; see `TODOS.md` if you'd like to follow along. In the meantime, the JSON output is intentionally stable: `JsonReport`, `JsonReportSummary`, and friends are exported from [`react-doctor/api`](packages/react-doctor/src/api.ts) for type-safe consumption.
 
 ## Node.js API
 
@@ -562,12 +562,12 @@ const counts = summarizeDiagnostics(result.diagnostics);
 
 ## Privacy and data
 
-React Doctor runs entirely on your machine. The only network traffic is the optional score lookup and an opt-out share URL — both can be disabled.
+React Doctor runs entirely on your machine. The only network traffic is the optional score lookup and an opt-out share URL, and both can be disabled.
 
-| Network call        | URL                                       | Sent                                                                                                                                                          | Disabled by                                  |
-| ------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| Score API           | `https://www.react.doctor/api/score`      | Gzipped JSON of the diagnostic list with **file paths stripped** (rule id, severity, message, position only). No source code, no file paths, no project name. | `--offline` / `"offline": true`              |
-| Share URL (printed) | `https://www.react.doctor/share?p=…&s=……` | Query parameters only: detected project name, score, error count, warning count, affected file count. Nothing is uploaded — the link is rendered locally.     | `--offline`, `"share": false`, or any CI run |
+| Network call        | URL                                          | Sent                                                                                                                                                          | Disabled by                                  |
+| ------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Score API           | `https://www.react.doctor/api/score`         | Gzipped JSON of the diagnostic list with **file paths stripped** (rule id, severity, message, position only). No source code, no file paths, no project name. | `--offline` / `"offline": true`              |
+| Share URL (printed) | `https://www.react.doctor/share?p=...&s=...` | Query parameters only: detected project name, score, error count, warning count, affected file count. Nothing is uploaded; the link is rendered locally.      | `--offline`, `"share": false`, or any CI run |
 
 What `--offline` disables, exactly:
 
