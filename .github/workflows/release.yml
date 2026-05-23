@@ -12,8 +12,40 @@ permissions:
 
 jobs:
   release:
+    # Only run on the canonical repo. Forks that push to their own
+    # `main` should never trigger a publish from this workflow file.
+    if: github.repository == 'millionco/react-doctor'
     runs-on: ubuntu-latest
+    # Required-reviewer gate. The `release` environment must be
+    # configured in repo settings -> Environments with the org
+    # maintainers listed as required reviewers; this pauses the job
+    # for an explicit human approval before any npm publish or
+    # tag push happens, even when the push to main was scripted
+    # or by a non-maintainer with bypass rights.
+    environment: release
     steps:
+      - name: Verify actor has write access (defense in depth)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # `github.actor` on a push event is the user who triggered
+          # the push (or merged the PR). Require write/maintain/admin
+          # so a compromised contributor cannot start a release even
+          # if branch protection is later loosened.
+          PERMISSION=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/collaborators/${GITHUB_ACTOR}/permission" \
+            --jq '.permission')
+          case "$PERMISSION" in
+            admin|maintain|write)
+              echo "Actor ${GITHUB_ACTOR} has '${PERMISSION}' permission, allowing release."
+              ;;
+            *)
+              echo "::error::Actor ${GITHUB_ACTOR} has '${PERMISSION}' permission; release is restricted to org maintainers."
+              exit 1
+              ;;
+          esac
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
