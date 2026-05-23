@@ -24,18 +24,18 @@ Fix:
 
 ## P1 - CI, Docs, Config, Product Semantics
 
-### [x] Stop recommending `millionco/react-doctor@main`
+### [~] Stop recommending `millionco/react-doctor@main`
 
-Status: shipped. README now recommends `@v0`, `.github/workflows/release.yml` republishes the floating major/minor action tags after every `changesets` publish, and the new "Release versioning" section in the README documents the npm / action / marketing version mapping.
+Status: partial. README continues to recommend `@main` per maintainer preference; the versioned-tag path is documented as an opt-in alternative in the new "Release versioning" section. `.github/workflows/release.yml` republishes the floating major/minor action tags after every `changesets` publish so consumers who want `@v0` / `@v0.2` / `@v0.2.3` pinning can.
 
 Links:
 
 - https://github.com/millionco/react-doctor/issues/75
 - https://github.com/millionco/react-doctor/issues/79
 
-Follow-ups (still open):
+Remaining:
 
-- After the first release runs, double-check that `@v0`, `@v0.2`, and `@v0.2.3` all resolve and that downstream consumers receive the expected action inputs.
+- Maintainer decision: keep `@main` as the recommended default (current stance) or eventually flip the README to a pinned-tag recommendation.
 
 ### [ ] Support mature-codebase adoption workflows natively
 
@@ -338,7 +338,7 @@ are the ones whose code follow-up is still real.
 
 ### GitHub Action and CI
 
-- [x] #75 / #79: README recommends `@v0` and `.github/workflows/release.yml` republishes floating action tags after each changesets publish.
+- [~] #75 / #79: README still recommends `@main` per maintainer preference; `.github/workflows/release.yml` republishes floating action tags so `@v0` / `@v0.2` / `@v0.2.3` is available as an opt-in.
 
 ### CLI and agent workflow
 
@@ -354,7 +354,7 @@ are the ones whose code follow-up is still real.
 
 ### Product and docs
 
-- [~] #188 / #97 Action docs and PR blocking: stable tags shipped (`@v0`); delta semantics for the hosted PR comment still outstanding.
+- [~] #188 / #97 Action docs and PR blocking: stable tags available as an opt-in (`@v0` / `@v0.2` / `@v0.2.3`), README still recommends `@main`; delta semantics for the hosted PR comment still outstanding.
 - [ ] #189 Simplified Chinese README — closed PR; decide whether to ship docs.
 - [x] #65 / #21 / #64 RN support: README now publishes the full RN support matrix.
 
@@ -364,7 +364,7 @@ are the ones whose code follow-up is still real.
 
 ## Immediate Order
 
-1. [x] Update the README to recommend stable action tags and add a release workflow.
+1. [~] Update the README to recommend stable action tags and add a release workflow. Release workflow shipped; README keeps `@main` as the recommended ref per maintainer preference, versioned tags documented as an opt-in.
 2. [ ] Change React Review PR comment semantics to delta-first.
 3. [ ] Decide and ship a stable `--package-json` (or equivalent) API.
 4. [ ] Ship baseline mode for mature-codebase adoption.

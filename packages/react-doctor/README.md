@@ -66,13 +66,11 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # required for `diff`
-      - uses: millionco/react-doctor@v0
+      - uses: millionco/react-doctor@main
         with:
           diff: main
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
-
-> **Pin the action ref.** Always use a released tag. Use `@v0` (floating major) for automatic patch updates, or `@v0.2.3` to pin exactly. Avoid `@main`: it ships unreleased work and is a supply-chain risk. See [Release versioning](#release-versioning) for the version-mapping table.
 
 When `github-token` is set on `pull_request` events, findings are posted (and updated) as a sticky PR comment. The action also exposes a `score` output (0–100) you can read in subsequent steps — see [PR blocking and exit codes](#pr-blocking-and-exit-codes) for a score-floor recipe.
 
@@ -87,7 +85,7 @@ Pick one or both; they're independent.
 - **Both**: set `github-token` and `annotations: true`. Annotation lines are stripped from the comment body.
 
 ```yaml
-- uses: millionco/react-doctor@v0
+- uses: millionco/react-doctor@main
   with:
     diff: main
     github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -108,18 +106,12 @@ React Doctor ships a few related artifacts. Each one has its own version, and th
 | ----------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------- |
 | `react-doctor` npm package (the CLI and Node API)           | [npm](https://npmjs.com/package/react-doctor)               | `npx react-doctor@0.2.3`                 |
 | `oxlint-plugin-react-doctor` / `eslint-plugin-react-doctor` | [npm](https://npmjs.com/package/oxlint-plugin-react-doctor) | `"oxlint-plugin-react-doctor": "^0.2.3"` |
-| `millionco/react-doctor` GitHub composite action            | git tags on this repo                                       | `uses: millionco/react-doctor@v0`        |
+| `millionco/react-doctor` GitHub composite action            | git refs on this repo (`@main` or version tag)              | `uses: millionco/react-doctor@main`      |
 | `react.doctor` hosted Review                                | the hosted dashboard auto-updates; no pin is required       | n/a                                      |
 
-Stable action tags follow npm: every published `react-doctor@X.Y.Z` release pushes a matching `vX.Y.Z` tag, then moves the floating `vX` and `vX.Y` tags to that commit. Pick a granularity:
+The composite action is referenced as `@main` by default, which tracks the latest commit on the canonical branch. If you want a pinned action ref instead, every published `react-doctor@X.Y.Z` release also pushes a matching `vX.Y.Z` tag and moves the floating `vX` / `vX.Y` tags to that commit, so `@v0`, `@v0.2`, and `@v0.2.3` all resolve. Pin tighter when you need reproducible scores across releases (see [Scoring](#scoring)).
 
-- `@v0`: floating major; picks up patch and minor releases automatically. **Recommended default.**
-- `@v0.2`: pins the minor; only patch fixes auto-update.
-- `@v0.2.3`: exact pin; needed when you also enforce a score floor (new rule releases can change the score even when your code hasn't, see [Scoring](#scoring)).
-
-Avoid `@main`: it ships unreleased work and is a documented supply-chain risk. Floating tags are produced by [`.github/workflows/release.yml`](.github/workflows/release.yml) immediately after each changesets publish.
-
-> **One caveat to pin granularity.** The composite action invokes `npx react-doctor@latest` internally, so the action ref pins the **workflow shape** (inputs, comment plumbing, score collection), not the **CLI version** running underneath. For genuinely deterministic scores in CI, also pin the CLI side: either run `npx react-doctor@0.2.3 ...` in a bare `- run:` step, or add `"react-doctor": "0.2.3"` to your project's dev deps and invoke it through `pnpm exec` / `npm exec`.
+> **Pinning the action ref doesn't pin the CLI version.** The composite action invokes `npx react-doctor@latest` internally, so the action ref pins the **workflow shape** (inputs, comment plumbing, score collection), not the **CLI version** running underneath. For genuinely deterministic scores in CI, also pin the CLI side: either run `npx react-doctor@0.2.3 ...` in a bare `- run:` step, or add `"react-doctor": "0.2.3"` to your project's dev deps and invoke it through `pnpm exec` / `npm exec`.
 
 Each release ships with the changeset-generated changelog. Material rule additions, severity changes, or score-formula tweaks are called out there so you can read the expected score impact before bumping a pin.
 
@@ -139,7 +131,7 @@ Combine `--fail-on` with `--diff <base>` to scope the gate to the PR's changed f
 **Advisory mode** — never blocks, always comments:
 
 ```yaml
-- uses: millionco/react-doctor@v0
+- uses: millionco/react-doctor@main
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
     fail-on: none
@@ -151,7 +143,7 @@ Combine `--fail-on` with `--diff <base>` to scope the gate to the PR's changed f
 - uses: actions/checkout@v5
   with:
     fetch-depth: 0 # required for `diff`
-- uses: millionco/react-doctor@v0
+- uses: millionco/react-doctor@main
   with:
     diff: main
     fail-on: warning
@@ -162,7 +154,7 @@ Combine `--fail-on` with `--diff <base>` to scope the gate to the PR's changed f
 
 ```yaml
 - id: doctor
-  uses: millionco/react-doctor@v0
+  uses: millionco/react-doctor@main
   with:
     fail-on: error
     github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -449,7 +441,7 @@ When a release moves your score noticeably:
 
 - Check the per-release changelog for added rules, severity changes, or formula tweaks. Each release ships with the changeset-generated notes.
 - Compare the `unique rules triggered` list against the previous run. A single new rule firing once can subtract 1.5 points.
-- Pin to a specific `react-doctor` version in CI (see [Release versioning](#release-versioning)) if you need stable scores across upgrades. `@v0.2.3` is the right pin shape for score-floor automation; `@v0` is fine for everything else.
+- Pin to a specific `react-doctor` version in CI (see [Release versioning](#release-versioning)) if you need stable scores across upgrades. Pinning the action ref alone is not enough; pin the CLI side too.
 - If a newly fired rule looks noisy in your codebase, `--explain <file:line>` (or `--why`) prints exactly which rule it is and the suppression snippet to silence it. See [Inline suppressions](#inline-suppressions) and [Configuration](#configuration).
 
 ## Diff and staged modes
