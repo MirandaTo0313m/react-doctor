@@ -45,20 +45,29 @@ const PROJECT_CONFIG_FILENAMES = [
   ".oxlintrc.json",
 ];
 
+const isPathInsideDirectory = (childAbsolutePath: string, parentAbsolutePath: string): boolean => {
+  const relative = path.relative(parentAbsolutePath, childAbsolutePath);
+  return Boolean(relative) && !relative.startsWith("..") && !path.isAbsolute(relative);
+};
+
 export const materializeStagedFiles = (
   directory: string,
   stagedFiles: string[],
   tempDirectory: string,
 ): StagedSnapshot => {
   const materializedFiles: string[] = [];
+  const resolvedTempDirectory = path.resolve(tempDirectory);
 
   for (const relativePath of stagedFiles) {
     const content = readStagedContent(directory, relativePath);
     if (content === null) continue;
 
-    const targetPath = path.join(tempDirectory, relativePath);
-    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    fs.writeFileSync(targetPath, content);
+    const candidateTargetPath = path.resolve(resolvedTempDirectory, relativePath);
+    if (!isPathInsideDirectory(candidateTargetPath, resolvedTempDirectory)) {
+      continue;
+    }
+    fs.mkdirSync(path.dirname(candidateTargetPath), { recursive: true });
+    fs.writeFileSync(candidateTargetPath, content);
     materializedFiles.push(relativePath);
   }
 
