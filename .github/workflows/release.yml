@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    if: github.repository == 'millionco/react-doctor'
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Verify actor has write access
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          PERMISSION=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/collaborators/${GITHUB_ACTOR}/permission" \
+            --jq '.permission')
+          case "$PERMISSION" in
+            admin|maintain|write)
+              echo "Actor ${GITHUB_ACTOR} has '${PERMISSION}' permission, allowing release."
+              ;;
+            *)
+              echo "::error::Actor ${GITHUB_ACTOR} has '${PERMISSION}' permission; release is restricted to org maintainers."
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Create Release PR or Publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          publish: pnpm release
+          title: "chore: version packages"
+          commit: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Releases and move action tags
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          REACT_DOCTOR_VERSION=""
+
+          while IFS= read -r encoded; do
+            NAME=$(echo "$encoded" | base64 -d | jq -r '.name')
+            VERSION=$(echo "$encoded" | base64 -d | jq -r '.version')
+            TAG="${NAME}@${VERSION}"
+            if [ "$NAME" = "react-doctor" ]; then
+              TAG="v${VERSION}"
+              REACT_DOCTOR_VERSION="$VERSION"
+            fi
+            PRERELEASE_FLAG=""
+            if [[ "$VERSION" == *-* ]]; then
+              PRERELEASE_FLAG="--prerelease"
+            fi
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --generate-notes \
+              --target "$GITHUB_SHA" \
+              $PRERELEASE_FLAG || true
+          done < <(echo "$PUBLISHED_PACKAGES" | jq -r '.[] | @base64')
+
+          if [ -z "$REACT_DOCTOR_VERSION" ] || [[ "$REACT_DOCTOR_VERSION" == *-* ]]; then
+            echo "Skipping floating action tag updates (no stable react-doctor release in this batch)."
+            exit 0
+          fi
+
+          MAJOR=$(echo "$REACT_DOCTOR_VERSION" | cut -d. -f1)
+          MINOR=$(echo "$REACT_DOCTOR_VERSION" | cut -d. -f2)
+          for FLOATING in "v${MAJOR}" "v${MAJOR}.${MINOR}"; do
+            git tag -fa "$FLOATING" -m "Move ${FLOATING} to react-doctor v${REACT_DOCTOR_VERSION}"
+            git push origin "refs/tags/${FLOATING}" --force
+          done
