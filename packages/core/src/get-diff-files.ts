@@ -78,9 +78,24 @@ const getUncommittedChangedFiles = (directory: string): string[] => {
   return output ?? [];
 };
 
+const SAFE_BRANCH_NAME_PATTERN = /^[A-Za-z0-9_./-]+$/;
+
+const isSafeGitRevision = (candidate: string): boolean => {
+  if (candidate.length === 0) return false;
+  if (candidate.startsWith("-")) return false;
+  if (candidate.startsWith(".") || candidate.endsWith(".")) return false;
+  if (candidate.includes("..") || candidate.includes("@{")) return false;
+  return SAFE_BRANCH_NAME_PATTERN.test(candidate);
+};
+
 export const getDiffInfo = (directory: string, explicitBaseBranch?: string): DiffInfo | null => {
   if (explicitBaseBranch !== undefined && explicitBaseBranch.trim().length === 0) {
     throw new Error("Diff base branch cannot be empty.");
+  }
+  if (explicitBaseBranch !== undefined && !isSafeGitRevision(explicitBaseBranch)) {
+    throw new Error(
+      `Diff base branch "${explicitBaseBranch}" is not a valid git ref name (must match [A-Za-z0-9_./-] without leading '-', '..', or '@{').`,
+    );
   }
 
   const currentBranch = getCurrentBranch(directory);
