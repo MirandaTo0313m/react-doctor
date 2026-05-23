@@ -6,10 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-# Defense-in-depth: pin the auto-issued GITHUB_TOKEN to read-only for
-# every step in this workflow. Fork PRs already default to read-only,
-# but pinning here keeps that guarantee if the repo-wide default ever
-# widens (and protects same-repo branch pushes too).
 permissions:
   contents: read
 
@@ -23,9 +19,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          # CI only reads the working tree; don't leave a credential
-          # behind in .git/config that later steps (or untrusted PR
-          # scripts) could pick up.
           persist-credentials: false
 
       - uses: pnpm/action-setup@v4

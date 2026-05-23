@@ -12,27 +12,15 @@ permissions:
 
 jobs:
   release:
-    # Only run on the canonical repo. Forks that push to their own
-    # `main` should never trigger a publish from this workflow file.
     if: github.repository == 'millionco/react-doctor'
     runs-on: ubuntu-latest
-    # Required-reviewer gate. The `release` environment must be
-    # configured in repo settings -> Environments with the org
-    # maintainers listed as required reviewers; this pauses the job
-    # for an explicit human approval before any npm publish or
-    # tag push happens, even when the push to main was scripted
-    # or by a non-maintainer with bypass rights.
     environment: release
     steps:
-      - name: Verify actor has write access (defense in depth)
+      - name: Verify actor has write access
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # `github.actor` on a push event is the user who triggered
-          # the push (or merged the PR). Require write/maintain/admin
-          # so a compromised contributor cannot start a release even
-          # if branch protection is later loosened.
           PERMISSION=$(gh api \
             "repos/${GITHUB_REPOSITORY}/collaborators/${GITHUB_ACTOR}/permission" \
             --jq '.permission')
@@ -102,10 +90,6 @@ jobs:
               $PRERELEASE_FLAG || true
           done < <(echo "$PUBLISHED_PACKAGES" | jq -r '.[] | @base64')
 
-          # Move the floating action tags (vMAJOR and vMAJOR.MINOR) to this
-          # commit so `uses: millionco/react-doctor@v0` keeps resolving to the
-          # latest release of the v0.x line. Stable tags are mandatory for
-          # GitHub Action consumers (TODOS: stop recommending `@main`).
           if [ -z "$REACT_DOCTOR_VERSION" ] || [[ "$REACT_DOCTOR_VERSION" == *-* ]]; then
             echo "Skipping floating action tag updates (no stable react-doctor release in this batch)."
             exit 0

@@ -11,8 +11,6 @@ permissions:
 
 jobs:
   update:
-    # Only run on the canonical repo so a fork can't trigger a
-    # leaderboard commit through `workflow_dispatch`.
     if: github.repository == 'millionco/react-doctor'
     runs-on: ubuntu-latest
     steps:
