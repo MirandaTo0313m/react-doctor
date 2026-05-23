@@ -53,7 +53,7 @@ describe("calculateScore", () => {
     expect(consoleSpy).toHaveBeenCalled();
   });
 
-  it("parses a well-formed API response and strips file paths from the request body", async () => {
+  it("parses a well-formed API response and sends score metadata", async () => {
     let capturedBody: BodyInit | null | undefined;
     let capturedHeaders: HeadersInit | undefined;
     stubFetch(async (_url, init) => {
@@ -65,7 +65,16 @@ describe("calculateScore", () => {
       });
     });
 
-    const result = await calculateScore(sampleDiagnostics);
+    const result = await calculateScore(sampleDiagnostics, {
+      metadata: {
+        repo: "millionco/react-doctor",
+        sha: "abc123",
+        framework: "nextjs",
+        reactVersion: "19.2.0",
+        sourceFileCount: 42,
+        defaultBranch: "main",
+      },
+    });
 
     expect(result).toEqual(apiScoreResponse);
     const headerRecord = capturedHeaders as Record<string, string> | undefined;
@@ -81,6 +90,14 @@ describe("calculateScore", () => {
       plugin: "react-doctor",
       rule: "example-rule",
       severity: "error",
+    });
+    expect(parsedBody).toMatchObject({
+      repo: "millionco/react-doctor",
+      sha: "abc123",
+      framework: "nextjs",
+      reactVersion: "19.2.0",
+      sourceFileCount: 42,
+      defaultBranch: "main",
     });
   });
 

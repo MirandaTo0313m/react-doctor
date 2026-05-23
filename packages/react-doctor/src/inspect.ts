@@ -362,7 +362,10 @@ const runInspectWithRuntime = async (
   const score =
     didLintFail || options.offline
       ? null
-      : await calculateScore([...scoreDiagnostics], { isCi: options.isCi });
+      : await calculateScore([...scoreDiagnostics], {
+          isCi: options.isCi,
+          metadata: output.scoreMetadata,
+        });
 
   const elapsedMilliseconds = performance.now() - startTime;
   const finalizeInput: FinalizeInput = {

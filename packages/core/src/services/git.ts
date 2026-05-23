@@ -47,6 +47,18 @@ const isSafeGitRevision = (candidate: string): boolean => {
   return SAFE_GIT_REVISION_PATTERN.test(candidate);
 };
 
+const parseGithubRepoFromRemoteUrl = (remoteUrl: string): string | null => {
+  const withoutGitSuffix = remoteUrl.trim().replace(/\.git$/, "");
+  const sshMatch = /^git@github\.com:([^/\s]+)\/([^/\s]+)$/.exec(withoutGitSuffix);
+  if (sshMatch) return `${sshMatch[1]}/${sshMatch[2]}`;
+
+  const urlMatch =
+    /^(?:https?:\/\/github\.com\/|ssh:\/\/git@github\.com\/)([^/\s]+)\/([^/\s]+)$/.exec(
+      withoutGitSuffix,
+    );
+  return urlMatch ? `${urlMatch[1]}/${urlMatch[2]}` : null;
+};
+
 const splitNullSeparated = (value: string): ReadonlyArray<string> =>
   value.split("\0").filter((entry) => entry.length > 0);
 
@@ -111,6 +123,10 @@ export class Git extends Context.Service<
     readonly currentBranch: (directory: string) => Effect.Effect<string | null, ReactDoctorError>;
     /** Best-effort default branch: `origin/HEAD` symref, then `main`/`master`. */
     readonly defaultBranch: (directory: string) => Effect.Effect<string | null, ReactDoctorError>;
+    /** Current commit SHA, or null when the directory is not a git worktree. */
+    readonly headSha: (directory: string) => Effect.Effect<string | null, ReactDoctorError>;
+    /** GitHub owner/repo parsed from remote.origin.url, or null for non-GitHub remotes. */
+    readonly githubRepo: (directory: string) => Effect.Effect<string | null, ReactDoctorError>;
     readonly branchExists: (
       directory: string,
       branch: string,
@@ -227,9 +243,23 @@ export class Git extends Context.Service<
           Effect.map((result) => result.status === 0),
         );
 
+      const headSha = (directory: string): Effect.Effect<string | null, ReactDoctorError> =>
+        runGit(directory, ["rev-parse", "HEAD"]).pipe(
+          Effect.map((result) => (result.status === 0 ? trimOrNull(result.stdout) : null)),
+        );
+
+      const githubRepo = (directory: string): Effect.Effect<string | null, ReactDoctorError> =>
+        runGit(directory, ["config", "--get", "remote.origin.url"]).pipe(
+          Effect.map((result) =>
+            result.status === 0 ? parseGithubRepoFromRemoteUrl(result.stdout) : null,
+          ),
+        );
+
       return Git.of({
         currentBranch,
         defaultBranch,
+        headSha,
+        githubRepo,
         branchExists,
         diffSelection: ({ directory, explicitBaseBranch }) =>
           Effect.gen(function* () {
@@ -360,6 +390,8 @@ export class Git extends Context.Service<
   static readonly layerOf = (snapshot: {
     readonly currentBranch?: string | null;
     readonly defaultBranch?: string | null;
+    readonly headSha?: string | null;
+    readonly githubRepo?: string | null;
     readonly branchExists?: ReadonlyMap<string, boolean>;
     readonly stagedFiles?: ReadonlyArray<string>;
     readonly stagedContent?: ReadonlyMap<string, string>;
@@ -371,6 +403,8 @@ export class Git extends Context.Service<
       Git.of({
         currentBranch: () => Effect.succeed(snapshot.currentBranch ?? null),
         defaultBranch: () => Effect.succeed(snapshot.defaultBranch ?? null),
+        headSha: () => Effect.succeed(snapshot.headSha ?? null),
+        githubRepo: () => Effect.succeed(snapshot.githubRepo ?? null),
         branchExists: (_directory, branch) =>
           Effect.succeed(snapshot.branchExists?.get(branch) ?? false),
         diffSelection: () => Effect.succeed(snapshot.diffSelection ?? null),

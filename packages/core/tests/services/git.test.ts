@@ -41,10 +41,30 @@ describe("Git.layerOf", () => {
         return {
           current: yield* git.currentBranch("/repo"),
           fallback: yield* git.defaultBranch("/repo"),
+          headSha: yield* git.headSha("/repo"),
+          githubRepo: yield* git.githubRepo("/repo"),
         };
       }),
     );
-    expect(result).toEqual({ current: null, fallback: null });
+    expect(result).toEqual({ current: null, fallback: null, headSha: null, githubRepo: null });
+  });
+
+  it("returns score metadata fields from the snapshot", () => {
+    const layer = Git.layerOf({
+      headSha: "abc123",
+      githubRepo: "millionco/react-doctor",
+    });
+    const result = runWith(
+      layer,
+      Effect.gen(function* () {
+        const git = yield* Git;
+        return {
+          headSha: yield* git.headSha("/repo"),
+          githubRepo: yield* git.githubRepo("/repo"),
+        };
+      }),
+    );
+    expect(result).toEqual({ headSha: "abc123", githubRepo: "millionco/react-doctor" });
   });
 
   it("reports branch existence from the explicit map", () => {

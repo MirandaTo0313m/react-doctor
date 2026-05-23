@@ -13,10 +13,12 @@ import { resolveLintIncludePaths } from "./resolve-lint-include-paths.js";
 import { Config, type ResolvedConfig } from "./services/config.js";
 import { DeadCode } from "./services/dead-code.js";
 import { Files } from "./services/files.js";
+import { Git } from "./services/git.js";
 import { LintPartialFailures, Linter } from "./services/linter.js";
 import { Project } from "./services/project.js";
 import { Reporter } from "./services/reporter.js";
 import { Score } from "./services/score.js";
+import type { ScoreRequestMetadata } from "./calculate-score.js";
 
 export interface InspectInput {
   readonly directory: string;
@@ -38,6 +40,7 @@ export interface InspectOutput {
   readonly resolvedDirectory: string;
   readonly diagnostics: ReadonlyArray<Diagnostic>;
   readonly score: ScoreResult | null;
+  readonly scoreMetadata: ScoreRequestMetadata;
   readonly didLintFail: boolean;
   readonly lintFailureReason: string | null;
   /**
@@ -96,6 +99,7 @@ const fileReader =
  *
  *   Config.resolve(directory)
  *     -> Project.discover(resolvedDirectory)
+ *     -> Git metadata for score attribution
  *     -> Stream.fromIterable(checkReducedMotion env diagnostics)
  *     -> Stream.concat(Linter.run(...))    [folds ReactDoctorError into Ref]
  *     -> Stream.concat(DeadCode.run(...))  [folds Error into Ref]
@@ -115,7 +119,7 @@ export const runInspect = <HooksR = never>(
 ): Effect.Effect<
   InspectOutput,
   ReactDoctorError,
-  Project | Config | DeadCode | Files | Linter | LintPartialFailures | Reporter | Score | HooksR
+  Project | Config | DeadCode | Files | Git | Linter | LintPartialFailures | Reporter | Score | HooksR
 > =>
   // `Effect.withSpan("runInspect", { attributes })` turns the entire
   // orchestrator into a single named OTel span; child service spans
@@ -132,6 +136,7 @@ export const runInspect = <HooksR = never>(
     const reporterService = yield* Reporter;
     const scoreService = yield* Score;
     const deadCodeService = yield* DeadCode;
+    const gitService = yield* Git;
     const partialFailuresRef = yield* LintPartialFailures;
 
     const resolvedConfig: ResolvedConfig = yield* configService.resolve(input.directory);
@@ -143,6 +148,26 @@ export const runInspect = <HooksR = never>(
         reason: new NoReactDependency({ directory: scanDirectory }),
       });
     }
+    const [repo, sha, defaultBranch] = yield* Effect.all(
+      [
+        gitService.githubRepo(scanDirectory).pipe(
+          Effect.orElseSucceed(() => null as string | null),
+        ),
+        gitService.headSha(scanDirectory).pipe(Effect.orElseSucceed(() => null as string | null)),
+        gitService.defaultBranch(scanDirectory).pipe(
+          Effect.orElseSucceed(() => null as string | null),
+        ),
+      ],
+      { concurrency: 3 },
+    );
+    const scoreMetadata: ScoreRequestMetadata = {
+      ...(repo !== null ? { repo } : {}),
+      ...(sha !== null ? { sha } : {}),
+      framework: project.framework,
+      ...(project.reactVersion !== null ? { reactVersion: project.reactVersion } : {}),
+      sourceFileCount: project.sourceFileCount,
+      ...(defaultBranch !== null ? { defaultBranch } : {}),
+    };
 
     const jsxIncludePaths = computeJsxIncludePaths([...input.includePaths]);
     const lintIncludePaths =
@@ -242,7 +267,11 @@ export const runInspect = <HooksR = never>(
     const finalDiagnostics: ReadonlyArray<Diagnostic> = [...survivingDiagnostics];
     const score = lintFailureState.didFail
       ? null
-      : yield* scoreService.compute({ diagnostics: finalDiagnostics, isCi: input.isCi });
+      : yield* scoreService.compute({
+          diagnostics: finalDiagnostics,
+          isCi: input.isCi,
+          metadata: scoreMetadata,
+        });
     const lintPartialFailures = yield* Ref.get(partialFailuresRef);
 
     return {
@@ -251,6 +280,7 @@ export const runInspect = <HooksR = never>(
       resolvedDirectory: scanDirectory,
       diagnostics: finalDiagnostics,
       score,
+      scoreMetadata,
       didLintFail: lintFailureState.didFail,
       lintFailureReason: lintFailureState.reason,
       lintFailureReasonTag: lintFailureState.reasonTag,
@@ -271,7 +301,7 @@ export const runInspect = <HooksR = never>(
 
 /**
  * Default layer stack for the production CLI / programmatic API:
- * real Node-side services for Project / Config / Files / Linter /
+ * real Node-side services for Project / Config / Files / Git / Linter /
  * DeadCode; HTTP for Score; the silent Reporter (the orchestrator
  * already returns the diagnostic array via `Stream.runCollect`).
  *
@@ -287,6 +317,7 @@ export const layerInspectLive = Layer.mergeAll(
   Config.layerNode,
   DeadCode.layerNode,
   Files.layerNode,
+  Git.layerNode,
   Linter.layerOxlint,
   LintPartialFailures.layerLive,
   Reporter.layerNoop,

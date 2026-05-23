@@ -1,6 +1,6 @@
 import { gzipSync } from "node:zlib";
 import { FETCH_TIMEOUT_MS, SCORE_API_URL } from "./constants.js";
-import type { Diagnostic, ScoreResult } from "./types/index.js";
+import type { Diagnostic, ProjectInfo, ScoreResult } from "./types/index.js";
 
 const parseScoreResult = (value: unknown): ScoreResult | null => {
   if (typeof value !== "object" || value === null) return null;
@@ -26,6 +26,16 @@ const describeFailure = (error: unknown): string => {
 export interface CalculateScoreOptions {
   /** Marks the run as CI-originated. */
   isCi?: boolean;
+  metadata?: ScoreRequestMetadata;
+}
+
+export interface ScoreRequestMetadata {
+  repo?: string;
+  sha?: string;
+  framework?: ProjectInfo["framework"];
+  reactVersion?: string;
+  sourceFileCount?: number;
+  defaultBranch?: string;
 }
 
 export const calculateScore = async (
@@ -37,7 +47,17 @@ export const calculateScore = async (
   const requestUrl = options.isCi ? `${SCORE_API_URL}?ci=1` : SCORE_API_URL;
 
   try {
-    const requestBody = JSON.stringify({ diagnostics: stripFilePaths(diagnostics) });
+    const requestBody = JSON.stringify({
+      diagnostics: stripFilePaths(diagnostics),
+      ...(options.metadata?.repo ? { repo: options.metadata.repo } : {}),
+      ...(options.metadata?.sha ? { sha: options.metadata.sha } : {}),
+      ...(options.metadata?.framework ? { framework: options.metadata.framework } : {}),
+      ...(options.metadata?.reactVersion ? { reactVersion: options.metadata.reactVersion } : {}),
+      ...(typeof options.metadata?.sourceFileCount === "number"
+        ? { sourceFileCount: options.metadata.sourceFileCount }
+        : {}),
+      ...(options.metadata?.defaultBranch ? { defaultBranch: options.metadata.defaultBranch } : {}),
+    });
     const compressedBody = gzipSync(requestBody);
 
     const response = await fetch(requestUrl, {

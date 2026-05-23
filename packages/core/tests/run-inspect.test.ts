@@ -15,6 +15,7 @@ import { runInspect, type InspectInput } from "../src/run-inspect.js";
 import { Config } from "../src/services/config.js";
 import { DeadCode } from "../src/services/dead-code.js";
 import { Files } from "../src/services/files.js";
+import { Git } from "../src/services/git.js";
 import { LintPartialFailures, Linter } from "../src/services/linter.js";
 import { Project } from "../src/services/project.js";
 import { Reporter, ReporterCapture } from "../src/services/reporter.js";
@@ -80,6 +81,11 @@ const layersOf = (config: {
     Linter.layerOf(config.diagnostics ?? []),
     LintPartialFailures.layerLive,
     DeadCode.layerOf(config.deadCode ?? []),
+    Git.layerOf({
+      headSha: "abc123",
+      githubRepo: "millionco/sample-app",
+      defaultBranch: "main",
+    }),
     Score.layerOf({ score: 85, label: "Good" }),
     Reporter.layerCapture,
   );
@@ -106,6 +112,14 @@ describe("runInspect — happy path", () => {
     expect(result.output.didDeadCodeFail).toBe(false);
     expect(result.output.score).toEqual({ score: 85, label: "Good" });
     expect(result.output.project.projectName).toBe("sample-app");
+    expect(result.output.scoreMetadata).toEqual({
+      repo: "millionco/sample-app",
+      sha: "abc123",
+      framework: "vite",
+      reactVersion: "19.0.0",
+      sourceFileCount: 1,
+      defaultBranch: "main",
+    });
     expect(result.output.userConfig).toBeNull();
     expect(result.output.resolvedDirectory).toBe("/repo");
     expect(result.output.lintPartialFailures).toEqual([]);
@@ -133,6 +147,7 @@ describe("runInspect — missing React dependency", () => {
       Linter.layerOf([]),
       LintPartialFailures.layerLive,
       DeadCode.layerOf([]),
+      Git.layerOf({}),
       Score.layerOf(null),
       Reporter.layerNoop,
     );
@@ -153,6 +168,7 @@ describe("runInspect — missing React dependency", () => {
       Linter.layerOf([]),
       LintPartialFailures.layerLive,
       DeadCode.layerOf([]),
+      Git.layerOf({}),
       Score.layerOf(null),
       Reporter.layerNoop,
     );
@@ -191,6 +207,7 @@ describe("runInspect — mid-stream lint failure", () => {
       failingLinter,
       LintPartialFailures.layerLive,
       DeadCode.layerOf([deadCodeDiagnostic]),
+      Git.layerOf({}),
       Score.layerOf({ score: 50, label: "Needs Improvement" }),
       Reporter.layerNoop,
     );
@@ -222,6 +239,7 @@ describe("runInspect — dead-code failure", () => {
       Linter.layerOf([lintDiagnostic]),
       LintPartialFailures.layerLive,
       failingDeadCode,
+      Git.layerOf({}),
       Score.layerOf(null),
       Reporter.layerNoop,
     );
@@ -297,6 +315,7 @@ describe("runInspect — Reporter sees post-filter diagnostics", () => {
       Linter.layerOf([ignoredDiagnostic, lintDiagnostic]),
       LintPartialFailures.layerLive,
       DeadCode.layerOf([]),
+      Git.layerOf({}),
       Score.layerOf(null),
       Reporter.layerCapture,
     );

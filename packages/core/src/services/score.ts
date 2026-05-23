@@ -2,11 +2,12 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type { Diagnostic, ScoreResult } from "../types/index.js";
-import { calculateScore } from "../calculate-score.js";
+import { calculateScore, type ScoreRequestMetadata } from "../calculate-score.js";
 
 interface ComputeInput {
   readonly diagnostics: ReadonlyArray<Diagnostic>;
   readonly isCi?: boolean;
+  readonly metadata?: ScoreRequestMetadata;
 }
 
 export class Score extends Context.Service<
@@ -33,7 +34,10 @@ export class Score extends Context.Service<
     Score.of({
       compute: Effect.fn("Score.compute")(function* (input: ComputeInput) {
         return yield* Effect.promise(() =>
-          calculateScore([...input.diagnostics], { isCi: input.isCi }).catch(
+          calculateScore([...input.diagnostics], {
+            isCi: input.isCi,
+            metadata: input.metadata,
+          }).catch(
             (): ScoreResult | null => null,
           ),
         );
