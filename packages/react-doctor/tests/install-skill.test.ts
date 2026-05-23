@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
@@ -113,12 +113,14 @@ describe("runInstallSkill", () => {
     await runInstallSkill({
       yes: true,
       dryRun: true,
+      agentHooks: true,
       sourceDir: fixture.sourceDir,
       projectRoot: fixture.projectRoot,
       detectedAgents: ["cursor", "claude-code"],
     });
     expect(existsSync(path.join(fixture.projectRoot, ".agents"))).toBe(false);
     expect(existsSync(path.join(fixture.projectRoot, ".claude"))).toBe(false);
+    expect(existsSync(path.join(fixture.projectRoot, ".cursor"))).toBe(false);
     expect(existsSync(path.join(fixture.projectRoot, ".factory"))).toBe(false);
   });
 
@@ -159,5 +161,52 @@ describe("runInstallSkill", () => {
     expect(
       existsSync(path.join(fixture.projectRoot, ".factory/skills/react-doctor/SKILL.md")),
     ).toBe(true);
+  });
+
+  it("--yes installs a non-blocking pre-commit hook when a git hook target is detected", async () => {
+    writeValidSkill(fixture.sourceDir);
+    const hookPath = path.join(fixture.projectRoot, ".git/hooks/pre-commit");
+    const runnerPath = path.join(fixture.projectRoot, ".react-doctor/hooks/pre-commit");
+
+    await runInstallSkill({
+      yes: true,
+      sourceDir: fixture.sourceDir,
+      projectRoot: fixture.projectRoot,
+      detectedAgents: ["cursor"],
+      gitHookPath: hookPath,
+    });
+
+    expect(existsSync(path.join(fixture.projectRoot, ".agents/skills/react-doctor/SKILL.md"))).toBe(
+      true,
+    );
+    expect(readFileSync(hookPath, "utf8")).toContain(".react-doctor/hooks/pre-commit");
+    expect(readFileSync(runnerPath, "utf8")).toContain("react-doctor --staged --fail-on none");
+  });
+
+  it("--agent-hooks installs native hooks for selected supported agents", async () => {
+    writeValidSkill(fixture.sourceDir);
+
+    await runInstallSkill({
+      yes: true,
+      agentHooks: true,
+      sourceDir: fixture.sourceDir,
+      projectRoot: fixture.projectRoot,
+      detectedAgents: ["cursor", "claude-code", "codex"],
+      gitHookPath: null,
+    });
+
+    expect(existsSync(path.join(fixture.projectRoot, ".agents/skills/react-doctor/SKILL.md"))).toBe(
+      true,
+    );
+    expect(existsSync(path.join(fixture.projectRoot, ".claude/skills/react-doctor/SKILL.md"))).toBe(
+      true,
+    );
+    expect(readFileSync(path.join(fixture.projectRoot, ".claude/settings.json"), "utf8")).toContain(
+      "PostToolBatch",
+    );
+    expect(readFileSync(path.join(fixture.projectRoot, ".cursor/hooks.json"), "utf8")).toContain(
+      "postToolUse",
+    );
+    expect(existsSync(path.join(fixture.projectRoot, ".codex/hooks.json"))).toBe(false);
   });
 });

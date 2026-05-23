@@ -37,6 +37,7 @@ describe("installAction (Commander action wrapper)", () => {
     expect(runInstallSkill).toHaveBeenCalledWith({
       yes: true,
       dryRun: true,
+      agentHooks: undefined,
       projectRoot: "/tmp/some-project",
     });
   });
@@ -47,6 +48,7 @@ describe("installAction (Commander action wrapper)", () => {
     expect(runInstallSkill).toHaveBeenCalledWith({
       yes: true,
       dryRun: undefined,
+      agentHooks: undefined,
       projectRoot: process.cwd(),
     });
   });
@@ -56,7 +58,18 @@ describe("installAction (Commander action wrapper)", () => {
     expect(runInstallSkill).toHaveBeenCalledWith({
       yes: false,
       dryRun: true,
+      agentHooks: undefined,
       projectRoot: "/tmp/other",
+    });
+  });
+
+  it("forwards --agent-hooks to runInstallSkill", async () => {
+    await installAction({ yes: true, agentHooks: true, cwd: "/tmp/agent-hooks" });
+    expect(runInstallSkill).toHaveBeenCalledWith({
+      yes: true,
+      dryRun: undefined,
+      agentHooks: true,
+      projectRoot: "/tmp/agent-hooks",
     });
   });
 

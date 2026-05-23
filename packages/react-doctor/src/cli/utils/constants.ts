@@ -4,6 +4,10 @@ export const SIGINT_EXIT_CODE = 130;
 
 export const STAGED_FILES_TEMP_DIR_PREFIX = "react-doctor-staged-";
 
+export const GIT_HOOK_EXECUTABLE_MODE = 0o755;
+
+export const AGENT_HOOK_TIMEOUT_SECONDS = 120;
+
 // Last-resort fallback when buildJsonReportError itself throws — keeps
 // stdout valid JSON so downstream parsers don't see a half-written report.
 export const INTERNAL_ERROR_JSON_FALLBACK =
