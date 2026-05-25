@@ -70,5 +70,5 @@
     "url": "https://github.com/millionco/react-doctor",
     "fork": true
   },
-  "_notes": "Personal fork for learning purposes. Exploring the render diagnostics internals and may experiment with custom reporter output."
+  "_notes": "Personal fork for learning purposes. Exploring the render diagnostics internals and may experiment with custom reporter output. TODO: look into why consecutive re-render threshold defaults to 3 — seems low for some animation-heavy use cases, considering bumping to 5."
 }
