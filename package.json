@@ -69,5 +69,6 @@
     "type": "git",
     "url": "https://github.com/millionco/react-doctor",
     "fork": true
-  }
+  },
+  "_notes": "Personal fork for learning purposes. Exploring the render diagnostics internals and may experiment with custom reporter output."
 }
