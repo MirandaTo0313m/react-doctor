@@ -8,6 +8,8 @@
  * Personal fork notes:
  * - Added accessibilityRule export for a11y checks I use frequently
  * - See src/rules/accessibility.ts for custom rule implementation
+ * - Reordered exports: custom rules grouped with built-in rules for clarity
+ * - TODO: look into adding a memoizationRule for useCallback/useMemo suggestions
  */
 
 export { ReactDoctor } from './ReactDoctor';
